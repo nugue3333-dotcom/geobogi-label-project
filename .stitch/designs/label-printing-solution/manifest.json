@@ -1,0 +1,379 @@
+﻿{
+    "project":  {
+                    "title":  "라벨 프린팅 통합 솔루션",
+                    "id":  "17945981263713317390"
+                },
+    "generatedAt":  "2026-06-16T10:19:53",
+    "outputDirectory":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution",
+    "screens":  [
+                    {
+                        "index":  1,
+                        "title":  "사용안내.txt",
+                        "id":  "14873084120419534877",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419534877",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\01-사용안내.txt.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\01-사용안내.txt",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  2,
+                        "title":  "config.ini",
+                        "id":  "14873084120419535565",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419535565",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\02-config.ini.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\02-config.ini",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  3,
+                        "title":  "designer_print_last.log",
+                        "id":  "14873084120419533345",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419533345",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\03-designer_print_last.log.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\03-designer_print_last.log",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  4,
+                        "title":  "last_run.log",
+                        "id":  "14873084120419536503",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419536503",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\04-last_run.log.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\04-last_run.log",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  5,
+                        "title":  "designer_test_config.ini",
+                        "id":  "14873084120419534283",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419534283",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\05-designer_test_config.ini.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\05-designer_test_config.ini",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  6,
+                        "title":  "사용안내.txt",
+                        "id":  "14873084120419533001",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419533001",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\06-사용안내.txt.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\06-사용안내.txt",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  7,
+                        "title":  "라벨디자이너_1차_사용안내.txt",
+                        "id":  "14873084120419533939",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419533939",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\07-라벨디자이너_1차_사용안내.txt.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\07-라벨디자이너_1차_사용안내.txt",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  8,
+                        "title":  "config.example.ini",
+                        "id":  "14873084120419534627",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419534627",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\08-config.example.ini.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\08-config.example.ini",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  9,
+                        "title":  "라벨디자이너_1차_사용안내.txt",
+                        "id":  "14873084120419536159",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419536159",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\09-라벨디자이너_1차_사용안내.txt.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\09-라벨디자이너_1차_사용안내.txt",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  10,
+                        "title":  "default_label.json",
+                        "id":  "14873084120419535221",
+                        "resourceName":  "projects/17945981263713317390/screens/14873084120419535221",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\10-default_label.json.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\10-default_label.json",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  11,
+                        "title":  "designer_preview.png",
+                        "id":  "14157679880809345700",
+                        "resourceName":  "projects/17945981263713317390/screens/14157679880809345700",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  400,
+                        "height":  240,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\11-designer_preview.png",
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\11-designer_preview.png.response.json",
+                                      "sourceImage":  null,
+                                      "sourceImageKind":  "png",
+                                      "screenshotKind":  "png"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  12,
+                        "title":  "Extracted text from https://finehost.kr/conference",
+                        "id":  "d4b72a0dd19e40fe9bff69f41e63891c",
+                        "resourceName":  "projects/17945981263713317390/screens/d4b72a0dd19e40fe9bff69f41e63891c",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  0,
+                        "height":  0,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\12-Extracted-text-from-https---finehost.kr-conference.response.json",
+                                      "code":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\12-Extracted-text-from-https---finehost.kr-conference.txt",
+                                      "codeKind":  "text"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  13,
+                        "title":  "Design System",
+                        "id":  "asset-stub-assets_4239b38c7d12456596e9b72447bc13da",
+                        "resourceName":  "projects/17945981263713317390/screens/asset-stub-assets_4239b38c7d12456596e9b72447bc13da",
+                        "status":  "downloaded-design-system",
+                        "errorMessage":  null,
+                        "deviceType":  null,
+                        "width":  2560,
+                        "height":  null,
+                        "files":  {
+                                      "html":  null,
+                                      "screenshot":  null,
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\13-Design-System.response.json",
+                                      "designSystemJson":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\13-Design-System.json",
+                                      "designSystemMarkdown":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\13-Design-System-DESIGN.md"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  null,
+                                      "screenshot":  null
+                                  }
+                    },
+                    {
+                        "index":  14,
+                        "title":  "PrintFlow - 라벨 프로그램 상세",
+                        "id":  "ef7b84dbdefe48d3a5a7f33329fd61c3",
+                        "resourceName":  "projects/17945981263713317390/screens/ef7b84dbdefe48d3a5a7f33329fd61c3",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  "DESKTOP",
+                        "width":  2560,
+                        "height":  6262,
+                        "files":  {
+                                      "html":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\14-PrintFlow---라벨-프로그램-상세.html",
+                                      "screenshot":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\14-PrintFlow---라벨-프로그램-상세.png",
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\14-PrintFlow---라벨-프로그램-상세.response.json",
+                                      "htmlKind":  "html",
+                                      "screenshotKind":  "png"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  15,
+                        "title":  "PrintFlow - 홈",
+                        "id":  "6e2d663382f74b148e7216aff262da81",
+                        "resourceName":  "projects/17945981263713317390/screens/6e2d663382f74b148e7216aff262da81",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  "DESKTOP",
+                        "width":  2560,
+                        "height":  7376,
+                        "files":  {
+                                      "html":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\15-PrintFlow---홈.html",
+                                      "screenshot":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\15-PrintFlow---홈.png",
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\15-PrintFlow---홈.response.json",
+                                      "htmlKind":  "html",
+                                      "screenshotKind":  "png"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    },
+                    {
+                        "index":  16,
+                        "title":  "PrintFlow - 패키지 구성",
+                        "id":  "dc3fe2f0c97b42219939bd5008dbf71a",
+                        "resourceName":  "projects/17945981263713317390/screens/dc3fe2f0c97b42219939bd5008dbf71a",
+                        "status":  "downloaded",
+                        "errorMessage":  null,
+                        "deviceType":  "DESKTOP",
+                        "width":  2560,
+                        "height":  5442,
+                        "files":  {
+                                      "html":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\16-PrintFlow---패키지-구성.html",
+                                      "screenshot":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\designs\\label-printing-solution\\16-PrintFlow---패키지-구성.png",
+                                      "mcpResponse":  "C:\\Users\\기술부\\Documents\\New project\\.stitch\\mcp\\label-printing-solution\\16-PrintFlow---패키지-구성.response.json",
+                                      "htmlKind":  "html",
+                                      "screenshotKind":  "png"
+                                  },
+                        "exits":  {
+                                      "mcp":  0,
+                                      "html":  0,
+                                      "screenshot":  0
+                                  }
+                    }
+                ]
+}

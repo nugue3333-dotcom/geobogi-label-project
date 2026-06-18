@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ambient-shadow {
+            box-shadow: 0px 4px 20px rgba(15, 23, 42, 0.08);
+        }
+        .blueprint-grid {
+            background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#bec6e0",
+                        "on-secondary-fixed-variant": "#3f465c",
+                        "secondary-fixed": "#dae2fd",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c2c6d6",
+                        "surface-dim": "#cbdbf5",
+                        "primary": "#0058be",
+                        "on-secondary-fixed": "#131b2e",
+                        "on-primary-container": "#fefcff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#00531c",
+                        "tertiary-container": "#008732",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface": "#f8f9ff",
+                        "tertiary-fixed-dim": "#3be365",
+                        "on-tertiary": "#ffffff",
+                        "primary-container": "#2170e4",
+                        "secondary-container": "#dae2fd",
+                        "border-subtle": "#E2E8F0",
+                        "tertiary": "#006b26",
+                        "on-surface-variant": "#424754",
+                        "on-primary-fixed-variant": "#004395",
+                        "tech-cyan": "#0EA5E9",
+                        "secondary": "#565e74",
+                        "surface-container": "#e5eeff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-fixed": "#001a42",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-surface": "#0b1c30",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#5c647a",
+                        "surface-container-high": "#dce9ff",
+                        "on-error-container": "#93000a",
+                        "on-background": "#0b1c30",
+                        "surface-tint": "#005ac2",
+                        "surface-container-low": "#eff4ff",
+                        "on-tertiary-container": "#f7fff2",
+                        "surface-bright": "#f8f9ff",
+                        "surface-gray": "#F8FAFC",
+                        "surface-container-highest": "#d3e4fe",
+                        "primary-fixed-dim": "#adc6ff",
+                        "background": "#f8f9ff",
+                        "surface-variant": "#d3e4fe",
+                        "inverse-primary": "#adc6ff",
+                        "inverse-surface": "#213145",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#6bff84",
+                        "outline": "#727785",
+                        "on-tertiary-fixed": "#002107"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "section-gap": "80px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "label-mono": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "button-text": ["Hanken Grotesk"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "button-text": ["16px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="w-full top-0 sticky bg-surface border-b border-subtle z-50 transition-all duration-200 ease-in-out">
+<nav class="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+<div class="flex items-center gap-12">
+<a class="font-headline-lg text-headline-lg text-primary tracking-tight" href="#">PrintFlow Solutions</a>
+<div class="hidden md:flex items-center gap-8">
+<a class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors" href="#">Products</a>
+<a class="font-button-text text-button-text text-primary border-b-2 border-primary pb-1" href="#">Software</a>
+<a class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors" href="#">Packages</a>
+<a class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors">Login</button>
+<button class="bg-primary text-on-primary px-6 py-3 font-button-text text-button-text rounded-lg hover:opacity-90 transition-all">Get a Quote</button>
+</div>
+</nav>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="py-20 px-margin-desktop max-w-container-max mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="space-y-6">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container rounded-full">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-mono text-label-mono text-tertiary">SOFTWARE VERSION 4.2.1 READY</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface">PrintFlow Designer: The Industrial Standard</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-lg">
+                    A comprehensive suite for label design, database synchronization, and fleet management. Engineered for zero-error throughput in high-velocity logistics environments.
+                </p>
+<div class="flex flex-wrap gap-4 pt-4">
+<button class="bg-primary text-on-primary px-8 py-4 font-button-text text-button-text rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined">download</span> Download Trial
+                    </button>
+<button class="border border-subtle text-on-surface px-8 py-4 font-button-text text-button-text rounded-lg hover:bg-surface-gray transition-colors">
+                        View Software Specs
+                    </button>
+</div>
+</div>
+<div class="relative group">
+<div class="absolute -inset-4 bg-primary/5 rounded-xl blur-2xl group-hover:bg-primary/10 transition-all"></div>
+<div class="relative bg-white border border-subtle rounded-xl overflow-hidden ambient-shadow">
+<img class="w-full aspect-video object-cover" data-alt="A clean and professional software interface mockup for a label design program, showing a workspace with a technical barcode design in the center. The workspace is surrounded by minimalist sidebars with icons for text, 1D barcodes, and QR codes. The aesthetic is modern and corporate with a crisp white background, thin blue borders, and a high-contrast industrial feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfemSmguTSzcuSWnWM0g0KMSrpe3PJspx3PHCyh8jCzlzOvqNFk8v_j7TtfX4hasLIalB86EsWkxUtgReFt1p5eT59kSmQHBNOw2wRl11K_FouPOeDP6iF2bv8qBSGpcSGwHMtdgs5T-A93oMQOEnhjmsY0SL8Z81ABdfZXNuCC87Qwmqzs9rHyRxU7shgWqGDtxbft1rRpUDcH0JMKHI96ajLt3_5woZLVj0FEl90Vs83JGQTs_H5JbnjDIqU_4vbugm4HUeg5aea"/>
+<div class="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-2 border border-subtle rounded flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[20px]">barcode_scanner</span>
+<span class="font-label-mono text-label-mono text-on-surface">DRAG_ELEMENT_004.XLS</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Feature 1: Label Designer (Bento Style) -->
+<section class="bg-surface-gray py-section-gap">
+<div class="px-margin-desktop max-w-container-max mx-auto">
+<div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+<div class="max-w-2xl">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">01. Precision Label Designer</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-4">Version 4.0 architecture brings professional-grade design tools to any workstation, allowing for complex layouts without the steep learning curve.</p>
+</div>
+<div class="font-label-mono text-label-mono text-primary bg-primary/5 px-4 py-2 border border-primary/20">MODULE: DESIGN_CORE_V1</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Text Tools -->
+<div class="md:col-span-4 bg-white p-8 border border-subtle rounded-xl hover:border-primary transition-all group">
+<div class="w-12 h-12 bg-surface-container rounded flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">title</span>
+</div>
+<h3 class="font-button-text text-button-text text-on-surface mb-2">Advanced Text Rendering</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Variable data merging with support for over 120 industrial fonts and international encoding.</p>
+</div>
+<!-- Barcode Engine -->
+<div class="md:col-span-8 bg-white p-8 border border-subtle rounded-xl hover:border-primary transition-all group relative overflow-hidden">
+<div class="relative z-10">
+<div class="w-12 h-12 bg-surface-container rounded flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">qr_code_2</span>
+</div>
+<h3 class="font-button-text text-button-text text-on-surface mb-2">1D &amp; QR Barcode Engine</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-md">Native support for EAN, Code 128, DataMatrix, and GS1 QR codes with automatic checksum verification.</p>
+</div>
+<div class="absolute right-[-20px] bottom-[-20px] opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[200px]" style="font-variation-settings: 'wght' 200;">barcode</span>
+</div>
+</div>
+<!-- Element Dragging UI Mockup -->
+<div class="md:col-span-12 bg-white border border-subtle rounded-xl p-base blueprint-grid relative">
+<div class="flex items-center gap-2 p-4 border-b border-subtle bg-white">
+<span class="material-symbols-outlined text-on-surface-variant">drag_pan</span>
+<span class="font-button-text text-button-text">Workspace: Canvas v1.0</span>
+</div>
+<div class="h-[400px] flex items-center justify-center relative">
+<!-- Dragging Mockup -->
+<div class="w-[320px] bg-white border-2 border-primary p-6 ambient-shadow relative">
+<div class="absolute -top-3 -left-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-white">
+<span class="material-symbols-outlined text-white text-[14px]">open_with</span>
+</div>
+<div class="space-y-4 text-center">
+<div class="font-headline-lg-mobile text-headline-lg-mobile">나무시스템 TEST</div>
+<div class="border border-on-surface h-24 flex items-center justify-center overflow-hidden">
+<div class="flex gap-1 h-16 items-end">
+<div class="w-[1px] h-full bg-black"></div><div class="w-[2px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div><div class="w-[4px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div><div class="w-[2px] h-full bg-black"></div><div class="w-[3px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div><div class="w-[2px] h-full bg-black"></div><div class="w-[4px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div>
+<div class="w-[1px] h-full bg-black"></div><div class="w-[2px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div><div class="w-[4px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div><div class="w-[2px] h-full bg-black"></div><div class="w-[3px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div><div class="w-[2px] h-full bg-black"></div><div class="w-[4px] h-full bg-black"></div><div class="w-[1px] h-full bg-black"></div>
+</div>
+</div>
+<div class="font-label-mono text-label-mono">123456789128</div>
+</div>
+<div class="absolute -bottom-2 -right-2 w-4 h-4 bg-primary"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Feature 2: DB Management -->
+<section class="py-section-gap px-margin-desktop max-w-container-max mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+<div class="order-2 lg:order-1">
+<div class="bg-white border border-subtle rounded-xl overflow-hidden ambient-shadow">
+<table class="w-full text-left font-body-sm">
+<thead class="bg-surface-gray border-b border-subtle">
+<tr>
+<th class="px-6 py-4 font-button-text text-on-secondary-fixed-variant">Item ID</th>
+<th class="px-6 py-4 font-button-text text-on-secondary-fixed-variant">Description</th>
+<th class="px-6 py-4 font-button-text text-on-secondary-fixed-variant">Status</th>
+<th class="px-6 py-4 font-button-text text-on-secondary-fixed-variant">Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-subtle hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-label-mono">#PRT-0891</td>
+<td class="px-6 py-4">Industrial Thermal Label</td>
+<td class="px-6 py-4"><span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full text-xs font-bold uppercase">Ready</span></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-primary cursor-pointer">print</span></td>
+</tr>
+<tr class="bg-surface-gray border-b border-subtle hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-label-mono">#PRT-0892</td>
+<td class="px-6 py-4">High-Heat Ribbon Roll</td>
+<td class="px-6 py-4"><span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase">Queued</span></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-primary cursor-pointer">print</span></td>
+</tr>
+<tr class="border-b border-subtle hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-label-mono">#PRT-0893</td>
+<td class="px-6 py-4">Shipping Label A4</td>
+<td class="px-6 py-4"><span class="bg-error/10 text-error px-3 py-1 rounded-full text-xs font-bold uppercase">Error</span></td>
+<td class="px-6 py-4"><span class="material-symbols-outlined text-primary cursor-pointer">print</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="order-1 lg:order-2 space-y-8">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">02. Dynamic Database Bridge</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-4">Automatically populate label fields by scanning existing barcodes. Our software bridges your ERP/SQL database directly to the print head, eliminating manual data entry.</p>
+</div>
+<ul class="space-y-4">
+<li class="flex items-start gap-4">
+<div class="mt-1 w-6 h-6 bg-primary/10 text-primary rounded flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+<div>
+<h4 class="font-button-text text-button-text text-on-surface">Auto-Fill Scanning</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Scan a product SKU to immediately pull description, price, and logistics data from your SQL/Excel DB.</p>
+</div>
+</li>
+<li class="flex items-start gap-4">
+<div class="mt-1 w-6 h-6 bg-primary/10 text-primary rounded flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+<div>
+<h4 class="font-button-text text-button-text text-on-surface">Queue Management</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Batch print thousands of labels across multiple network-connected printers with centralized job tracking.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- Feature 3: Universal Support -->
+<section class="py-section-gap bg-on-surface text-surface">
+<div class="px-margin-desktop max-w-container-max mx-auto text-center">
+<h2 class="font-headline-lg text-headline-lg mb-4">03. Universal Hardware Compatibility</h2>
+<p class="font-body-md text-body-md text-surface-variant max-w-2xl mx-auto mb-16">No lock-ins. One software solution to drive your entire hardware ecosystem, from mobile desktop printers to industrial production lines.</p>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Brand Support -->
+<div class="p-8 border border-outline rounded-xl bg-white/5 backdrop-blur-sm group hover:bg-white/10 transition-all">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">BIXOLON</h3>
+<p class="font-body-sm text-body-sm text-surface-variant">Optimized thermal transfer drivers for the entire BIXOLON range.</p>
+</div>
+<div class="p-8 border border-outline rounded-xl bg-white/5 backdrop-blur-sm group hover:bg-white/10 transition-all">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-tech-cyan mb-2">TSC</h3>
+<p class="font-body-sm text-body-sm text-surface-variant">High-speed industrial performance with TSC Auto-ID protocols.</p>
+</div>
+<div class="p-8 border border-outline rounded-xl bg-white/5 backdrop-blur-sm group hover:bg-white/10 transition-all">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-tertiary-fixed-dim mb-2">ZEBRA</h3>
+<p class="font-body-sm text-body-sm text-surface-variant">Full ZPL/EPL emulation for seamless integration into Zebra environments.</p>
+</div>
+</div>
+<div class="mt-20 pt-12 border-t border-outline flex flex-col md:flex-row items-center justify-between gap-8">
+<div class="text-left">
+<div class="font-label-mono text-label-mono text-tech-cyan mb-2">SUPPORTED DRIVERS</div>
+<div class="flex flex-wrap gap-4 text-surface-variant font-body-sm">
+<span>Direct Thermal</span> • <span>Thermal Transfer</span> • <span>Color Inkjet</span> • <span>LaserJet</span> • <span>Mobile BT/Wi-Fi</span>
+</div>
+</div>
+<button class="bg-white text-on-surface px-10 py-4 font-button-text text-button-text rounded-lg hover:bg-primary hover:text-white transition-all">
+                        View Connectivity Guide
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-section-gap bg-surface-gray border-t border-subtle">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-12 max-w-container-max mx-auto">
+<div class="md:col-span-1">
+<div class="font-headline-lg text-headline-lg text-on-surface mb-6">PrintFlow Solutions</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    Industrial-grade software and hardware solutions for the modern supply chain.
+                </p>
+</div>
+<div>
+<h4 class="font-button-text text-button-text mb-6">Software</h4>
+<ul class="space-y-4">
+<li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Label Designer</a></li>
+<li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">DB Management</a></li>
+<li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Technical Documentation</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-button-text text-button-text mb-6">Company</h4>
+<ul class="space-y-4">
+<li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Global Locations</a></li>
+<li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Contact Support</a></li>
+<li><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-button-text text-button-text mb-6">Newsletter</h4>
+<div class="flex gap-2">
+<input class="bg-white border border-subtle px-4 py-2 rounded text-body-sm w-full focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="Email Address" type="email"/>
+<button class="bg-primary text-on-primary p-2 rounded"><span class="material-symbols-outlined">send</span></button>
+</div>
+</div>
+</div>
+<div class="px-margin-desktop py-8 border-t border-subtle max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="font-body-sm text-body-sm text-on-surface-variant">© 2024 PrintFlow Solutions. All rights reserved. Industrial Grade Reliability.</p>
+<div class="flex gap-6">
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary underline" href="#">Terms of Service</a>
+<a class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary underline" href="#">Cookie Settings</a>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction for hovering navigation
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('mouseenter', () => {
+                link.classList.add('scale-105');
+            });
+            link.addEventListener('mouseleave', () => {
+                link.classList.remove('scale-105');
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,7 @@
+.venv/
+build/
+out/
+pytest_tmp/
+labels.xlsx
+__pycache__/
+.pytest_cache/

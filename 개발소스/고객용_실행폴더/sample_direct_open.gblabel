@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "label": {
+    "width_mm": 60,
+    "height_mm": 40
+  },
+  "elements": [
+    {
+      "id": "sample-title",
+      "type": "text",
+      "text": "거복이의꿈 패키지",
+      "x": 5,
+      "y": 5,
+      "width": 35,
+      "height": 7,
+      "font_size": 14,
+      "font_name": "Malgun Gothic",
+      "align": "left",
+      "field": "",
+      "reverse": false,
+      "arrange": "normal"
+    },
+    {
+      "id": "sample-barcode",
+      "type": "barcode",
+      "text": "8801234567890",
+      "x": 5,
+      "y": 18,
+      "width": 45,
+      "height": 13,
+      "font_size": 10,
+      "font_name": "Malgun Gothic",
+      "align": "center",
+      "field": "",
+      "barcode_type": "code128",
+      "reverse": false,
+      "arrange": "normal"
+    }
+  ]
+}

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html class="scroll-smooth" lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>거복이의꿈 | 라벨출력 프로그램·설정 안내</title>
+  <meta
+    name="description"
+    content="바코드 라벨출력 프로그램 화면, 설정 항목, 설치 전 확인 조건을 상담 기준으로 안내하는 상세 페이지입니다."
+  />
+  <link
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23111111'/%3E%3Cpath d='M14 18h4v28h-4zM22 18h2v28h-2zM29 18h6v28h-6zM40 18h2v28h-2zM47 18h3v28h-3z' fill='white'/%3E%3C/svg%3E"
+    rel="icon"
+  />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Noto+Sans+KR:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet"
+  />
+  <script id="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: "#111111",
+            muted: "#696966",
+            line: "#E7E7E4",
+            canvas: "#F7F7F5",
+            panel: "#F3F2EF",
+            paper: "#FCFCFB",
+            accent: "#3C6DF0",
+            soft: "#E8EEF9",
+            success: "#1F7A4D"
+          },
+          fontFamily: {
+            sans: ["Geist", "Noto Sans KR", "system-ui", "sans-serif"],
+            kr: ["Noto Sans KR", "Geist", "system-ui", "sans-serif"]
+          },
+          borderRadius: {
+            sm: "4px",
+            md: "6px",
+            lg: "8px"
+          },
+          boxShadow: {
+            soft: "0 24px 60px rgba(17, 17, 17, 0.08)",
+            panel: "0 12px 30px rgba(17, 17, 17, 0.06)"
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * {
+      letter-spacing: 0;
+    }
+
+    body {
+      background: #F7F7F5;
+      color: #111111;
+      font-family: "Geist", "Noto Sans KR", system-ui, sans-serif;
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+      vertical-align: middle;
+    }
+
+    .thin-grid {
+      background-image:
+        linear-gradient(to right, rgba(17, 17, 17, 0.055) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(17, 17, 17, 0.055) 1px, transparent 1px);
+      background-size: 44px 44px;
+    }
+  </style>
+</head>
+<body class="min-h-screen overflow-x-hidden antialiased">
+  <header class="sticky top-0 z-50 border-b border-line bg-canvas/90 backdrop-blur-md">
+    <nav class="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-4 md:px-8">
+      <a class="flex items-center gap-2 text-ink" href="index.html" aria-label="거복이의꿈 홈">
+        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-white">
+          <span class="material-symbols-outlined text-[18px]">barcode_scanner</span>
+        </span>
+        <span class="text-[19px] font-semibold">거복이의꿈</span>
+      </a>
+
+      <div class="hidden items-center gap-8 text-sm font-medium text-muted md:flex">
+        <a class="hover:text-ink" href="index.html#home">홈</a>
+        <a class="hover:text-ink" href="index.html#products">제품</a>
+        <a class="text-ink" href="detail.html">프로그램</a>
+        <a class="hover:text-ink" href="index.html#pricing">가격</a>
+        <a class="hover:text-ink" href="index.html#contact">문의</a>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <a class="hidden rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-paper sm:inline-flex" href="index.html">
+          패키지 홈
+        </a>
+        <a class="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-black" href="index.html#contact">
+          견적 요청
+          <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+        </a>
+        <button
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper md:hidden"
+          type="button"
+          aria-expanded="false"
+          aria-controls="mobile-menu"
+          data-mobile-menu-toggle
+        >
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+      </div>
+    </nav>
+    <div class="hidden border-t border-line bg-canvas px-4 py-4 md:hidden" id="mobile-menu">
+      <div class="mx-auto flex max-w-[1280px] flex-col gap-3 text-sm font-semibold text-ink">
+        <a href="index.html#home">홈</a>
+        <a href="index.html#products">제품</a>
+        <a href="detail.html">프로그램</a>
+        <a href="index.html#pricing">가격</a>
+        <a href="index.html#contact">문의</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="program" class="mx-auto max-w-[1280px] px-4 pb-24 pt-14 md:px-8 md:pb-32 md:pt-24">
+      <div class="grid gap-10 lg:grid-cols-12 lg:items-start">
+        <div class="lg:col-span-6">
+          <h1 class="max-w-3xl text-[48px] font-semibold leading-[1.08] text-ink md:text-[72px] lg:text-[84px]">
+            라벨출력 프로그램과 설정 화면을 같은 기준으로 정리했습니다.
+          </h1>
+          <div class="mt-8 grid gap-6 md:grid-cols-12">
+            <p class="text-lg leading-8 text-muted md:col-span-7">
+              홈에서 보여준 패키지 판매 흐름과 이어지도록 프로그램 상세, 설정 항목, 설치 전 확인 조건을 한 화면에서 볼 수 있게 구성했습니다.
+            </p>
+            <div class="flex flex-col gap-3 md:col-span-5">
+              <a class="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white hover:bg-black" href="#settings">
+                설정 항목 보기
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </a>
+              <a class="inline-flex items-center justify-center gap-2 rounded-full border border-line px-6 py-3 text-sm font-semibold text-ink hover:bg-paper" href="index.html#contact">
+                상담 요청
+                <span class="material-symbols-outlined text-[18px]">chat</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="thin-grid overflow-hidden rounded-lg border border-line bg-panel p-4 shadow-soft lg:col-span-6">
+          <div class="overflow-hidden rounded-lg border border-line bg-paper shadow-panel">
+            <div class="flex items-center justify-between border-b border-line px-4 py-3">
+              <div>
+                <p class="text-xs font-semibold text-muted">Program preview</p>
+                <p class="text-sm font-semibold text-ink">라벨출력 프로그램 화면</p>
+              </div>
+              <span class="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white">detail</span>
+            </div>
+            <img
+              class="h-[360px] w-full object-cover object-top"
+              src="14-PrintFlow---라벨-프로그램-상세.png"
+              alt="라벨출력 프로그램 상세 화면 예시"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-y border-line bg-paper py-16 md:py-20">
+      <div class="mx-auto grid max-w-[1280px] gap-8 px-4 md:grid-cols-3 md:px-8">
+        <div>
+          <p class="text-sm font-semibold text-muted">01</p>
+          <h2 class="mt-3 text-2xl font-semibold text-ink">라벨 양식 확인</h2>
+          <p class="mt-4 leading-7 text-muted">상품명, 코드, 수량, 바코드 위치처럼 출력에 들어갈 항목을 샘플 기준으로 정리합니다.</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-muted">02</p>
+          <h2 class="mt-3 text-2xl font-semibold text-ink">출력 목록 관리</h2>
+          <p class="mt-4 leading-7 text-muted">자료 형식과 출력 수량을 확인하고, 반복 작업에 맞는 목록 구성 방식을 상담합니다.</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-muted">03</p>
+          <h2 class="mt-3 text-2xl font-semibold text-ink">설정 범위 안내</h2>
+          <p class="mt-4 leading-7 text-muted">장비 모델, 라벨 규격, 스캐너 입력 방식, 설치 지원 범위는 견적 단계에서 확인합니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="settings" class="mx-auto max-w-[1280px] px-4 py-24 md:px-8 md:py-32">
+      <div class="grid gap-12 lg:grid-cols-12">
+        <div class="lg:col-span-5">
+          <p class="mb-4 text-sm font-semibold text-muted">Settings</p>
+          <h2 class="text-[40px] font-semibold leading-tight text-ink md:text-[58px]">
+            설정 화면은 확정 스펙이 아니라 확인 체크리스트로 보여줍니다.
+          </h2>
+          <p class="mt-6 text-lg leading-8 text-muted">
+            공개 페이지에서 특정 모델이나 연결 조건을 단정하지 않고, 상담 때 확인해야 할 항목을 같은 디자인 톤으로 정리했습니다.
+          </p>
+        </div>
+
+        <div class="rounded-lg border border-line bg-paper p-5 shadow-panel lg:col-span-7">
+          <div class="flex items-center justify-between border-b border-line pb-4">
+            <div>
+              <p class="text-xs font-semibold text-muted">config.ini sample</p>
+              <p class="text-sm font-semibold text-ink">설치 전 확인 항목</p>
+            </div>
+            <span class="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted">상담 후 확정</span>
+          </div>
+
+          <div class="mt-5 grid gap-3">
+            <div class="grid gap-3 rounded-md border border-line bg-canvas p-4 md:grid-cols-[180px_1fr]">
+              <span class="text-sm font-semibold text-ink">프린터 모델</span>
+              <span class="text-sm leading-6 text-muted">보유 장비 또는 구매 희망 장비를 확인한 뒤 구성합니다.</span>
+            </div>
+            <div class="grid gap-3 rounded-md border border-line bg-canvas p-4 md:grid-cols-[180px_1fr]">
+              <span class="text-sm font-semibold text-ink">라벨 규격</span>
+              <span class="text-sm leading-6 text-muted">부착 대상, 출력 항목, 하루 출력량을 기준으로 상담합니다.</span>
+            </div>
+            <div class="grid gap-3 rounded-md border border-line bg-canvas p-4 md:grid-cols-[180px_1fr]">
+              <span class="text-sm font-semibold text-ink">스캐너 입력 방식</span>
+              <span class="text-sm leading-6 text-muted">현장 동선과 사용 프로그램 기준으로 확인합니다.</span>
+            </div>
+            <div class="grid gap-3 rounded-md border border-line bg-canvas p-4 md:grid-cols-[180px_1fr]">
+              <span class="text-sm font-semibold text-ink">설치 지원 범위</span>
+              <span class="text-sm leading-6 text-muted">원격, 방문, 자가 설치 가능 여부는 지역과 장비 조건 확인 후 안내합니다.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-ink py-24 text-white md:py-32">
+      <div class="mx-auto grid max-w-[1280px] gap-10 px-4 md:px-8 lg:grid-cols-12">
+        <div class="lg:col-span-5">
+          <p class="mb-4 text-sm font-semibold text-white/60">Label preview</p>
+          <h2 class="text-[40px] font-semibold leading-tight md:text-[58px]">
+            출력물 미리보기까지 같은 흐름으로 연결합니다.
+          </h2>
+          <p class="mt-6 leading-7 text-white/68">
+            프로그램 화면, 설정 항목, 라벨 미리보기가 같은 페이지 톤으로 이어지도록 정리했습니다. 구매자는 장비만 보는 것이 아니라 실제 업무 흐름을 함께 이해할 수 있습니다.
+          </p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:col-span-7">
+          <div class="rounded-lg border border-white/15 bg-white p-5 text-ink">
+            <img class="h-[220px] w-full object-contain" src="11-designer_preview.png" alt="라벨 디자인 미리보기" />
+          </div>
+          <div class="rounded-lg border border-white/15 bg-white/5 p-6">
+            <p class="text-sm font-semibold text-white/60">출력 전 확인</p>
+            <div class="mt-8 space-y-5">
+              <div class="flex gap-4">
+                <span class="material-symbols-outlined">rule</span>
+                <p class="text-sm leading-6 text-white/72">라벨 항목과 위치 확인</p>
+              </div>
+              <div class="flex gap-4">
+                <span class="material-symbols-outlined">data_table</span>
+                <p class="text-sm leading-6 text-white/72">자료 형식과 출력 목록 확인</p>
+              </div>
+              <div class="flex gap-4">
+                <span class="material-symbols-outlined">settings</span>
+                <p class="text-sm leading-6 text-white/72">장비 설정과 설치 조건 확인</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-[1280px] px-4 py-24 md:px-8 md:py-32">
+      <div class="grid gap-10 lg:grid-cols-12">
+        <div class="lg:col-span-5">
+          <p class="mb-4 text-sm font-semibold text-muted">Setup flow</p>
+          <h2 class="text-[40px] font-semibold leading-tight text-ink md:text-[58px]">
+            설치 전후 확인 순서도 홈페이지와 맞췄습니다.
+          </h2>
+        </div>
+        <div class="grid gap-3 lg:col-span-6 lg:col-start-7">
+          <div class="grid grid-cols-[56px_1fr] border-b border-line py-5">
+            <span class="text-sm font-semibold text-muted">01</span>
+            <div>
+              <h3 class="text-lg font-semibold text-ink">업무 자료 확인</h3>
+              <p class="mt-2 text-muted">상품 자료, 바코드 값, 출력 수량 항목을 먼저 확인합니다.</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-[56px_1fr] border-b border-line py-5">
+            <span class="text-sm font-semibold text-muted">02</span>
+            <div>
+              <h3 class="text-lg font-semibold text-ink">샘플 라벨 정리</h3>
+              <p class="mt-2 text-muted">출력할 항목과 위치를 미리보고 필요한 조정을 상담합니다.</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-[56px_1fr] border-b border-line py-5">
+            <span class="text-sm font-semibold text-muted">03</span>
+            <div>
+              <h3 class="text-lg font-semibold text-ink">설정 조건 확인</h3>
+              <p class="mt-2 text-muted">프린터, 스캐너, 라벨 규격, 설치 지원 조건을 견적서 기준으로 정리합니다.</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-[56px_1fr] py-5">
+            <span class="text-sm font-semibold text-muted">04</span>
+            <div>
+              <h3 class="text-lg font-semibold text-ink">사용 안내 제공</h3>
+              <p class="mt-2 text-muted">구성 확정 후 현장에서 반복 사용할 수 있는 안내 범위를 함께 안내합니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-y border-line bg-paper py-16">
+      <div class="mx-auto flex max-w-[1280px] flex-col gap-6 px-4 md:flex-row md:items-center md:justify-between md:px-8">
+        <div>
+          <p class="text-sm font-semibold text-muted">Next step</p>
+          <h2 class="mt-3 text-3xl font-semibold text-ink">프로그램과 장비 구성을 함께 상담하세요.</h2>
+        </div>
+        <a class="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white hover:bg-black" href="index.html#contact">
+          견적 요청하기
+          <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-line bg-paper">
+    <div class="mx-auto grid max-w-[1280px] gap-8 px-4 py-12 md:grid-cols-4 md:px-8">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-white">
+            <span class="material-symbols-outlined text-[18px]">barcode_scanner</span>
+          </span>
+          <span class="text-lg font-semibold text-ink">거복이의꿈</span>
+        </div>
+        <p class="mt-5 max-w-md leading-7 text-muted">
+          바코드 프린터, 스캐너, 라벨 프로그램, 설치 지원을 함께 상담하는 업무용 패키지 판매 페이지입니다.
+        </p>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-ink">바로가기</h3>
+        <ul class="mt-4 space-y-3 text-sm text-muted">
+          <li><a class="hover:text-ink" href="index.html#home">홈</a></li>
+          <li><a class="hover:text-ink" href="index.html#products">제품</a></li>
+          <li><a class="hover:text-ink" href="detail.html">프로그램</a></li>
+          <li><a class="hover:text-ink" href="index.html#contact">문의</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-sm font-semibold text-ink">안내</h3>
+        <p class="mt-4 text-sm leading-6 text-muted">
+          상호: 거복이의꿈<br />
+          출고 일정, 설치 가능 지역, 사후 안내 범위는 견적 단계에서 확인합니다.
+        </p>
+      </div>
+    </div>
+    <div class="mx-auto flex max-w-[1280px] flex-col gap-3 border-t border-line px-4 py-6 text-sm text-muted md:flex-row md:items-center md:justify-between md:px-8">
+      <p>© 2026 거복이의꿈. 모든 권리 보유.</p>
+      <p>확정되지 않은 가격, 모델, 규격, 지원 조건은 견적서 기준으로 안내합니다.</p>
+    </div>
+  </footer>
+
+  <script>
+    const mobileMenuToggle = document.querySelector("[data-mobile-menu-toggle]");
+    const mobileMenu = document.getElementById("mobile-menu");
+
+    if (mobileMenuToggle && mobileMenu) {
+      mobileMenuToggle.addEventListener("click", () => {
+        const willOpen = mobileMenu.classList.contains("hidden");
+        mobileMenu.classList.toggle("hidden", !willOpen);
+        mobileMenuToggle.setAttribute("aria-expanded", String(willOpen));
+      });
+
+      mobileMenu.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => {
+          mobileMenu.classList.add("hidden");
+          mobileMenuToggle.setAttribute("aria-expanded", "false");
+        });
+      });
+    }
+  </script>
+</body>
+</html>

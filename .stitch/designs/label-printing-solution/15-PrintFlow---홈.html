@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PrintFlow Solutions | Professional Labeling Systems</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Hanken+Grotesk:wght@600;700;800&amp;family=JetBrains+Mono:wght@500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&amp;family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#bec6e0",
+                    "on-secondary-fixed-variant": "#3f465c",
+                    "secondary-fixed": "#dae2fd",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#c2c6d6",
+                    "surface-dim": "#cbdbf5",
+                    "primary": "#0058be",
+                    "on-secondary-fixed": "#131b2e",
+                    "on-primary-container": "#fefcff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed-variant": "#00531c",
+                    "tertiary-container": "#008732",
+                    "on-secondary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "surface": "#f8f9ff",
+                    "tertiary-fixed-dim": "#3be365",
+                    "on-tertiary": "#ffffff",
+                    "primary-container": "#2170e4",
+                    "secondary-container": "#dae2fd",
+                    "border-subtle": "#E2E8F0",
+                    "tertiary": "#006b26",
+                    "on-surface-variant": "#424754",
+                    "on-primary-fixed-variant": "#004395",
+                    "tech-cyan": "#0EA5E9",
+                    "secondary": "#565e74",
+                    "surface-container": "#e5eeff",
+                    "primary-fixed": "#d8e2ff",
+                    "on-primary-fixed": "#001a42",
+                    "inverse-on-surface": "#eaf1ff",
+                    "on-surface": "#0b1c30",
+                    "on-error": "#ffffff",
+                    "on-secondary-container": "#5c647a",
+                    "surface-container-high": "#dce9ff",
+                    "on-error-container": "#93000a",
+                    "on-background": "#0b1c30",
+                    "surface-tint": "#005ac2",
+                    "surface-gray": "#F8FAFC",
+                    "surface-container-highest": "#d3e4fe",
+                    "primary-fixed-dim": "#adc6ff",
+                    "background": "#f8f9ff",
+                    "surface-variant": "#d3e4fe",
+                    "inverse-primary": "#adc6ff",
+                    "inverse-surface": "#213145",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#6bff84",
+                    "outline": "#727785",
+                    "on-tertiary-fixed": "#002107"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "container-max": "1280px",
+                    "section-gap": "80px",
+                    "base": "8px",
+                    "margin-desktop": "40px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "label-mono": ["JetBrains Mono"],
+                    "body-sm": ["Inter"],
+                    "button-text": ["Hanken Grotesk"],
+                    "headline-xl": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "button-text": ["16px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-shadow {
+            box-shadow: 0px 4px 20px rgba(15, 23, 42, 0.08);
+        }
+        .sidebar-mask {
+            mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+        }
+        .dot-pattern {
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md antialiased overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="w-full top-0 sticky z-50 bg-surface border-b border-subtle">
+<nav class="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+<div class="flex items-center gap-base">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="print">print</span>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">PrintFlow Solutions</h1>
+</div>
+<div class="hidden md:flex items-center gap-gutter">
+<a class="text-primary border-b-2 border-primary pb-1 font-button-text text-button-text transition-all duration-200 ease-in-out" href="#">Products</a>
+<a class="text-on-surface-variant hover:text-primary font-button-text text-button-text transition-all duration-200 ease-in-out" href="#">Software</a>
+<a class="text-on-surface-variant hover:text-primary font-button-text text-button-text transition-all duration-200 ease-in-out" href="#">Packages</a>
+<a class="text-on-surface-variant hover:text-primary font-button-text text-button-text transition-all duration-200 ease-in-out" href="#">Support</a>
+</div>
+<div class="flex items-center gap-gutter">
+<button class="hidden lg:block text-on-surface-variant hover:text-primary font-button-text text-button-text transition-all">Login</button>
+<button class="bg-primary text-on-primary px-6 py-3 font-button-text text-button-text rounded hover:opacity-90 transition-all shadow-sm">Get a Quote</button>
+<button class="md:hidden">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</nav>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="relative bg-surface pt-16 pb-24 px-margin-desktop overflow-hidden">
+<div class="absolute inset-0 dot-pattern opacity-40"></div>
+<div class="max-w-container-max mx-auto grid lg:grid-cols-2 gap-section-gap items-center relative z-10">
+<div>
+<span class="inline-flex items-center gap-2 px-3 py-1 bg-primary-container text-on-primary-container font-label-mono text-label-mono rounded-full mb-6">
+<span class="w-2 h-2 rounded-full bg-on-primary-container animate-pulse"></span>
+                        INDUSTRIAL SERIES 4.0 NOW LIVE
+                    </span>
+<h2 class="font-headline-xl text-headline-xl mb-6 max-w-xl">Smart Labeling, <span class="text-primary">Simplified.</span></h2>
+<p class="text-on-surface-variant text-lg mb-8 max-w-lg">
+                        Empower your logistics with our integrated ecosystem of industrial-grade printers and precision-engineered designer software. Zero-error label production for the modern enterprise.
+                    </p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-primary text-on-primary px-8 py-4 font-button-text text-button-text rounded hover:shadow-lg transition-all flex items-center gap-2">
+                            Explore Hardware <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<button class="bg-surface border border-subtle px-8 py-4 font-button-text text-button-text rounded hover:bg-surface-gray transition-all">
+                            Request Demo
+                        </button>
+</div>
+<div class="mt-12 grid grid-cols-3 gap-6 border-t border-subtle pt-8">
+<div>
+<div class="text-primary font-bold text-2xl">0.05s</div>
+<div class="text-on-surface-variant font-label-mono text-label-mono">LATENCY</div>
+</div>
+<div>
+<div class="text-primary font-bold text-2xl">99.9%</div>
+<div class="text-on-surface-variant font-label-mono text-label-mono">UPTIME</div>
+</div>
+<div>
+<div class="text-primary font-bold text-2xl">24/7</div>
+<div class="text-on-surface-variant font-label-mono text-label-mono">SUPPORT</div>
+</div>
+</div>
+</div>
+<div class="relative">
+<div class="aspect-video bg-surface-container rounded-xl overflow-hidden custom-shadow border border-subtle p-8 flex items-center justify-center group">
+<img alt="Industrial Label Printer" class="rounded-lg object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" data-alt="A sleek, high-end industrial label printer sitting on a polished white laboratory workbench. The device features matte black finishes and a digital touchscreen interface displaying a barcode. Soft, cinematic lighting from the side emphasizes its precision engineering and professional aesthetic. The environment is minimalist and clinical, reinforcing the zero-error performance brand identity of PrintFlow Solutions." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVEy55nYPl_9QxxpsvENX26zoYKiqYzPlzLohYhnLsWPsYxTFU57WiZqIA77FFA1aR0MfFSiVahHfGgaptQlXpAuOZ4lyaBfduHr4eKaCioP6m1dtDvSfLnYXP3sosQK9xa7jf6BiT7OA45h7FKXTvUe9VRxQ-MOgbGuNg_0QPrHICx3Y_nFBPnGJeapD-slx9IJWxl7wy9q2gFSLs-3Bf2oMIqoQ_sgYDoRegKOoDY3NUsMLCKnpXUm_bQqfo_7GsIRbyW8U1IRIV"/>
+<!-- Floating software UI overlay -->
+<div class="absolute bottom-4 right-4 bg-white/90 backdrop-blur border border-subtle p-4 rounded-lg shadow-xl w-64 translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="terminal" data-weight="fill" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div class="text-xs font-bold font-label-mono">LIVE PREVIEW</div>
+</div>
+<img alt="Label Test" class="w-full border border-subtle grayscale hover:grayscale-0 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0aw-YSizgxC_MeVEQNMIMTj_A7gA82uZHcdRpmXMMgGPpTFoj6cNVJ0JCL7nNbjPiWzlIjbDZYpYWhK1llMej3s4Dk1DZrh6VqM_c5zu7uNwawujMbraJVfhCMTF8fYkgMJjIHoBA3YtFvRg7DMKEwKnj-2zv_1Nb6ZRXD0QSOZ-nlncflIhFAktl7_ehavyaH5cIJ8hRfSw6qxYKYl77cyvK7sMGU8q8TWgq16sarM2lRYM-9R9H8gI4LwhQrI1jdktFociX3k5n"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Features Bento Grid -->
+<section class="py-section-gap px-margin-desktop bg-surface-gray">
+<div class="max-w-container-max mx-auto">
+<div class="text-center mb-16">
+<h3 class="font-headline-lg text-headline-lg mb-4">Precision Engineering, Every Stage</h3>
+<p class="text-on-surface-variant max-w-2xl mx-auto">Our software-hardware synergy eliminates the friction of traditional labeling systems, providing a unified workflow from database to warehouse.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Feature 1: Software Designer -->
+<div class="md:col-span-8 bg-surface border border-subtle rounded-xl p-8 hover:shadow-lg transition-all group overflow-hidden relative">
+<div class="relative z-10 flex flex-col h-full">
+<span class="material-symbols-outlined text-primary text-4xl mb-6" data-icon="design_services">design_services</span>
+<h4 class="text-2xl font-bold mb-4">Intuitive Label Designer</h4>
+<p class="text-on-surface-variant max-w-md mb-8">Drag-and-drop designer with native support for EAN, QR, and custom logic. Create complex layouts in minutes, not hours.</p>
+<div class="mt-auto">
+<img class="rounded-lg shadow-2xl translate-y-12 group-hover:translate-y-6 transition-transform duration-500" data-alt="A professional user interface of a labeling software dashboard on a high-resolution monitor. The screen displays a complex barcode layout with multiple alignment guides and data fields. The color scheme of the UI is clean, using a palette of blues and grays that aligns with the Corporate Modern aesthetic. Soft natural light illuminates the workspace, suggesting an efficient and professional office environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8j6-w9Ez1lKe5nZDTrpCNLYkkq6JXDsAtyme6xM0hwECjOlA4ZSYkz9Q1KAMJnZgpoXyQ9-yGiLvquzEa1hMlO15OxmJhttqw0o2yFGvranCBAIT3aymU3Fu9jKg4KKhYJUD7vupMsY-ofQJt3BHn-syLLMoeVwPGj-Mm_h_qgUZZ_OL6FsVSSJG0gXO2jpdFX1wls4NH1zygNUt-vUbT_8gHn4hQrrgwV4O-9nDvOYE5qcZ98Zz3YX5CTCdxzAGE6XtUEnitL4qi"/>
+</div>
+</div>
+</div>
+<!-- Feature 2: Real-time Printing -->
+<div class="md:col-span-4 bg-surface border border-subtle rounded-xl p-8 hover:shadow-lg transition-all">
+<span class="material-symbols-outlined text-primary text-4xl mb-6" data-icon="bolt">bolt</span>
+<h4 class="text-2xl font-bold mb-4">Real-time DB Sync</h4>
+<p class="text-on-surface-variant mb-6">Connect directly to SQL, ERP, or CSV files for automated, error-free variable data printing at high speed.</p>
+<div class="p-4 bg-surface-gray rounded border border-subtle font-label-mono text-xs text-on-surface-variant">
+<code class="block">SELECT * FROM products</code>
+<code class="block">WHERE status = 'QUEUED'</code>
+<div class="mt-4 flex gap-2">
+<span class="bg-tertiary/10 text-tertiary px-2 py-0.5 rounded-full">CONNECTED</span>
+<span class="text-on-surface-variant opacity-50">SYNCING...</span>
+</div>
+</div>
+</div>
+<!-- Feature 3: Industrial Hardware -->
+<div class="md:col-span-4 bg-primary text-on-primary rounded-xl p-8 hover:shadow-lg transition-all flex flex-col justify-between">
+<div>
+<span class="material-symbols-outlined text-4xl mb-6" data-icon="precision_manufacturing">precision_manufacturing</span>
+<h4 class="text-2xl font-bold mb-4">Industrial Durability</h4>
+<p class="opacity-90">All-metal chassis designed for 24/7 high-volume environments. Built to survive dust, heat, and rigorous use.</p>
+</div>
+<div class="mt-8">
+<span class="text-sm font-label-mono">MIL-SPEC COMPLIANT</span>
+</div>
+</div>
+<!-- Feature 4: Cloud Integration -->
+<div class="md:col-span-8 bg-surface border border-subtle rounded-xl p-8 hover:shadow-lg transition-all group overflow-hidden">
+<div class="flex flex-col md:flex-row gap-8 items-center">
+<div class="flex-1">
+<span class="material-symbols-outlined text-primary text-4xl mb-6" data-icon="cloud_sync">cloud_sync</span>
+<h4 class="text-2xl font-bold mb-4">Remote Management</h4>
+<p class="text-on-surface-variant">Manage a fleet of 1,000 printers across global locations from a single dashboard. Real-time diagnostic and ink tracking.</p>
+</div>
+<div class="w-full md:w-1/2 flex justify-center">
+<span class="material-symbols-outlined text-[120px] text-primary/10 group-hover:scale-110 transition-transform duration-500" data-icon="settings_remote">settings_remote</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Package Section -->
+<section class="py-section-gap px-margin-desktop bg-surface">
+<div class="max-w-container-max mx-auto">
+<div class="flex flex-col md:flex-row justify-between items-end gap-gutter mb-12">
+<div>
+<h3 class="font-headline-lg text-headline-lg mb-2">Complete Solutions Packages</h3>
+<p class="text-on-surface-variant max-w-xl">Everything you need to launch a professional labeling system in one turnkey bundle.</p>
+</div>
+<a class="text-primary font-bold flex items-center gap-2 hover:underline" href="#">
+                        Compare all packages <span class="material-symbols-outlined" data-icon="keyboard_arrow_right">keyboard_arrow_right</span>
+</a>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Bundle Card -->
+<div class="bg-surface border border-subtle p-8 rounded hover:shadow-xl transition-all relative group overflow-hidden">
+<div class="absolute top-0 right-0 p-4 bg-primary/10 text-primary font-bold text-xs uppercase tracking-widest">Best Value</div>
+<h4 class="text-xl font-bold mb-2">The Enterprise Bundle</h4>
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-3xl font-bold text-primary">$2,499</span>
+<span class="text-on-surface-variant text-sm">/ setup</span>
+</div>
+<ul class="space-y-4 mb-8">
+<li class="flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-tertiary" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                PF-900 Ultra Industrial Printer
+                            </li>
+<li class="flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-tertiary" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                High-Speed 2D Laser Scanner
+                            </li>
+<li class="flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-tertiary" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                PrintFlow Designer Pro (Lifetime)
+                            </li>
+<li class="flex items-center gap-3 text-body-sm">
+<span class="material-symbols-outlined text-tertiary" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                12 Months On-Site Support
+                            </li>
+</ul>
+<button class="w-full py-4 border border-primary text-primary font-button-text hover:bg-primary hover:text-white transition-all">Configure Bundle</button>
+</div>
+<!-- Tech Specs Table Component -->
+<div class="lg:col-span-2 bg-surface-gray border border-subtle rounded overflow-hidden">
+<div class="p-6 border-b border-subtle bg-surface">
+<h5 class="font-bold">Hardware Performance Specs</h5>
+</div>
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-secondary-fixed/30">
+<th class="p-4 font-label-mono text-label-mono uppercase tracking-wider text-on-secondary-fixed-variant">Specification</th>
+<th class="p-4 font-label-mono text-label-mono uppercase tracking-wider text-on-secondary-fixed-variant">PF-300 Series</th>
+<th class="p-4 font-label-mono text-label-mono uppercase tracking-wider text-on-secondary-fixed-variant">PF-900 Ultra</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-subtle">
+<tr class="bg-surface hover:bg-surface-container transition-colors">
+<td class="p-4 font-body-sm font-semibold">Print Resolution</td>
+<td class="p-4 font-body-sm">203 dpi</td>
+<td class="p-4 font-body-sm">600 dpi</td>
+</tr>
+<tr class="bg-surface-gray hover:bg-surface-container transition-colors">
+<td class="p-4 font-body-sm font-semibold">Max Speed</td>
+<td class="p-4 font-body-sm">6 ips</td>
+<td class="p-4 font-body-sm">14 ips</td>
+</tr>
+<tr class="bg-surface hover:bg-surface-container transition-colors">
+<td class="p-4 font-body-sm font-semibold">Connectivity</td>
+<td class="p-4 font-body-sm">USB, Ethernet</td>
+<td class="p-4 font-body-sm">Wi-Fi 6, 5G, Fiber</td>
+</tr>
+<tr class="bg-surface-gray hover:bg-surface-container transition-colors">
+<td class="p-4 font-body-sm font-semibold">Memory</td>
+<td class="p-4 font-body-sm">256MB Flash</td>
+<td class="p-4 font-body-sm">2GB SDRAM</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-24 px-margin-desktop bg-inverse-surface text-on-primary-container relative overflow-hidden">
+
+<div class="max-w-container-max mx-auto text-center relative z-10">
+<h2 class="font-headline-xl text-headline-xl mb-6">Ready to Optimize Your Flow?</h2>
+<p class="text-xl opacity-80 mb-10 max-w-2xl mx-auto">Join over 5,000 industrial partners who trust PrintFlow for their daily mission-critical operations.</p>
+<div class="flex flex-col sm:flex-row justify-center gap-4">
+<button class="bg-primary-container text-on-primary-container px-10 py-5 font-button-text text-button-text rounded-lg hover:brightness-110 transition-all shadow-xl">Contact Sales Team</button>
+<button class="border border-outline-variant text-inverse-on-surface px-10 py-5 font-button-text text-button-text rounded-lg hover:bg-white/5 transition-all">Download Brochure</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-section-gap bg-surface-gray border-t border-subtle">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-12 max-w-container-max mx-auto">
+<div class="col-span-1 md:col-span-1">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="print">print</span>
+<h3 class="font-headline-lg text-headline-lg text-on-surface">PrintFlow</h3>
+</div>
+<p class="text-on-surface-variant font-body-sm text-body-sm mb-6">
+                    Leading industrial labeling solutions for global manufacturing and logistics.
+                </p>
+<div class="flex gap-4">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined" data-icon="public">public</span></a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined" data-icon="share">share</span></a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined" data-icon="alternate_email">alternate_email</span></a>
+</div>
+</div>
+<div class="col-span-1">
+<h4 class="font-bold text-on-surface mb-6 uppercase text-xs tracking-widest">Solutions</h4>
+<ul class="space-y-4">
+<li><a class="text-on-surface-variant hover:text-primary underline font-body-sm text-body-sm transition-opacity" href="#">Technical Documentation</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline font-body-sm text-body-sm transition-opacity" href="#">Global Locations</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline font-body-sm text-body-sm transition-opacity" href="#">Support Tickets</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="font-bold text-on-surface mb-6 uppercase text-xs tracking-widest">Company</h4>
+<ul class="space-y-4">
+<li><a class="text-on-surface-variant hover:text-primary underline font-body-sm text-body-sm transition-opacity" href="#">Privacy Policy</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline font-body-sm text-body-sm transition-opacity" href="#">Terms of Service</a></li>
+<li><a class="text-on-surface-variant hover:text-primary underline font-body-sm text-body-sm transition-opacity" href="#">Cookie Settings</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="font-bold text-on-surface mb-6 uppercase text-xs tracking-widest">Newsletter</h4>
+<p class="text-on-surface-variant font-body-sm text-body-sm mb-4">Stay updated with the latest in labeling technology.</p>
+<div class="flex">
+<input class="bg-surface border border-subtle rounded-l px-4 py-2 w-full text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="Email address" type="email"/>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-r hover:bg-primary-container transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</div>
+<div class="px-margin-desktop py-6 border-t border-subtle max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-4 opacity-90">
+<p class="text-on-surface-variant font-body-sm text-body-sm">© 2024 PrintFlow Solutions. All rights reserved. Industrial Grade Reliability.</p>
+<div class="flex gap-4 items-center">
+<span class="flex items-center gap-1 font-label-mono text-[10px] text-tertiary">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span> SYSTEM STATUS: OPTIMAL
+                </span>
+</div>
+</div>
+</footer>
+<!-- Interactive Cursor Dot Micro-Interaction -->
+<div class="fixed w-6 h-6 border-2 border-primary rounded-full pointer-events-none z-[9999] transition-transform duration-100 ease-out hidden md:block opacity-50" id="custom-cursor" style="transform: translate(-50%, -50%)"></div>
+<script>
+        // Smooth Cursor Follow
+        const cursor = document.getElementById('custom-cursor');
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+
+        // Sticky Navbar Transition
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 20) {
+                header.classList.add('custom-shadow');
+            } else {
+                header.classList.remove('custom-shadow');
+            }
+        });
+
+        // Appearance observer for features
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-10');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.md\\:col-span-8, .md\\:col-span-4').forEach(el => {
+            el.classList.add('transition-all', 'duration-700', 'opacity-0', 'translate-y-10');
+            observer.observe(el);
+        });
+    </script>
+</body></html>

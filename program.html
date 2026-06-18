@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>라벨 발행 프로그램 | 거복이의꿈</title>
+  <meta name="description" content="라벨 디자인, 데이터 연결, 출력 대기열을 확인하는 라벨 발행 프로그램 화면입니다." />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body data-page="program">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="거복이의꿈 홈">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span><strong>거복이의꿈</strong><small>바코드 운영 패키지 솔루션</small></span>
+    </a>
+    <nav class="site-nav" aria-label="주요 메뉴">
+      <a href="index.html" data-page="home">홈</a>
+      <a href="products.html" data-page="products">제품</a>
+      <a href="program.html" data-page="program">프로그램</a>
+      <a href="use-cases.html" data-page="use-cases">사용처</a>
+      <a href="order.html" data-page="order">주문</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-primary" href="order.html?product=package-warehouse-2d">견적 문의</a>
+      <a class="cart-link" href="order.html" aria-label="주문서로 이동">
+        <span class="cart-icon" aria-hidden="true"></span>
+        <span class="cart-count" id="cartCount">0</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="hero-inner">
+        <p class="breadcrumb"><a href="index.html">홈</a> &gt; 프로그램</p>
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">라벨 발행 프로그램</h1>
+            <p class="lead">전문 라벨 디자인과 데이터 연동으로 반복 라벨 발행을 지원하는 화면입니다.</p>
+          </div>
+          <div class="tab-row program-tabs" aria-label="프로그램 탭">
+            <button class="filter-chip is-active" type="button" data-template="manufacturing-ingredient">기능 소개</button>
+            <button class="filter-chip" type="button" data-template="warehouse-stock">사용</button>
+            <button class="filter-chip" type="button" data-template="retail-product">프로그램 문의</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-inner">
+        <div class="designer-shell" aria-label="라벨 발행 프로그램 미리보기">
+          <div class="designer-menu">
+            <nav aria-label="프로그램 메뉴"><span>파일</span><span>편집</span><span>보기</span><span>삽입</span><span>데이터</span><span>검증</span><span>도구</span><span>도움말</span></nav>
+            <div class="designer-actions"><span>라벨디자이너 Pro</span></div>
+          </div>
+          <div class="designer-tools" aria-hidden="true">
+            <span class="tool-button">N</span><span class="tool-button">O</span><span class="tool-button">S</span><span class="tool-button">P</span><span class="tool-button">T</span><span class="tool-button">B</span><span class="tool-button">Q</span><span class="tool-button">D</span><span class="tool-button">100%</span><span class="tool-button">-</span><span class="tool-button">+</span><span class="tool-button">A</span>
+          </div>
+          <div class="designer-tabs">
+            <span class="designer-tab">제품라벨_100x50.btw</span>
+            <span class="designer-tab">입출고라벨_0618_A</span>
+          </div>
+          <div class="designer-workspace">
+            <aside class="designer-sidebar">
+              <div class="panel-title">객체 추가</div>
+              <div class="tool-list">
+                <span>텍스트 <b>T</b></span>
+                <span>바코드 <b>1D</b></span>
+                <span>2D 코드 <b>QR</b></span>
+                <span>라인 <b>L</b></span>
+                <span>사각형 <b>R</b></span>
+                <span>이미지 <b>I</b></span>
+                <span>테이블 <b>DB</b></span>
+              </div>
+            </aside>
+
+            <section class="designer-canvas">
+              <div class="canvas-area">
+                <article class="label-artboard">
+                  <h3 id="labelTitle">거복이의꿈 프린터 패키지</h3>
+                  <div class="label-table" id="labelFields">
+                    <div>모델명</div><div>DH Series</div><div rowspan="2">QR</div>
+                    <div>일련번호</div><div>DH-250618-0001</div><div>검증</div>
+                  </div>
+                  <div class="label-bottom">
+                    <div>
+                      <div class="barcode-lines" aria-label="바코드 미리보기">
+                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                      </div>
+                      <p>8809123456789</p>
+                    </div>
+                    <div class="qr-block" aria-hidden="true">
+                      <span></span><span></span><span></span><span></span><span></span>
+                      <span></span><i></i><span></span><i></i><span></span>
+                      <span></span><span></span><i></i><span></span><span></span>
+                      <i></i><span></span><span></span><i></i><span></span>
+                      <span></span><i></i><span></span><span></span><i></i>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              <div class="data-pane">
+                <div class="data-grid" id="dataPreview"></div>
+                <div class="queue-pane">
+                  <div class="panel-title">인쇄 대기열</div>
+                  <div class="queue-item"><span>제품라벨_0618_A</span><b>120</b></div>
+                  <div class="queue-item"><span>제품라벨_0618_B</span><b>80</b></div>
+                  <div class="queue-item"><span>자재라벨_0618_C</span><b>200</b></div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="designer-inspector">
+              <div class="panel-title">속성 - 텍스트</div>
+              <div class="property-group">
+                <span class="property-row">이름 <b>제품명</b></span>
+                <span class="property-row">글꼴 <b>Noto Sans KR</b></span>
+                <span class="property-row">크기 <b>14</b></span>
+                <span class="property-row">굵게 <b>On</b></span>
+                <div class="fake-input"></div>
+                <div class="fake-input"></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>이 화면은 판매용 시각화입니다. 실제 기능 범위, 설치지원 조건, 데이터 연결 범위는 주문서 확인 후 확정합니다.</p>
+  </footer>
+  <script src="shop-data.js"></script>
+  <script src="site.js"></script>
+</body>
+</html>

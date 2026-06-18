@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>거복이의꿈 - 바코드 운영의 완성</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Public+Sans:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#eeefff",
+                        "on-secondary-container": "#4b607e",
+                        "surface-container-high": "#dce9ff",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#434655",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#b2c8ea",
+                        "on-secondary-fixed": "#021c37",
+                        "surface-tint": "#0053db",
+                        "background": "#f8f9ff",
+                        "surface-container": "#e5eeff",
+                        "surface": "#f8f9ff",
+                        "surface-bright": "#f8f9ff",
+                        "primary-fixed": "#dbe1ff",
+                        "secondary-fixed": "#d3e4ff",
+                        "secondary": "#4a607e",
+                        "primary-container": "#2563eb",
+                        "on-tertiary-container": "#b9ffdd",
+                        "tertiary-fixed": "#9ef4cc",
+                        "on-tertiary-fixed-variant": "#005139",
+                        "inverse-surface": "#213145",
+                        "secondary-container": "#c5dbff",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#0b1c30",
+                        "surface-dim": "#cbdbf5",
+                        "surface-container-highest": "#d3e4fe",
+                        "tertiary-fixed-dim": "#82d7b1",
+                        "primary": "#004ac6",
+                        "surface-variant": "#d3e4fe",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "surface-container-low": "#eff4ff",
+                        "on-surface": "#0b1c30",
+                        "on-secondary-fixed-variant": "#324865",
+                        "on-error": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#207b5b",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "tertiary": "#006145",
+                        "on-tertiary-fixed": "#002115",
+                        "outline-variant": "#c3c6d7",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#00174b",
+                        "inverse-primary": "#b4c5ff",
+                        "outline": "#737686",
+                        "inverse-on-surface": "#eaf1ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Public Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed-dim">
+<!-- Header Section -->
+<header class="w-full sticky top-0 z-50 bg-surface-container-lowest dark:bg-surface-dim border-b border-outline-variant dark:border-outline shadow-sm">
+<div class="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
+<div class="text-xl font-bold text-primary dark:text-primary-fixed">거복이의꿈</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-primary dark:text-primary-fixed font-bold border-b-2 border-primary cursor-pointer active:opacity-80 transition-colors" href="#">홈</a>
+<a class="text-secondary dark:text-secondary-fixed-dim font-medium hover:text-primary-container dark:hover:text-primary-fixed cursor-pointer active:opacity-80 transition-colors" href="#">제품</a>
+<a class="text-secondary dark:text-secondary-fixed-dim font-medium hover:text-primary-container dark:hover:text-primary-fixed cursor-pointer active:opacity-80 transition-colors" href="#">프로그램</a>
+<a class="text-secondary dark:text-secondary-fixed-dim font-medium hover:text-primary-container dark:hover:text-primary-fixed cursor-pointer active:opacity-80 transition-colors" href="#">가격</a>
+<a class="text-secondary dark:text-secondary-fixed-dim font-medium hover:text-primary-container dark:hover:text-primary-fixed cursor-pointer active:opacity-80 transition-colors" href="#">문의</a>
+</nav>
+<button class="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-lg font-semibold hover:opacity-90 transition-all">상담 신청하기</button>
+</div>
+</header>
+<!-- Hero Section -->
+<section class="relative overflow-hidden bg-gradient-to-br from-surface-container-low to-white py-24 md:py-32">
+<div class="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-high text-primary rounded-full text-sm font-semibold mb-6">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+                    B2B 바코드 패키지 전문
+                </div>
+<h1 class="font-headline text-4xl md:text-5xl lg:text-6xl font-extrabold text-on-background leading-tight mb-6">
+                    현장의 흐름을 바꾸는<br/>
+<span class="text-primary">바코드 운영의 완성</span>
+</h1>
+<p class="text-on-surface-variant text-lg md:text-xl leading-relaxed mb-10 max-w-xl">
+                    프린터, 스캐너, 전용 소프트웨어부터 설치 지원까지 - 전문가의 진단으로 귀사에 꼭 맞는 패키지를 제안합니다. 단순 판매가 아닌 업무 효율을 설계합니다.
+                </p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-primary-container text-on-primary-container px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:translate-y-[-2px] transition-all">맞춤 패키지 문의</button>
+<button class="bg-surface-container-highest text-on-surface px-8 py-4 rounded-xl font-bold text-lg border border-outline-variant hover:bg-surface-variant transition-all">서비스 상세 보기</button>
+</div>
+</div>
+<div class="relative">
+<div class="absolute -inset-4 bg-primary-container/10 blur-3xl rounded-full"></div>
+<img alt="바코드 운영 워크플로우" class="relative rounded-2xl shadow-2xl border border-outline-variant w-full h-auto" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfArxvDY7H42Z2c2x4Kxgeho-8hg0CZWlUK3zx9lOzDGWFLrxSQN-0qYRYrnrqF50yzceo0MN71Hejl5_j-NJz8cTC4dO4SyYFF92rB_2lgk7FoSFpJCt_b8hjmRHHELNNSNG336AlzoCVs3HyusoEzhKeH4bZ16MlhkDtIEvcHRV1oFGlEY0FwcT7ZFEXmPPrvpmX5kdjPwAFTc6BXhFqI0X_uiyg2NUe4akMS3gqG8Z3MBSwW88pct-KrhR7JFJxv6EcresNSuE8"/>
+</div>
+</div>
+</section>
+<!-- Differentiation Section -->
+<section class="py-24 bg-white">
+<div class="max-w-7xl mx-auto px-8">
+<div class="text-center max-w-2xl mx-auto mb-16">
+<h2 class="text-3xl font-bold mb-4">거복이의꿈이 다른 이유</h2>
+<p class="text-on-surface-variant">단순한 하드웨어 유통을 넘어, 현장에서 실제로 작동하는 시스템을 구축합니다.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="p-8 rounded-2xl bg-surface-container-low border border-outline-variant hover:shadow-md transition-all">
+<div class="w-12 h-12 bg-primary-container rounded-lg flex items-center justify-center text-white mb-6">
+<span class="material-symbols-outlined">forum</span>
+</div>
+<h3 class="text-xl font-bold mb-3">상담 기반 패키지 설계</h3>
+<p class="text-on-surface-variant leading-relaxed">무조건적인 추천이 아닌, 사용 환경과 출력 규모를 정밀하게 진단하여 최적의 사양을 제안합니다.</p>
+</div>
+<div class="p-8 rounded-2xl bg-surface-container-low border border-outline-variant hover:shadow-md transition-all">
+<div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center text-white mb-6">
+<span class="material-symbols-outlined">settings_suggest</span>
+</div>
+<h3 class="text-xl font-bold mb-3">업무 환경 최적화</h3>
+<p class="text-on-surface-variant leading-relaxed">현장의 PC 환경, 사용 중인 ERP와의 연동 가능성을 사전에 체크하여 도입 즉시 사용 가능하도록 준비합니다.</p>
+</div>
+<div class="p-8 rounded-2xl bg-surface-container-low border border-outline-variant hover:shadow-md transition-all">
+<div class="w-12 h-12 bg-tertiary-container rounded-lg flex items-center justify-center text-white mb-6">
+<span class="material-symbols-outlined">rocket_launch</span>
+</div>
+<h3 class="text-xl font-bold mb-3">책임 있는 설치 지원</h3>
+<p class="text-on-surface-variant leading-relaxed">제품만 보내지 않습니다. 전문가가 방문 또는 원격으로 환경을 세팅하고 실제 운영 교육까지 완료합니다.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Product Packages Section -->
+<section class="py-24 bg-surface-container-lowest">
+<div class="max-w-7xl mx-auto px-8">
+<h2 class="text-3xl font-bold text-center mb-16">운영 환경별 맞춤 패키지</h2>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Package 1 -->
+<div class="bg-white rounded-2xl border border-outline-variant overflow-hidden flex flex-col">
+<div class="p-8 border-b border-outline-variant">
+<h3 class="text-xl font-bold mb-2">Starter-1D</h3>
+<p class="text-on-surface-variant text-sm">소규모 사업장 및 소매점용</p>
+</div>
+<div class="p-8 flex-grow">
+<ul class="space-y-4">
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">데스크탑 프린터</span>
+<span class="bg-surface-container-high px-2 py-1 rounded text-primary-container font-semibold">확인 필요</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">1D 유선 스캐너</span>
+<span class="bg-surface-container-high px-2 py-1 rounded text-primary-container font-semibold">확인 필요</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">표준 라벨 소프트웨어</span>
+<span class="text-tertiary flex items-center gap-1 font-bold"><span class="material-symbols-outlined text-[16px]">check_circle</span>포함</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">원격 설치/교육</span>
+<span class="text-tertiary flex items-center gap-1 font-bold"><span class="material-symbols-outlined text-[16px]">check_circle</span>지원</span>
+</li>
+</ul>
+</div>
+<div class="p-8 bg-surface-container-low">
+<div class="text-xs text-secondary-fixed-variant mb-4">* 사용 라벨 규격 및 수량에 따라 변동</div>
+<div class="text-xl font-bold text-primary mb-6">환경 점검 후 확정</div>
+<button class="w-full py-3 bg-white border-2 border-primary text-primary font-bold rounded-lg hover:bg-primary-container hover:text-white transition-all">패키지 상세 문의</button>
+</div>
+</div>
+<!-- Package 2 -->
+<div class="bg-white rounded-2xl border-2 border-primary-container overflow-hidden flex flex-col relative scale-105 shadow-xl z-10">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 bg-primary-container text-white px-4 py-1 text-xs font-bold rounded-b-lg">가장 많이 찾는 구성</div>
+<div class="p-8 border-b border-outline-variant bg-surface-container-low">
+<h3 class="text-xl font-bold mb-2">Warehouse-2D</h3>
+<p class="text-on-surface-variant text-sm">물류 센터 및 제조 현장용</p>
+</div>
+<div class="p-8 flex-grow">
+<ul class="space-y-4">
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">산업용/고성능 프린터</span>
+<span class="bg-surface-container-high px-2 py-1 rounded text-primary-container font-semibold">확인 필요</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">2D 무선 스캐너 (장거리)</span>
+<span class="bg-surface-container-high px-2 py-1 rounded text-primary-container font-semibold">확인 필요</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">DB 연동 전문가 소프트웨어</span>
+<span class="text-tertiary flex items-center gap-1 font-bold"><span class="material-symbols-outlined text-[16px]">check_circle</span>포함</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">방문 설치 및 운영 최적화</span>
+<span class="text-tertiary flex items-center gap-1 font-bold"><span class="material-symbols-outlined text-[16px]">check_circle</span>지원</span>
+</li>
+</ul>
+</div>
+<div class="p-8 bg-surface-container-low">
+<div class="text-xs text-secondary-fixed-variant mb-4">* 현장 인프라 및 전동 거리 체크 필수</div>
+<div class="text-xl font-bold text-primary mb-6">환경 점검 후 확정</div>
+<button class="w-full py-4 bg-primary-container text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-all">패키지 상세 문의</button>
+</div>
+</div>
+<!-- Package 3 -->
+<div class="bg-white rounded-2xl border border-outline-variant overflow-hidden flex flex-col">
+<div class="p-8 border-b border-outline-variant">
+<h3 class="text-xl font-bold mb-2">Store-Basic</h3>
+<p class="text-on-surface-variant text-sm">일반 매장 및 사무실용</p>
+</div>
+<div class="p-8 flex-grow">
+<ul class="space-y-4">
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">감열식 소형 프린터</span>
+<span class="bg-surface-container-high px-2 py-1 rounded text-primary-container font-semibold">확인 필요</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">CCD 스캐너</span>
+<span class="bg-surface-container-high px-2 py-1 rounded text-primary-container font-semibold">확인 필요</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">이지 라벨러 (기본형)</span>
+<span class="text-tertiary flex items-center gap-1 font-bold"><span class="material-symbols-outlined text-[16px]">check_circle</span>포함</span>
+</li>
+<li class="flex items-center justify-between text-sm">
+<span class="text-secondary font-medium">원격 설정 가이드</span>
+<span class="text-tertiary flex items-center gap-1 font-bold"><span class="material-symbols-outlined text-[16px]">check_circle</span>지원</span>
+</li>
+</ul>
+</div>
+<div class="p-8 bg-surface-container-low">
+<div class="text-xs text-secondary-fixed-variant mb-4">* POS 연동 여부 확인 필요</div>
+<div class="text-xl font-bold text-primary mb-6">환경 점검 후 확정</div>
+<button class="w-full py-3 bg-white border-2 border-primary text-primary font-bold rounded-lg hover:bg-primary-container hover:text-white transition-all">패키지 상세 문의</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Software UI Preview Section -->
+<section class="py-24 bg-on-background text-white overflow-hidden">
+<div class="max-w-7xl mx-auto px-8">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+<div class="order-2 lg:order-1">
+<img alt="라벨 디자인 소프트웨어 인터페이스" class="rounded-xl shadow-2xl border border-outline/30 w-full h-auto" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnQWusr5XbRm08foFT-0Hk0NOeTGImhl41sysMftDQRiDYeq2Tqmf_eT817X52XelhmFe4Me1BB4wyHUnzZgrFcjFlLvpzMOuOTDtD3NKzBhxX5F7qovPE2B3jlGDXWiGlPTDwbqLxkGHyc-qJJbYJ6ezIbziVM17ybELWi4Ys6WWhng_2-wXk_TmfnQdsSjYnqKjQjspwNLkWl8I8yOzQnSJPJ1AzWJQ289fG-QQv_zxU8Zm3Q63u5wQwxAMo0JwnimJYX7Cobu9a"/>
+</div>
+<div class="order-1 lg:order-2">
+<h2 class="text-3xl font-bold mb-8">업무 속도를 높이는 전용 소프트웨어</h2>
+<div class="space-y-8">
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-primary-fixed text-3xl">brush</span>
+<div>
+<h4 class="text-lg font-bold mb-1 text-primary-fixed">Easy Design</h4>
+<p class="text-on-primary-container/70">드래그 앤 드롭 방식으로 누구나 1분 만에 라벨 서식을 디자인할 수 있습니다.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-primary-fixed text-3xl">database</span>
+<div>
+<h4 class="text-lg font-bold mb-1 text-primary-fixed">DB Sync</h4>
+<p class="text-on-primary-container/70">엑셀 데이터나 ERP 데이터를 불러와 수천 장의 라벨을 한 번에 자동 생성합니다.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-primary-fixed text-3xl">preview</span>
+<div>
+<h4 class="text-lg font-bold mb-1 text-primary-fixed">WYSIWYG Preview</h4>
+<p class="text-on-primary-container/70">출력 전 실제 규격과 데이터가 반영된 모습을 고해상도로 미리 확인합니다.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Setup Workflow Section -->
+<section class="py-24 bg-white">
+<div class="max-w-7xl mx-auto px-8">
+<h2 class="text-3xl font-bold text-center mb-16">운영 지원 프로세스</h2>
+<div class="relative grid grid-cols-1 md:grid-cols-4 gap-8">
+<!-- Step 1 -->
+<div class="text-center">
+<div class="w-16 h-16 bg-surface-container mx-auto rounded-full flex items-center justify-center text-primary font-bold text-xl mb-6 border-4 border-white shadow-md relative z-10">01</div>
+<h4 class="font-bold mb-2">환경 진단</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">작업 현장의 온·습도, 공간, PC 사양 및 연동 시스템을 점검합니다.</p>
+</div>
+<!-- Step 2 -->
+<div class="text-center">
+<div class="w-16 h-16 bg-surface-container mx-auto rounded-full flex items-center justify-center text-primary font-bold text-xl mb-6 border-4 border-white shadow-md relative z-10">02</div>
+<h4 class="font-bold mb-2">패키지 제안</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">진단 결과를 바탕으로 예산과 환경에 최적화된 모델 구성을 확정합니다.</p>
+</div>
+<!-- Step 3 -->
+<div class="text-center">
+<div class="w-16 h-16 bg-surface-container mx-auto rounded-full flex items-center justify-center text-primary font-bold text-xl mb-6 border-4 border-white shadow-md relative z-10">03</div>
+<h4 class="font-bold mb-2">방문/원격 설치</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">전문 엔지니어가 드라이버 설치부터 기기 연동까지 모든 세팅을 완료합니다.</p>
+</div>
+<!-- Step 4 -->
+<div class="text-center">
+<div class="w-16 h-16 bg-surface-container mx-auto rounded-full flex items-center justify-center text-primary font-bold text-xl mb-6 border-4 border-white shadow-md relative z-10">04</div>
+<h4 class="font-bold mb-2">운영 교육</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">현장 실무자가 문제없이 기기를 다룰 수 있도록 1:1 맞춤 교육을 진행합니다.</p>
+</div>
+<!-- Line Decor -->
+<div class="hidden md:block absolute top-8 left-0 w-full h-[2px] bg-outline-variant -z-0"></div>
+</div>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="py-24 bg-surface-container-low border-y border-outline-variant">
+<div class="max-w-4xl mx-auto px-8 text-center">
+<h2 class="text-3xl font-bold mb-6">합리적인 투자, 맞춤형 견적</h2>
+<p class="text-on-surface-variant text-lg mb-12">
+                거복이의꿈은 일률적인 가격 책정을 지양합니다. <br/>
+                고객사의 사용 환경(온도, 먼지, 협소도)과 출력 물량에 따라 장비의 수명과 안정성이 달라지기 때문입니다. <br/>
+                상담 후 최상의 가성비 패키지를 제안해 드립니다.
+            </p>
+<div class="inline-flex items-center gap-2 px-4 py-2 bg-primary-fixed text-primary rounded-lg font-bold mb-8">
+<span class="material-symbols-outlined">info</span>
+                패키지 도입 시 소프트웨어 라이선스 무상 포함 (기본형)
+            </div>
+<div>
+<button class="bg-primary-container text-on-primary-container px-10 py-5 rounded-xl font-bold text-xl shadow-xl hover:scale-[1.02] transition-all">실시간 견적 상담하기</button>
+</div>
+</div>
+</section>
+<!-- Contact Checklist -->
+<section class="py-24 bg-white">
+<div class="max-w-3xl mx-auto px-8">
+<div class="p-10 rounded-2xl border-2 border-dashed border-secondary-container bg-surface-container-lowest">
+<h3 class="text-xl font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">fact_check</span>
+                    원활한 상담을 위해 미리 확인해주세요
+                </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs text-secondary-fixed-variant font-bold uppercase tracking-wider">장비 확인</span>
+<div class="p-3 bg-white border border-outline-variant rounded flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">print</span>
+<span class="text-sm">기존 사용 프린터 제조사/모델명</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-secondary-fixed-variant font-bold uppercase tracking-wider">환경 확인</span>
+<div class="p-3 bg-white border border-outline-variant rounded flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">desktop_windows</span>
+<span class="text-sm">사용 중인 PC의 OS 버전</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-secondary-fixed-variant font-bold uppercase tracking-wider">소모품 확인</span>
+<div class="p-3 bg-white border border-outline-variant rounded flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">straighten</span>
+<span class="text-sm">사용할 라벨의 가로/세로 사이즈</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs text-secondary-fixed-variant font-bold uppercase tracking-wider">시스템 확인</span>
+<div class="p-3 bg-white border border-outline-variant rounded flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">link</span>
+<span class="text-sm">연동 필요한 ERP 또는 쇼핑몰명</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="w-full py-12 bg-surface-container-low dark:bg-surface-container-highest">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 px-8 max-w-7xl mx-auto">
+<div>
+<div class="text-lg font-bold text-secondary dark:text-secondary-fixed mb-4">거복이의꿈</div>
+<p class="font-body text-sm leading-relaxed text-on-surface-variant dark:text-surface-variant">
+                    © 2024 거복이의꿈. All rights reserved. 상담 후 맞춤형 패키지 제안을 원칙으로 합니다.
+                </p>
+</div>
+<div class="flex flex-wrap gap-x-8 gap-y-4 md:justify-end">
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-primary transition-opacity duration-200" href="#">사업자 정보</a>
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-primary transition-opacity duration-200" href="#">이용약관</a>
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-primary transition-opacity duration-200" href="#">개인정보처리방침</a>
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-primary transition-opacity duration-200" href="#">고객지원</a>
+</div>
+</div>
+</footer>
+</body></html>

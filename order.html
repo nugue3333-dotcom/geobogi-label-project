@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>주문 / 견적 | 거복이의꿈</title>
+  <meta name="description" content="선택한 바코드 프린터, 스캐너, 라벨 프로그램 패키지의 견적 상담 정보를 작성합니다." />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body data-page="order">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="거복이의꿈 홈">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span><strong>거복이의꿈</strong><small>바코드 운영 패키지 솔루션</small></span>
+    </a>
+    <nav class="site-nav" aria-label="주요 메뉴">
+      <a href="index.html" data-page="home">홈</a>
+      <a href="products.html" data-page="products">제품</a>
+      <a href="program.html" data-page="program">프로그램</a>
+      <a href="use-cases.html" data-page="use-cases">사용처</a>
+      <a href="order.html" data-page="order">주문</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-primary" href="products.html">제품 추가</a>
+      <a class="cart-link" href="order.html" aria-label="주문서로 이동">
+        <span class="cart-icon" aria-hidden="true"></span>
+        <span class="cart-count" id="cartCount">0</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="hero-inner">
+        <p class="breadcrumb"><a href="index.html">홈</a> &gt; 주문</p>
+        <h1 class="page-title">주문 / 견적</h1>
+        <p class="lead">선택한 제품과 수량을 확인하고 견적을 요청하세요.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-inner order-layout">
+        <section class="order-panel">
+          <div class="stepper" aria-label="주문 단계">
+            <div class="step is-active"><span class="step-number">1</span><span>장바구니</span></div>
+            <div class="step"><span class="step-number">2</span><span>정보 입력</span></div>
+            <div class="step"><span class="step-number">3</span><span>견적 완료</span></div>
+          </div>
+          <h2>선택 상품</h2>
+          <div class="order-table" id="orderItems"></div>
+          <div class="quote-summary">
+            <div class="summary-line"><span>상품 금액</span><strong>견적 확인</strong></div>
+            <div class="summary-line"><span>부가세</span><strong>확인 후 안내</strong></div>
+            <div class="summary-line total"><span>합계 금액</span><strong>상담 후 확정</strong></div>
+          </div>
+          <div class="cta-row">
+            <a class="btn btn-secondary" href="products.html">제품 더 고르기</a>
+            <button class="btn btn-green" type="submit" form="orderForm">견적서 보기</button>
+          </div>
+        </section>
+
+        <aside class="order-panel">
+          <h2>상담 정보</h2>
+          <form id="orderForm" class="form-grid">
+            <label class="form-field full">
+              <span>상호 또는 담당자</span>
+              <input type="text" name="name" placeholder="예: 거복이상사" autocomplete="organization" />
+            </label>
+            <label class="form-field full">
+              <span>연락 방법</span>
+              <input type="text" name="contact" placeholder="전화, 카카오톡, 이메일" autocomplete="off" />
+            </label>
+            <label class="form-field">
+              <span>설치 지역</span>
+              <input type="text" name="region" placeholder="예: 서울" autocomplete="address-level1" />
+            </label>
+            <label class="form-field">
+              <span>지원 방식</span>
+              <select name="install">
+                <option>방문 설치 상담</option>
+                <option>원격 설정 상담</option>
+                <option>제품만 상담</option>
+              </select>
+            </label>
+            <label class="form-field full">
+              <span>요청사항</span>
+              <textarea name="memo" placeholder="라벨 크기, 하루 출력량, 스캔할 코드 종류, 사용 중인 PC 환경을 적어주세요."></textarea>
+            </label>
+            <div class="form-field full">
+              <button class="btn btn-green" type="submit">주문하기</button>
+            </div>
+          </form>
+          <p class="notice" style="margin-top:14px">견적 유효기간과 결제 및 납품 조건은 별도 안내됩니다.</p>
+          <p class="success" id="orderSuccess" role="status"></p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>주문 정보는 현재 브라우저 화면에서만 확인되는 상담용 양식입니다. 실제 접수 채널은 문의처 확정 후 연결합니다.</p>
+  </footer>
+  <script src="shop-data.js"></script>
+  <script src="site.js"></script>
+</body>
+</html>

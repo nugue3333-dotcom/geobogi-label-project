@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>제품 | 거복이의꿈</title>
+  <meta name="description" content="바코드 프린터, 스캐너, 소모품, 패키지 상담 후보를 비교합니다." />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body data-page="products">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="거복이의꿈 홈">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span><strong>거복이의꿈</strong><small>바코드 운영 패키지 솔루션</small></span>
+    </a>
+    <nav class="site-nav" aria-label="주요 메뉴">
+      <a href="index.html" data-page="home">홈</a>
+      <a href="products.html" data-page="products">제품</a>
+      <a href="program.html" data-page="program">프로그램</a>
+      <a href="use-cases.html" data-page="use-cases">사용처</a>
+      <a href="order.html" data-page="order">주문</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-primary" href="order.html">견적 문의</a>
+      <a class="cart-link" href="order.html" aria-label="주문서로 이동">
+        <span class="cart-icon" aria-hidden="true"></span>
+        <span class="cart-count" id="cartCount">0</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="hero-inner">
+        <p class="breadcrumb"><a href="index.html">홈</a> &gt; 제품</p>
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">제품</h1>
+            <p class="lead">업무 환경에 맞는 프린터와 스캐너를 선택하세요.</p>
+          </div>
+          <select class="select-control" aria-label="정렬">
+            <option>인기순</option>
+            <option>제조사순</option>
+            <option>상담 후보순</option>
+          </select>
+        </div>
+        <div class="tab-row" aria-label="제품 종류">
+          <button class="filter-chip is-active" type="button" data-category="all">전체</button>
+          <button class="filter-chip" type="button" data-category="printer">프린터</button>
+          <button class="filter-chip" type="button" data-category="scanner">스캐너</button>
+          <button class="filter-chip" type="button" data-category="package">패키지</button>
+          <button class="filter-chip" type="button" data-category="supply">액세서리</button>
+        </div>
+        <div class="product-toolbar">
+          <div class="mini-filter" id="makerFilters">
+            <strong>제조사</strong>
+            <button class="filter-chip is-active" type="button" data-maker="all">전체</button>
+            <button class="filter-chip" type="button" data-maker="BIXOLON">BIXOLON</button>
+            <button class="filter-chip" type="button" data-maker="TSC">TSC</button>
+            <button class="filter-chip" type="button" data-maker="Zebra">Zebra</button>
+          </div>
+          <div class="mini-filter" id="methodFilters">
+            <strong>출력/연결</strong>
+            <button class="filter-chip is-active" type="button" data-method="all">전체</button>
+            <button class="filter-chip" type="button" data-method="감열">감열</button>
+            <button class="filter-chip" type="button" data-method="열전사">열전사</button>
+            <button class="filter-chip" type="button" data-method="유선">유선</button>
+            <button class="filter-chip" type="button" data-method="무선">무선</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-inner">
+        <section class="product-board" aria-live="polite">
+          <div class="board-head">
+            <div>
+              <strong id="boardTitle">전체 제품</strong>
+              <span id="boardSubtitle">프린터, 스캐너, 패키지, 액세서리 상담 후보를 비교합니다.</span>
+            </div>
+            <span class="chip" id="boardCount">0개</span>
+          </div>
+          <div class="product-groups" id="productGroups"></div>
+        </section>
+        <div class="benefit-strip">
+          <div class="benefit"><span class="benefit-icon">H</span><span><strong>빠른 상담</strong>업무 시간과 설치 범위 확인</span></div>
+          <div class="benefit"><span class="benefit-icon">C</span><span><strong>맞춤 구성 제안</strong>라벨 규격과 스캔 동선에 맞춰 검토</span></div>
+          <div class="benefit"><span class="benefit-icon">Q</span><span><strong>견적서 즉시 발행</strong>확인된 항목 기준으로 안내</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>표시된 제품은 상담 후보입니다. 실제 모델, 가격, 재고, 라벨 규격, 설치지원, 보증·환불·배송 조건은 주문서 확인 후 확정됩니다.</p>
+  </footer>
+  <script src="shop-data.js"></script>
+  <script src="site.js"></script>
+</body>
+</html>

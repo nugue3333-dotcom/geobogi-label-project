@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_blue">#0B2545</color>
+    <color name="accent_blue">#1F6FEB</color>
+    <color name="accent_green">#12805C</color>
+    <color name="ink">#1F2937</color>
+    <color name="muted">#6B7280</color>
+    <color name="line">#D8DEE8</color>
+    <color name="surface">#F4F6F9</color>
+    <color name="white">#FFFFFF</color>
+</resources>

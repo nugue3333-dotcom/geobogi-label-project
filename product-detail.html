@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>제품 상세 | 거복이의꿈</title>
+  <meta name="description" content="바코드 프린터, 스캐너, 패키지 제품의 대표사진과 핵심 스펙을 확인합니다." />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body data-page="products">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="거복이의꿈 홈">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span><strong>거복이의꿈</strong><small>바코드 운영 패키지 솔루션</small></span>
+    </a>
+    <nav class="site-nav" aria-label="주요 메뉴">
+      <a href="index.html" data-page="home">홈</a>
+      <a href="products.html" data-page="products">제품</a>
+      <a href="program.html" data-page="program">프로그램</a>
+      <a href="use-cases.html" data-page="use-cases">사용처</a>
+      <a href="order.html" data-page="order">주문</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-primary" href="order.html">견적 문의</a>
+      <a class="cart-link" href="order.html" aria-label="주문서로 이동">
+        <span class="cart-icon" aria-hidden="true"></span>
+        <span class="cart-count" id="cartCount">0</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="hero-inner">
+        <p class="breadcrumb"><a href="index.html">홈</a> &gt; <a href="products.html">제품</a> &gt; 상세</p>
+        <div class="detail-layout" id="detailMount"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>제품 상세는 상담 후보 기준입니다. 실제 모델, 라벨 규격, 드라이버, 연결 방식은 주문서 확인 후 확정합니다.</p>
+  </footer>
+  <script src="shop-data.js"></script>
+  <script src="site.js"></script>
+</body>
+</html>

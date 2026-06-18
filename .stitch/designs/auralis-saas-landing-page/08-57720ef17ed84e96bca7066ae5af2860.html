@@ -1,0 +1,415 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Auralis - Bringing technology to life</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline-variant": "#c4c7c7",
+                      "on-tertiary-fixed": "#1d1b1a",
+                      "tertiary-container": "#1d1b1a",
+                      "surface-tint": "#5f5e5e",
+                      "on-secondary-container": "#626262",
+                      "surface-container-low": "#f7f3f2",
+                      "on-surface": "#1c1b1b",
+                      "on-secondary-fixed-variant": "#464747",
+                      "primary": "#000000",
+                      "surface-container-highest": "#e5e2e1",
+                      "inverse-on-surface": "#f4f0ef",
+                      "on-tertiary-container": "#868381",
+                      "on-error-container": "#93000a",
+                      "outline": "#747878",
+                      "on-primary": "#ffffff",
+                      "inverse-primary": "#c8c6c5",
+                      "surface-container-high": "#ebe7e6",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#fdf8f8",
+                      "on-tertiary-fixed-variant": "#484645",
+                      "background": "#fdf8f8",
+                      "surface-variant": "#e5e2e1",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-fixed": "#1b1c1c",
+                      "inverse-surface": "#313030",
+                      "secondary-container": "#e1dfdf",
+                      "primary-container": "#1c1b1b",
+                      "surface": "#fdf8f8",
+                      "on-surface-variant": "#444748",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "secondary": "#5e5e5e",
+                      "on-error": "#ffffff",
+                      "secondary-fixed-dim": "#c7c6c6",
+                      "on-primary-fixed-variant": "#474646",
+                      "surface-dim": "#ddd9d8",
+                      "tertiary": "#000000",
+                      "tertiary-fixed-dim": "#cac6c3",
+                      "surface-container": "#f1edec",
+                      "on-primary-fixed": "#1c1b1b",
+                      "primary-fixed-dim": "#c8c6c5",
+                      "on-background": "#1c1b1b",
+                      "tertiary-fixed": "#e6e1df",
+                      "secondary-fixed": "#e4e2e2",
+                      "primary-fixed": "#e5e2e1",
+                      "error-container": "#ffdad6",
+                      "on-primary-container": "#858383"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px",
+                      "2xl": "1.5rem",
+                      "3xl": "1.75rem"
+              },
+              "spacing": {
+                      "unit_base": "8px",
+                      "max_width": "1280px",
+                      "gutter": "32px",
+                      "columns": "12",
+                      "section_gap_max": "180px",
+                      "container_padding": "32px",
+                      "section_gap_min": "140px"
+              },
+              "fontFamily": {
+                      "h1": ["Geist"],
+                      "h2": ["Geist"],
+                      "label-caps": ["Geist"],
+                      "body-md": ["Geist"],
+                      "body-lg": ["Geist"],
+                      "h3": ["Geist"]
+              },
+              "fontSize": {
+                      "h1": ["84px", {"lineHeight": "1.05", "letterSpacing": "-0.04em", "fontWeight": "600"}],
+                      "h2": ["64px", {"lineHeight": "1.1", "letterSpacing": "-0.03em", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                      "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+                      "h3": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body { background-color: #F7F7F5; color: #111111; }
+        .text-secondary-auralis { color: #6B6B6B; }
+        .bg-panel-auralis { background-color: #F3F2EF; }
+        .bg-card-auralis { background-color: #FCFCFB; }
+        .border-auralis { border-color: #E7E7E4; }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col font-body-md text-body-md overflow-x-hidden">
+<!-- TOP NAVIGATION -->
+<nav class="fixed top-0 w-full z-50 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-[#F7F7F5]/80 backdrop-blur-md dark:bg-zinc-950/80 transition-all">
+<div class="max-w-[1280px] mx-auto px-8 flex justify-between items-center h-[72px]">
+<div class="flex items-center gap-12">
+<a class="text-lg font-bold tracking-tighter text-zinc-900 dark:text-zinc-50 font-h3 text-[20px]" href="#">
+                    Auralis
+                </a>
+<div class="hidden md:flex items-center gap-6">
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors duration-200" href="#">Auralis Studio</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors duration-200" href="#">Auralis Agents</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors duration-200" href="#">Auralis API</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors duration-200" href="#">Resources</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors duration-200" href="#">Enterprise</a>
+<a class="font-['Inter'] text-sm font-medium tracking-tight text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors duration-200" href="#">Pricing</a>
+</div>
+</div>
+<div class="flex items-center">
+<a class="bg-primary text-on-primary px-4 py-2 rounded-full text-sm font-medium transition-all scale-98 active:opacity-80" href="#">
+                    Sign up
+                </a>
+</div>
+</div>
+</nav>
+<!-- MAIN CONTENT CANVAS -->
+<main class="flex-grow pt-[140px] pb-[180px]">
+<!-- HERO SECTION -->
+<section class="max-w-[1280px] mx-auto px-8 mb-[140px]">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<div class="lg:col-span-7 flex flex-col gap-8">
+<h1 class="font-h1 text-h1 text-primary"><h1 class="font-h1 text-h1 text-primary cursor-text" spellcheck="false" data-stitch-added-classes="cursor-text" style="--tw-border-spacing-y: 0; --tw-translate-x: 0; --tw-translate-y: 0; --tw-rotate: 0; --tw-skew-x: 0; --tw-skew-y: 0; --tw-scale-x: 1; --tw-scale-y: 1; --tw-pan-x: ; --tw-pan-y: ; --tw-pinch-zoom: ; --tw-scroll-snap-strictness: proximity; --tw-gradient-from-position: ; --tw-gradient-via-position: ; --tw-gradient-to-position: ; --tw-ordinal: ; --tw-slashed-zero: ; --tw-numeric-figure: ; --tw-numeric-spacing: ; --tw-numeric-fraction: ; --tw-ring-inset: ; --tw-ring-offset-width: 0px; --tw-ring-offset-color: #fff; --tw-ring-color: rgb(59 130 246 / 0.5); --tw-ring-offset-shadow: 0 0 #0000; --tw-ring-shadow: 0 0 #0000; --tw-shadow: 0 0 #0000; --tw-shadow-colored: 0 0 #0000; --tw-blur: ; --tw-brightness: ; --tw-contrast: ; --tw-grayscale: ; --tw-hue-rotate: ; --tw-invert: ; --tw-saturate: ; --tw-sepia: ; --tw-drop-shadow: ; --tw-backdrop-blur: ; --tw-backdrop-brightness: ; --tw-backdrop-contrast: ; --tw-backdrop-grayscale: ; --tw-backdrop-hue-rotate: ; --tw-backdrop-invert: ; --tw-backdrop-opacity: ; --tw-backdrop-saturate: ; --tw-backdrop-sepia: ; --tw-contain-size: ; --tw-contain-layout: ; --tw-contain-paint: ; --tw-contain-style: ; --tw-text-opacity: 1; color: rgb(0, 0, 0); outline: none !important;">AI audio&nbsp;that sounds human</h1></h1>
+<div class="flex flex-wrap items-center gap-4 mt-4">
+<a class="bg-primary text-on-primary px-6 py-3 rounded-full font-medium transition-all hover:bg-opacity-90" href="#">Sign up</a>
+<a class="bg-transparent border border-outline text-primary px-6 py-3 rounded-full font-medium transition-all hover:bg-surface-variant" href="#">Contact sales</a>
+</div>
+</div>
+<div class="lg:col-span-4 lg:col-start-9 flex justify-end">
+<p class="font-body-lg text-body-lg text-secondary-auralis max-w-sm text-right lg:text-left pt-4">
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+                    </p>
+</div>
+</div>
+</section>
+<!-- HERO PRODUCT PANEL -->
+<section class="max-w-[1280px] mx-auto px-8 mb-[180px]">
+<div class="bg-panel-auralis rounded-3xl p-8 flex flex-col relative overflow-hidden border border-auralis min-h-[600px] flex justify-between">
+<!-- Top Tabs -->
+<div class="flex justify-between items-center z-10">
+<div class="flex bg-surface-container-low p-1 rounded-full border border-auralis shadow-sm">
+<button class="px-4 py-2 bg-surface text-primary rounded-full text-sm font-medium shadow-sm">Auralis Studio</button>
+<button class="px-4 py-2 text-secondary-auralis rounded-full text-sm font-medium hover:text-primary transition-colors">Auralis Agents</button>
+<button class="px-4 py-2 text-secondary-auralis rounded-full text-sm font-medium hover:text-primary transition-colors">Auralis API</button>
+</div>
+<div class="bg-surface-container-low px-4 py-2 rounded-full border border-auralis flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-sm font-medium">AI Voice Generator</span>
+</div>
+</div>
+<!-- Center Orbs (Simulated with gradients) -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-100">
+<div class="w-[300px] h-[300px] rounded-full bg-gradient-to-tr from-rose-400 to-orange-300 blur-3xl absolute -ml-40"></div>
+<div class="w-[400px] h-[400px] rounded-full bg-gradient-to-tr from-indigo-300 to-purple-400 blur-3xl absolute"></div>
+<div class="w-[250px] h-[250px] rounded-full bg-gradient-to-tr from-emerald-300 to-teal-200 blur-3xl absolute ml-40 mt-20"></div>
+<div class="w-[350px] h-[350px] rounded-full bg-gradient-to-tr from-sky-300 to-blue-400 blur-3xl absolute ml-80 -mt-20"></div>
+</div>
+<!-- Play Button Center -->
+<div class="z-10 self-center my-auto flex flex-col items-center gap-4">
+<button class="w-20 h-20 bg-surface rounded-full flex items-center justify-center shadow-lg border border-auralis transition-transform hover:scale-105 group">
+<span class="material-symbols-outlined text-4xl text-primary pl-1 group-hover:text-emerald-600 transition-colors">play_arrow</span>
+</button>
+</div>
+<!-- Bottom Bar -->
+<div class="flex justify-between items-center z-10 bg-surface/80 backdrop-blur-md p-4 rounded-2xl border border-auralis">
+<div class="flex gap-6 overflow-x-auto no-scrollbar">
+<span class="text-sm font-medium text-primary">AI Voice Generator</span>
+<span class="text-sm font-medium text-secondary-auralis">Text to Speech</span>
+<span class="text-sm font-medium text-secondary-auralis">Music</span>
+<span class="text-sm font-medium text-secondary-auralis">Sound Effects</span>
+<span class="text-sm font-medium text-secondary-auralis">Voice Cloning</span>
+</div>
+<a class="bg-primary text-on-primary px-6 py-2 rounded-full text-sm font-medium whitespace-nowrap" href="#">Sign up</a>
+</div>
+</div>
+</section>
+<!-- TRUST STRIP -->
+<section class="max-w-[1280px] mx-auto px-8 mb-[180px] text-center">
+<h3 class="font-label-caps text-label-caps text-secondary-auralis uppercase tracking-widest mb-12">Trusted by leading developers and enterprises</h3>
+<div class="flex flex-col gap-8 opacity-60">
+<!-- Row 1 -->
+<div class="flex justify-center gap-16 flex-wrap">
+<div class="h-8 w-32 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-24 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-40 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-28 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-36 bg-secondary-auralis rounded opacity-20"></div>
+</div>
+<!-- Row 2 -->
+<div class="flex justify-center gap-16 flex-wrap">
+<div class="h-8 w-28 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-40 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-32 bg-secondary-auralis rounded opacity-20"></div>
+<div class="h-8 w-24 bg-secondary-auralis rounded opacity-20"></div>
+</div>
+</div>
+</section>
+<!-- PLATFORM OVERVIEW -->
+<section class="max-w-[1280px] mx-auto px-8 mb-[180px]">
+<div class="text-center max-w-3xl mx-auto mb-16">
+<h2 class="font-h2 text-h2 text-primary mb-6">Modular Audio Intelligence</h2>
+<p class="font-body-lg text-body-lg text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12"><!-- Large Card 1 -->
+<div class="bg-card-auralis rounded-2xl p-6 border border-auralis h-[300px] flex flex-col justify-between relative overflow-hidden group hover:shadow-sm transition-shadow">
+<div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/20 opacity-40 group-hover:opacity-60 transition-opacity"></div>
+<div class="flex justify-between items-start z-10">
+<span class="material-symbols-outlined text-secondary-auralis">edit_document</span>
+</div>
+<div class="z-10">
+<h4 class="font-h3 text-[20px] mb-2">Soft Editor UI</h4>
+<p class="text-sm text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+</div>
+</div>
+<!-- Large Card 2 -->
+<div class="bg-card-auralis rounded-2xl p-6 border border-auralis h-[300px] flex flex-col justify-between relative overflow-hidden group hover:shadow-sm transition-shadow">
+<div class="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/20 opacity-40 group-hover:opacity-60 transition-opacity"></div>
+<div class="flex justify-between items-start z-10">
+<span class="material-symbols-outlined text-secondary-auralis">closed_caption</span>
+</div>
+<div class="z-10">
+<h4 class="font-h3 text-[20px] mb-2">Transcript Panel</h4>
+<p class="text-sm text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+</div>
+</div></div>
+<div class="w-full aspect-[16/9] bg-panel-auralis rounded-3xl border border-auralis flex items-center justify-center overflow-hidden relative group">
+<img alt="Dashboard Preview" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500" data-alt="A pristine, light-mode dashboard interface displayed on a high-end monitor in a minimalist studio environment. The UI features soft, tonal layering, light grays, and crisp white panels with subtle pastel accents in blue and coral. The scene is evenly lit with soft, diffused white light, creating a professional, enterprise-grade aesthetic. The mood is analytical, clean, and highly organized." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4h27m9NHk2jjeFsNMaf-fMslFizA6a-t8X4pfYTbZ6tcZi37BtlKy_SNcizGzozMtVK5OX3-uJTjQhS1zEeb0f35UDY2-LlusNAzi1qaOm-GNi7TEjv4QEacOTrpuP-v3ZTDWRPutxlnwbFYt4mWmGvyR6kAO0gXYHVwhNfokp1DKXxjLg6LgwhaaJUQc3DTEYxrvH9_gqvlkiZAqeutPR9f-JbY7VuJ70IRvs9msigSw1tiQmgBkVeXhlfomA93RTP8v02vDwDU">
+</div>
+</section>
+<!-- AURALIS STUDIO MODULE -->
+<section class="max-w-[1280px] mx-auto px-8 mb-[180px]">
+<div class="flex items-center gap-4 mb-8">
+<span class="font-label-caps text-label-caps bg-surface-variant text-primary px-3 py-1 rounded-full">Auralis Studio</span>
+<div class="h-px bg-auralis flex-grow opacity-50"></div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-12">
+<div class="lg:col-span-5">
+<h2 class="font-h2 text-[48px] text-primary leading-tight">Endless Applications</h2>
+</div>
+<div class="lg:col-span-6 lg:col-start-7 flex items-end">
+<p class="font-body-lg text-body-lg text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<!-- Large Card 1 -->
+<div class="bg-card-auralis rounded-2xl p-6 border border-auralis h-[300px] flex flex-col justify-between relative overflow-hidden group hover:shadow-sm transition-shadow">
+<div class="absolute inset-0 bg-gradient-to-br from-transparent to-surface-variant/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start z-10">
+<span class="material-symbols-outlined text-secondary-auralis">edit_document</span>
+</div>
+<div class="z-10">
+<h4 class="font-h3 text-[20px] mb-2">Soft Editor UI</h4>
+<p class="text-sm text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+</div>
+</div>
+<!-- Large Card 2 -->
+<div class="bg-card-auralis rounded-2xl p-6 border border-auralis h-[300px] flex flex-col justify-between relative overflow-hidden group hover:shadow-sm transition-shadow">
+<div class="absolute inset-0 bg-gradient-to-br from-transparent to-surface-variant/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start z-10">
+<span class="material-symbols-outlined text-secondary-auralis">closed_caption</span>
+</div>
+<div class="z-10">
+<h4 class="font-h3 text-[20px] mb-2">Transcript Panel</h4>
+<p class="text-sm text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+<!-- Small Cards -->
+<div class="bg-panel-auralis rounded-xl p-5 border border-auralis flex flex-col gap-3 items-start hover:bg-surface-variant/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-primary">music_note</span>
+<span class="font-medium text-sm">Music</span>
+</div>
+<div class="bg-panel-auralis rounded-xl p-5 border border-auralis flex flex-col gap-3 items-start hover:bg-surface-variant/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-primary">graphic_eq</span>
+<span class="font-medium text-sm">SFX</span>
+</div>
+<div class="bg-panel-auralis rounded-xl p-5 border border-auralis flex flex-col gap-3 items-start hover:bg-surface-variant/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-primary">record_voice_over</span>
+<span class="font-medium text-sm">Voices</span>
+</div>
+<div class="bg-panel-auralis rounded-xl p-5 border border-auralis flex flex-col gap-3 items-start hover:bg-surface-variant/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-primary">movie</span>
+<span class="font-medium text-sm">Image &amp; Video</span>
+</div>
+</div>
+</section>
+<!-- AURALIS AGENTS MODULE -->
+<section class="max-w-[1280px] mx-auto px-8 mb-[140px]">
+<div class="flex items-center gap-4 mb-8">
+<span class="font-label-caps text-label-caps bg-surface-variant text-primary px-3 py-1 rounded-full">Auralis Agents</span>
+<div class="h-px bg-auralis flex-grow opacity-50"></div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-12">
+<div class="lg:col-span-6">
+<h2 class="font-h2 text-[48px] text-primary leading-tight">Enterprise-grade security and scale</h2>
+</div>
+<div class="lg:col-span-5 lg:col-start-8 flex items-end">
+<p class="font-body-lg text-body-lg text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Agent Card 1 -->
+<div class="bg-card-auralis rounded-3xl p-8 border border-auralis h-[450px] flex flex-col relative overflow-hidden group">
+<div class="absolute inset-0 flex items-center justify-center opacity-40 group-hover:opacity-60 transition-opacity duration-500">
+<div class="w-[200px] h-[200px] rounded-full bg-gradient-to-r from-blue-200 to-cyan-100 blur-2xl absolute -ml-20 -mt-20"></div>
+<div class="w-[200px] h-[200px] rounded-full bg-gradient-to-r from-purple-200 to-pink-100 blur-2xl absolute ml-20 mt-20"></div>
+</div>
+<div class="z-10 bg-surface/80 backdrop-blur-sm self-start px-4 py-2 rounded-full border border-auralis text-sm font-medium mb-auto">
+                        Omnichannel agents
+                    </div>
+<div class="z-10 mt-auto bg-surface/90 backdrop-blur-md p-6 rounded-2xl border border-auralis">
+<div class="flex gap-4 items-center mb-4">
+<div class="w-10 h-10 bg-primary-container rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container text-sm">smart_toy</span>
+</div>
+<div class="bg-surface-variant px-4 py-2 rounded-2xl rounded-tl-sm text-sm">
+                                Hello! How can I assist you today?
+                            </div>
+</div>
+<div class="flex gap-4 items-center flex-row-reverse">
+<div class="w-10 h-10 bg-surface-variant rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary-auralis text-sm">person</span>
+</div>
+<div class="bg-primary text-on-primary px-4 py-2 rounded-2xl rounded-tr-sm text-sm">
+                                I need help checking my deployment status.
+                            </div>
+</div>
+</div>
+</div>
+<!-- Agent Card 2 -->
+<div class="bg-card-auralis rounded-3xl p-8 border border-auralis h-[450px] flex flex-col relative overflow-hidden group">
+<div class="absolute inset-0 flex items-end justify-center pb-8 opacity-50 group-hover:opacity-80 transition-opacity duration-500">
+<!-- Abstract Chart Representation -->
+<div class="flex items-end gap-2 h-40 w-full px-8">
+<div class="w-full bg-surface-variant rounded-t-sm h-[30%]"></div>
+<div class="w-full bg-surface-variant rounded-t-sm h-[50%]"></div>
+<div class="w-full bg-primary/20 rounded-t-sm h-[80%] relative">
+<div class="absolute -top-3 -right-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-surface"><div class="w-2 h-2 bg-surface rounded-full"></div></div>
+</div>
+<div class="w-full bg-surface-variant rounded-t-sm h-[60%]"></div>
+<div class="w-full bg-surface-variant rounded-t-sm h-[40%]"></div>
+</div>
+</div>
+<div class="z-10 bg-surface/80 backdrop-blur-sm self-start px-4 py-2 rounded-full border border-auralis text-sm font-medium mb-auto">
+                        Analytics
+                    </div>
+<div class="z-10 mt-auto bg-surface/90 backdrop-blur-md p-6 rounded-2xl border border-auralis">
+<h4 class="font-h3 text-[20px] mb-2">Deep Insights</h4>
+<p class="text-sm text-secondary-auralis">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FOOTER -->
+<footer class="w-full border-t border-zinc-200 dark:border-zinc-800 bg-[#F3F2EF] dark:bg-zinc-900 mt-auto">
+<div class="max-w-[1280px] mx-auto px-8 py-20 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-12">
+<div class="col-span-2 flex flex-col gap-6">
+<span class="text-base font-bold text-zinc-900 dark:text-zinc-50 font-h3 text-[20px]">Auralis</span>
+<p class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 max-w-xs">
+                    © 2024 Auralis AI. Engineered for precision.
+                </p>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-caps text-label-caps text-zinc-900 dark:text-zinc-50 uppercase tracking-widest mb-2">Products</h4>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Auralis Studio</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Auralis Agents</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Auralis API</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-caps text-label-caps text-zinc-900 dark:text-zinc-50 uppercase tracking-widest mb-2">Developers</h4>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Documentation</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">GitHub</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Status</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-caps text-label-caps text-zinc-900 dark:text-zinc-50 uppercase tracking-widest mb-2">Company</h4>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">About</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Blog</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Careers</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-label-caps text-label-caps text-zinc-900 dark:text-zinc-50 uppercase tracking-widest mb-2">Legal</h4>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Privacy</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Terms</a>
+<a class="font-['Inter'] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 underline-offset-4 hover:underline transition-opacity duration-150" href="#">Twitter</a>
+</div>
+</div>
+</footer>
+
+
+</body></html>

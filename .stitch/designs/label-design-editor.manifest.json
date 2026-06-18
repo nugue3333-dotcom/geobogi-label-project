@@ -1,0 +1,18 @@
+{
+  "project": {
+    "title": "Screenshot Folder Explorer",
+    "id": "13646732187149194855"
+  },
+  "screen": {
+    "title": "라벨 디자인 편집기",
+    "id": "448132a7cb7f4d95969024422316b2a9",
+    "resourceName": "projects/13646732187149194855/screens/448132a7cb7f4d95969024422316b2a9",
+    "deviceType": "DESKTOP",
+    "width": 2560,
+    "height": 2048
+  },
+  "files": {
+    "html": ".stitch/designs/label-design-editor.html",
+    "screenshot": ".stitch/designs/label-design-editor.png"
+  }
+}

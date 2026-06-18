@@ -1,0 +1,1129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>거복이의꿈 | 바코드 프린터·스캐너·발행 프로그램 패키지</title>
+  <meta
+    name="description"
+    content="바코드 프린터, 스캐너, 라벨 발행 프로그램, 설치지원 범위를 업무 환경에 맞춰 상담하는 패키지 안내 페이지입니다."
+  />
+  <style>
+    :root {
+      --ink: #122033;
+      --muted: #5b677a;
+      --soft: #f6f8fb;
+      --soft-blue: #eef4ff;
+      --soft-green: #edf7f1;
+      --soft-amber: #fff7ed;
+      --paper: #ffffff;
+      --navy: #0f2742;
+      --blue: #2563eb;
+      --blue-deep: #164ea6;
+      --green: #1f7a5a;
+      --amber: #b86b18;
+      --line: #dbe4ef;
+      --line-soft: #e8eef6;
+      --shadow: 0 18px 44px rgba(15, 39, 66, 0.1);
+      --radius: 8px;
+      --container: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      color: var(--ink);
+      font-family: "Inter", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+      line-height: 1.68;
+      background: var(--paper);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      max-width: 100%;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      padding: 14px clamp(18px, 5vw, 56px);
+      border-bottom: 1px solid rgba(219, 228, 239, 0.86);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      min-width: max-content;
+      font-weight: 840;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--navy);
+      font-size: 0.9rem;
+      font-weight: 900;
+    }
+
+    .brand small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.73rem;
+      font-weight: 720;
+      line-height: 1.2;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: #334155;
+      font-size: 0.94rem;
+      font-weight: 760;
+    }
+
+    .header-cta,
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      font-size: 0.96rem;
+      font-weight: 820;
+      line-height: 1;
+      white-space: nowrap;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .header-cta,
+    .btn-primary {
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+    }
+
+    .header-cta:hover,
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      background: var(--blue-deep);
+    }
+
+    .btn-secondary {
+      color: var(--navy);
+      border-color: var(--line);
+      background: #fff;
+    }
+
+    .section {
+      padding: 76px clamp(18px, 5vw, 56px);
+    }
+
+    .section-inner {
+      max-width: var(--container);
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: clamp(48px, 7vw, 88px) clamp(18px, 5vw, 56px) 54px;
+      background:
+        linear-gradient(180deg, #f8fbff 0%, #ffffff 82%),
+        var(--paper);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(380px, 1.1fr);
+      gap: clamp(34px, 5vw, 70px);
+      align-items: center;
+      max-width: var(--container);
+      margin: 0 auto;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin-bottom: 22px;
+      color: var(--navy);
+      font-size: clamp(2.35rem, 5vw, 4.5rem);
+      font-weight: 860;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 650px;
+      color: #405064;
+      font-size: clamp(1.02rem, 2vw, 1.2rem);
+      margin-bottom: 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+
+    .signal-list {
+      display: grid;
+      gap: 10px;
+      color: #41526a;
+      font-size: 0.96rem;
+    }
+
+    .signal-list span {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .signal-list span::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-top: 0.68em;
+      border-radius: 2px;
+      background: var(--green);
+    }
+
+    .hero-media {
+      margin: 0;
+    }
+
+    .media-frame {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #e8eef6;
+      box-shadow: var(--shadow);
+    }
+
+    .media-frame img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+    }
+
+    .hero-media figcaption {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: right;
+    }
+
+    .hero-brief {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .brief-item {
+      padding: 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .brief-item strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--navy);
+      font-size: 0.92rem;
+    }
+
+    .brief-item small {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 30px;
+    }
+
+    .section-heading h2 {
+      color: var(--navy);
+      font-size: clamp(1.65rem, 3vw, 2.4rem);
+      font-weight: 820;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .section-heading p {
+      max-width: 520px;
+      color: var(--muted);
+    }
+
+    .eyebrow {
+      margin-bottom: 10px;
+      color: var(--blue);
+      font-size: 0.82rem;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .soft-band {
+      background: var(--soft);
+      border-block: 1px solid var(--line-soft);
+    }
+
+    .difference-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .info-card {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(15, 39, 66, 0.05);
+    }
+
+    .info-card .num {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--navy);
+      font-size: 0.84rem;
+      font-weight: 900;
+    }
+
+    .info-card h3 {
+      margin-bottom: 9px;
+      color: var(--navy);
+      font-size: 1.16rem;
+      line-height: 1.3;
+    }
+
+    .info-card p {
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: 0 14px 32px rgba(15, 39, 66, 0.06);
+    }
+
+    table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 18px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--navy);
+      background: #f8fbff;
+      font-size: 0.82rem;
+      font-weight: 880;
+    }
+
+    td {
+      color: #334155;
+      font-size: 0.95rem;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      color: var(--blue-deep);
+      background: #eaf1ff;
+      font-size: 0.77rem;
+      font-weight: 860;
+      white-space: nowrap;
+    }
+
+    .chip.green {
+      color: var(--green);
+      background: var(--soft-green);
+    }
+
+    .chip.amber {
+      color: var(--amber);
+      background: var(--soft-amber);
+    }
+
+    .program-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .app-preview {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .app-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--navy);
+      color: #fff;
+    }
+
+    .app-title {
+      font-weight: 860;
+    }
+
+    .app-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .app-actions span {
+      width: 72px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .app-body {
+      display: grid;
+      grid-template-columns: 172px 1fr 210px;
+      min-height: 430px;
+      background: var(--soft);
+    }
+
+    .app-side,
+    .app-panel {
+      padding: 16px;
+      background: #fff;
+    }
+
+    .app-side {
+      border-right: 1px solid var(--line);
+    }
+
+    .app-panel {
+      border-left: 1px solid var(--line);
+    }
+
+    .side-item {
+      display: block;
+      margin-bottom: 8px;
+      padding: 9px 10px;
+      border-radius: 7px;
+      color: #43536a;
+      font-size: 0.86rem;
+      font-weight: 720;
+    }
+
+    .side-item.active {
+      color: var(--blue-deep);
+      background: #eaf1ff;
+    }
+
+    .canvas {
+      padding: 18px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tool {
+      width: 34px;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .label-sheet {
+      display: grid;
+      gap: 13px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      min-height: 210px;
+    }
+
+    .barcode {
+      display: grid;
+      grid-template-columns: repeat(18, 1fr);
+      gap: 3px;
+      height: 58px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #f8fafc;
+    }
+
+    .barcode i {
+      display: block;
+      background: var(--ink);
+      opacity: 0.9;
+    }
+
+    .label-row {
+      height: 12px;
+      border-radius: 999px;
+      background: #e6edf6;
+    }
+
+    .label-row.short {
+      width: 62%;
+    }
+
+    .panel-group {
+      margin-bottom: 16px;
+    }
+
+    .panel-group strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--navy);
+      font-size: 0.9rem;
+    }
+
+    .field {
+      height: 34px;
+      margin-bottom: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .program-copy {
+      display: grid;
+      gap: 14px;
+    }
+
+    .program-copy .info-card {
+      box-shadow: none;
+    }
+
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .step {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .step span {
+      display: inline-block;
+      margin-bottom: 14px;
+      color: var(--blue);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--navy);
+      font-size: 1.05rem;
+    }
+
+    .step p {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .pricing-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .note-panel {
+      padding: 26px;
+      border: 1px solid #f1d8b8;
+      border-radius: var(--radius);
+      background: var(--soft-amber);
+    }
+
+    .note-panel h3,
+    .check-panel h3 {
+      margin-bottom: 12px;
+      color: var(--navy);
+      font-size: 1.18rem;
+    }
+
+    .check-panel {
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .check-list {
+      display: grid;
+      gap: 10px;
+      list-style: none;
+    }
+
+    .check-list li {
+      position: relative;
+      padding-left: 20px;
+      color: #3f4e63;
+      font-size: 0.95rem;
+    }
+
+    .check-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.68em;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--blue);
+    }
+
+    .contact {
+      color: #fff;
+      background: var(--navy);
+    }
+
+    .contact .section-heading h2 {
+      color: #fff;
+    }
+
+    .contact .section-heading p,
+    .contact .eyebrow {
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+
+    .contact-box {
+      padding: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.17);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .contact-box h3 {
+      margin-bottom: 12px;
+      font-size: 1.16rem;
+    }
+
+    .contact-box p,
+    .contact-box li {
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .contact-box .check-list li::before {
+      background: #82d7b1;
+    }
+
+    .contact-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .contact .btn-secondary {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    footer {
+      padding: 28px clamp(18px, 5vw, 56px);
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 0.85rem;
+    }
+
+    footer p {
+      max-width: var(--container);
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1020px) {
+      .hero-grid,
+      .program-grid,
+      .pricing-layout,
+      .contact-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .difference-grid,
+      .workflow-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .app-body {
+        grid-template-columns: 150px 1fr;
+      }
+
+      .app-panel {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .site-header {
+        position: static;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      nav {
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .header-cta {
+        width: 100%;
+      }
+
+      .section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .hero-brief,
+      .difference-grid,
+      .workflow-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .app-body {
+        grid-template-columns: 1fr;
+      }
+
+      .app-side {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .side-item {
+        margin-bottom: 0;
+        text-align: center;
+      }
+
+      .hero-actions,
+      .btn {
+        width: 100%;
+      }
+
+      .hero-media figcaption {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="거복이의꿈 홈">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span>
+        거복이의꿈
+        <small>Barcode package</small>
+      </span>
+    </a>
+    <nav aria-label="주요 메뉴">
+      <a href="#home">홈</a>
+      <a href="#products">제품</a>
+      <a href="#program">프로그램</a>
+      <a href="#pricing">가격</a>
+      <a href="#contact">문의</a>
+    </nav>
+    <a class="header-cta" href="#contact">구성 상담</a>
+  </header>
+
+  <main id="home">
+    <section class="hero" aria-label="바코드 운영 패키지 소개">
+      <div class="hero-grid">
+        <div>
+          <h1>바코드 프린터와 스캐너, 발행 프로그램까지 한 번에 구성합니다</h1>
+          <p class="lead">
+            장비만 따로 고르는 방식이 아니라 라벨 발행 프로그램, 스캔 조회 흐름, 출력 전 확인 절차까지 업무 환경에 맞춰 상담합니다.
+            모델, 라벨 규격, 설치지원 범위는 상담 후 확정합니다.
+          </p>
+          <div class="hero-actions" aria-label="주요 상담 버튼">
+            <a class="btn btn-primary" href="#contact">패키지 구성 상담</a>
+            <a class="btn btn-secondary" href="#products">제품 구성 보기</a>
+          </div>
+          <div class="signal-list">
+            <span>소형 매장, 온라인 판매, 창고, 자재 매장에 맞춰 패키지 방향을 정리합니다.</span>
+            <span>바코드 값은 문자열 기준으로 다뤄 앞자리 0이 사라지지 않도록 확인합니다.</span>
+            <span>실제 출력 전 미리보기와 dry-run 기준으로 라벨 데이터를 먼저 점검합니다.</span>
+          </div>
+        </div>
+        <figure class="hero-media">
+          <div class="media-frame">
+            <img src="assets/higgsfield/hero.png" alt="바코드 스캐너, 라벨 발행 프로그램, 라벨 프린터 구성 예시" />
+          </div>
+          <div class="hero-brief" aria-label="구성 요약">
+            <div class="brief-item">
+              <strong>스캐너</strong>
+              <small>입력 방식 확인</small>
+            </div>
+            <div class="brief-item">
+              <strong>발행 프로그램</strong>
+              <small>라벨 미리보기</small>
+            </div>
+            <div class="brief-item">
+              <strong>프린터</strong>
+              <small>출력 조건 점검</small>
+            </div>
+          </div>
+          <figcaption>구성 예시 이미지입니다. 실제 모델과 지원 범위는 상담 후 확정됩니다.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section soft-band" aria-label="차별점">
+      <div class="section-inner">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">차별점</p>
+            <h2>프린터만 파는 페이지가 아니라 운영 흐름을 같이 정리합니다</h2>
+          </div>
+          <p>
+            일반 장비 판매와 달리 스캔 입력, 상품 데이터, 라벨 양식, 출력 전 확인 흐름을 한 번에 묶어 상담합니다.
+          </p>
+        </div>
+        <div class="difference-grid">
+          <article class="info-card">
+            <span class="num">01</span>
+            <h3>장비와 프로그램을 함께 검토</h3>
+            <p>프린터, 스캐너, 발행 프로그램을 따로 보지 않고 고객 업무 순서에 맞춰 필요한 구성을 정리합니다.</p>
+          </article>
+          <article class="info-card">
+            <span class="num">02</span>
+            <h3>출력 전 확인 흐름 포함</h3>
+            <p>라벨 미리보기, 출력 목록, dry-run 확인을 기준으로 실제 출력 전에 데이터를 먼저 점검합니다.</p>
+          </article>
+          <article class="info-card">
+            <span class="num">03</span>
+            <h3>확정 전 항목을 분리</h3>
+            <p>가격, 모델, 라벨 규격, 설치지원, 보증·환불·배송 조건은 상담과 문서 확인 후 확정합니다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="products">
+      <div class="section-inner">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">제품 구성</p>
+            <h2>문서에 등록된 3가지 패키지 기준으로 안내합니다</h2>
+          </div>
+          <p>
+            아래 구성은 현재 패키지 문서 기준입니다. 프린터와 스캐너 모델, 라벨 크기, 드라이버 요구사항은 상담 단계에서 확인합니다.
+          </p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="바코드 패키지 비교표" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th>패키지</th>
+                <th>대상 업무</th>
+                <th>소프트웨어 범위</th>
+                <th>바코드 기준</th>
+                <th>확인 필요</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>입문형 1D 바코드 패키지</strong><br /><span class="chip">starter-1d</span></td>
+                <td>소형 매장, 온라인 판매의 기본 라벨 발행과 재고 조회 시작</td>
+                <td>Basic label + inventory</td>
+                <td>Code128, EAN-13, Code39</td>
+                <td><span class="chip amber">환경 점검 후 확정</span></td>
+              </tr>
+              <tr>
+                <td><strong>물류형 2D 바코드 패키지</strong><br /><span class="chip green">warehouse-2d</span></td>
+                <td>입고, 출고, 라벨 발행이 반복되는 창고와 물류 업무</td>
+                <td>Inbound/outbound + label</td>
+                <td>Code128, QR, DataMatrix</td>
+                <td><span class="chip amber">환경 점검 후 확정</span></td>
+              </tr>
+              <tr>
+                <td><strong>매장형 스캔 조회 패키지</strong><br /><span class="chip">store-basic</span></td>
+                <td>상품 조회와 재고 확인이 필요한 매장형 업무</td>
+                <td>Product lookup + stock</td>
+                <td>Code128, EAN-13</td>
+                <td><span class="chip amber">환경 점검 후 확정</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft-band" id="program">
+      <div class="section-inner">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">발행 프로그램</p>
+            <h2>라벨출력관리, 라벨디자이너, 프린터설정을 같은 톤으로 묶습니다</h2>
+          </div>
+          <p>
+            홈페이지와 프로그램 화면이 같은 제품처럼 보이도록 표, 툴바, 미리보기, 설정 패널의 색상과 간격을 맞춥니다.
+          </p>
+        </div>
+        <div class="program-grid">
+          <div class="app-preview" aria-label="발행 프로그램 미리보기">
+            <div class="app-topbar">
+              <div class="app-title">라벨출력관리</div>
+              <div class="app-actions" aria-hidden="true">
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <div class="app-body">
+              <aside class="app-side" aria-label="프로그램 메뉴">
+                <span class="side-item active">출력 목록</span>
+                <span class="side-item">라벨 디자인</span>
+                <span class="side-item">프린터 설정</span>
+                <span class="side-item">작업 로그</span>
+              </aside>
+              <section class="canvas" aria-label="라벨 미리보기">
+                <div class="toolbar" aria-hidden="true">
+                  <span class="tool"></span>
+                  <span class="tool"></span>
+                  <span class="tool"></span>
+                  <span class="tool"></span>
+                </div>
+                <div class="label-sheet">
+                  <div class="label-row"></div>
+                  <div class="label-row short"></div>
+                  <div class="barcode" aria-hidden="true">
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                  </div>
+                  <div class="label-row"></div>
+                </div>
+              </section>
+              <aside class="app-panel" aria-label="설정 패널">
+                <div class="panel-group">
+                  <strong>라벨 정보</strong>
+                  <div class="field"></div>
+                  <div class="field"></div>
+                </div>
+                <div class="panel-group">
+                  <strong>출력 확인</strong>
+                  <span class="chip green">미리보기 기준</span>
+                </div>
+              </aside>
+            </div>
+          </div>
+          <div class="program-copy">
+            <article class="info-card">
+              <h3>반복 발행 업무에 맞춘 화면</h3>
+              <p>출력 목록, 라벨 미리보기, 설정 확인을 한 화면 흐름으로 묶어 반복 작업을 줄입니다.</p>
+            </article>
+            <article class="info-card">
+              <h3>데이터와 라벨을 분리해서 점검</h3>
+              <p>상품명, 바코드, 수량 등 입력 데이터를 먼저 확인하고 라벨 양식과 출력 조건을 따로 점검합니다.</p>
+            </article>
+            <article class="info-card">
+              <h3>실제 출력은 명시적 경로로</h3>
+              <p>프로젝트 기준에 따라 실제 프린터 출력은 별도 확인 절차가 있는 경로에서만 진행합니다.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-label="도입 흐름">
+      <div class="section-inner">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">도입 흐름</p>
+            <h2>상담부터 출력 전 점검까지 단계별로 정리합니다</h2>
+          </div>
+          <p>
+            확정되지 않은 조건은 무리하게 약속하지 않고, 업무 환경과 출력 조건을 먼저 확인합니다.
+          </p>
+        </div>
+        <div class="workflow-grid">
+          <article class="step">
+            <span>STEP 01</span>
+            <strong>사용 환경 확인</strong>
+            <p>업종, 라벨 예시, 하루 출력량, 보유 장비, 연결 방식을 확인합니다.</p>
+          </article>
+          <article class="step">
+            <span>STEP 02</span>
+            <strong>패키지 방향 정리</strong>
+            <p>등록된 패키지 기준으로 장비, 프로그램, 설치지원 범위를 상담합니다.</p>
+          </article>
+          <article class="step">
+            <span>STEP 03</span>
+            <strong>라벨 데이터 점검</strong>
+            <p>바코드 종류, 앞자리 0, 라벨 양식, 출력 목록을 실제 출력 전에 확인합니다.</p>
+          </article>
+          <article class="step">
+            <span>STEP 04</span>
+            <strong>납품 조건 확정</strong>
+            <p>가격, 보증·환불·배송, 설치지원 조건은 상담 및 문서 확인 후 확정합니다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft-band" id="pricing">
+      <div class="section-inner">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">가격 안내</p>
+            <h2>가격은 구성 확인 후 안내합니다</h2>
+          </div>
+          <p>
+            모델, 라벨 규격, 기능 범위, 설치지원 조건이 확정되지 않은 상태에서 임의 가격이나 할인 문구를 사용하지 않습니다.
+          </p>
+        </div>
+        <div class="pricing-layout">
+          <div class="note-panel">
+            <h3>견적에 반영되는 항목</h3>
+            <ul class="check-list">
+              <li>프린터 및 스캐너 모델</li>
+              <li>라벨 폭, 높이, 소재, 출력 수량</li>
+              <li>발행 프로그램 기능 범위와 데이터 파일 구조</li>
+              <li>설치지원 방식과 작업 범위</li>
+            </ul>
+          </div>
+          <div class="check-panel">
+            <h3>공개 전 확인이 필요한 항목</h3>
+            <ul class="check-list">
+              <li>보증, 환불, 배송비, 설치비 정책</li>
+              <li>운영체제, 드라이버, 연결 방식 지원 범위</li>
+              <li>외부 시스템 연동 가능 여부와 별도 작업 범위</li>
+              <li>특정 모델 호환성 및 유지보수 조건</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section contact" id="contact">
+      <div class="section-inner">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">문의</p>
+            <h2>먼저 사용 환경을 알려주세요</h2>
+          </div>
+          <p>
+            개인정보나 고객 주문 원문 없이도 상담을 시작할 수 있습니다. 필요한 항목만 정리해 주시면 패키지 방향을 검토합니다.
+          </p>
+        </div>
+        <div class="contact-grid">
+          <div class="contact-box">
+            <h3>상담 시 필요한 정보</h3>
+            <ul class="check-list">
+              <li>업종과 라벨을 붙일 상품 유형</li>
+              <li>현재 사용하는 프린터, 스캐너, PC 환경</li>
+              <li>하루 출력량과 필요한 바코드 종류</li>
+              <li>출력할 라벨 예시와 데이터 파일 구조</li>
+            </ul>
+          </div>
+          <div class="contact-box">
+            <h3>상담 연결</h3>
+            <p>
+              전화번호, 카카오톡 채널, 이메일 주소가 확정되면 이 영역에 실제 문의 버튼을 연결합니다.
+              가격과 설치지원 조건은 상담 후 안내합니다.
+            </p>
+            <div class="contact-actions">
+              <span class="btn btn-primary" aria-disabled="true">문의처 확정 후 연결</span>
+              <a class="btn btn-secondary" href="#products">패키지 다시 보기</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      본 페이지는 바코드 프린터·스캐너·라벨 발행 프로그램 패키지 상담용 안내입니다.
+      하드웨어 모델, 라벨 규격, 설치지원, 보증·환불·배송 조건, 외부 시스템 연동은 상담 및 문서 확인 후 확정됩니다.
+    </p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Product Packages | PrintFlow Solutions</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Hanken+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ambient-shadow {
+            box-shadow: 0px 4px 20px rgba(15, 23, 42, 0.08);
+        }
+        .hover-card:hover {
+            box-shadow: 0px 4px 20px rgba(15, 23, 42, 0.08);
+            border-top: 4px solid #0058be;
+            transform: translateY(-2px);
+        }
+        .bg-grid-pattern {
+            background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#bec6e0",
+                        "on-secondary-fixed-variant": "#3f465c",
+                        "secondary-fixed": "#dae2fd",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#c2c6d6",
+                        "surface-dim": "#cbdbf5",
+                        "primary": "#0058be",
+                        "on-secondary-fixed": "#131b2e",
+                        "on-primary-container": "#fefcff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#00531c",
+                        "tertiary-container": "#008732",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface": "#f8f9ff",
+                        "tertiary-fixed-dim": "#3be365",
+                        "on-tertiary": "#ffffff",
+                        "primary-container": "#2170e4",
+                        "secondary-container": "#dae2fd",
+                        "border-subtle": "#E2E8F0",
+                        "tertiary": "#006b26",
+                        "on-surface-variant": "#424754",
+                        "on-primary-fixed-variant": "#004395",
+                        "tech-cyan": "#0EA5E9",
+                        "secondary": "#565e74",
+                        "surface-container": "#e5eeff",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-fixed": "#001a42",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-surface": "#0b1c30",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#5c647a",
+                        "surface-container-high": "#dce9ff",
+                        "on-error-container": "#93000a",
+                        "on-background": "#0b1c30",
+                        "surface-tint": "#005ac2",
+                        "surface-container-low": "#eff4ff",
+                        "on-tertiary-container": "#f7fff2",
+                        "surface-bright": "#f8f9ff",
+                        "surface-gray": "#F8FAFC",
+                        "surface-container-highest": "#d3e4fe",
+                        "primary-fixed-dim": "#adc6ff",
+                        "background": "#f8f9ff",
+                        "surface-variant": "#d3e4fe",
+                        "inverse-primary": "#adc6ff",
+                        "inverse-surface": "#213145",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#6bff84",
+                        "outline": "#727785",
+                        "on-tertiary-fixed": "#002107"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "section-gap": "80px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "label-mono": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "button-text": ["Hanken Grotesk"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-mono": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "button-text": ["16px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md antialiased">
+<!-- Top Navigation Bar -->
+<header class="w-full top-0 sticky z-50 bg-surface border-b border-subtle">
+<div class="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+<div class="flex items-center gap-12">
+<span class="font-headline-lg text-headline-lg text-primary tracking-tight">PrintFlow Solutions</span>
+<nav class="hidden md:flex items-center gap-8">
+<a class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors" href="#">Products</a>
+<a class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors" href="#">Software</a>
+<a class="font-button-text text-button-text text-primary border-b-2 border-primary pb-1" href="#">Packages</a>
+<a class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-colors" href="#">Support</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="font-button-text text-button-text text-on-surface-variant hover:text-primary transition-all">Login</button>
+<button class="bg-primary text-on-primary font-button-text text-button-text px-6 py-3 rounded hover:opacity-90 transition-all">Get a Quote</button>
+</div>
+</div>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="relative overflow-hidden pt-20 pb-12 bg-surface-gray">
+<div class="absolute inset-0 bg-grid-pattern opacity-40"></div>
+<div class="max-w-container-max mx-auto px-margin-desktop relative z-10 text-center">
+<span class="font-label-mono text-label-mono text-primary uppercase tracking-widest mb-4 block">Hardware & Software Bundles</span>
+<h1 class="font-headline-xl text-headline-xl text-on-surface mb-6 max-w-3xl mx-auto">Precision-Engineered Labeling Packages</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto mb-10">
+                    Deploy world-class printing infrastructure with our turnkey packages. Combining industrial-grade hardware from BIXOLON, TSC, and Zebra with the PrintFlow Control software suite.
+                </p>
+</div>
+</section>
+<!-- Packages Bento Grid -->
+<section class="py-section-gap max-w-container-max mx-auto px-margin-desktop">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Starter Package -->
+<div class="bg-surface-container-lowest border border-subtle rounded p-8 flex flex-col transition-all duration-300 hover-card">
+<div class="flex justify-between items-start mb-8">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-2">Starter Package</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Ideal for small-scale retail and light manufacturing environments.</p>
+</div>
+<span class="font-label-mono text-label-mono bg-surface-container text-primary px-3 py-1 rounded">ENTRY LEVEL</span>
+</div>
+<div class="space-y-6 mb-10 flex-grow">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary/10 rounded flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">print</span>
+</div>
+<div>
+<h3 class="font-button-text text-button-text">Basic Industrial Printer</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">203 DPI resolution, desktop form-factor.</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary/10 rounded flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">barcode_scanner</span>
+</div>
+<div>
+<h3 class="font-button-text text-button-text">1D Laser Scanner</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Plug-and-play USB connection, ergonomic grip.</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary/10 rounded flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">terminal</span>
+</div>
+<div>
+<h3 class="font-button-text text-button-text">PrintFlow Standard</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cloud-based template designer and local spooling.</p>
+</div>
+</div>
+</div>
+<div class="border-t border-subtle pt-8">
+<div class="mb-6">
+<span class="font-headline-lg text-headline-lg text-on-surface">$1,299</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">/ kit starting at</span>
+</div>
+<button class="w-full bg-on-surface text-surface py-4 rounded font-button-text text-button-text hover:bg-on-surface/90 transition-all">Request a Quote</button>
+</div>
+</div>
+<!-- Pro Package -->
+<div class="bg-surface-container-lowest border border-subtle rounded p-8 flex flex-col transition-all duration-300 hover-card relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
+<div class="flex justify-between items-start mb-8">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-2">Pro Package</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Enterprise-grade solution for high-volume logistics and warehouse hubs.</p>
+</div>
+<span class="font-label-mono text-label-mono bg-primary text-on-primary px-3 py-1 rounded">MOST POPULAR</span>
+</div>
+<div class="space-y-6 mb-10 flex-grow">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">speed</span>
+</div>
+<div>
+<h3 class="font-button-text text-button-text">High-Speed Thermal Printer</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">300 DPI, 14 ips print speed, heavy-duty metal frame.</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">qr_code_2</span>
+</div>
+<div>
+<h3 class="font-button-text text-button-text">2D/QR Wireless Scanner</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Bluetooth 5.0, omnidirectional reading, 30m range.</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">settings_suggest</span>
+</div>
+<div>
+<h3 class="font-button-text text-button-text">PrintFlow Advanced</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">ERP integration (SAP/Oracle), predictive maintenance, multi-site sync.</p>
+</div>
+</div>
+</div>
+<div class="border-t border-subtle pt-8">
+<div class="mb-6">
+<span class="font-headline-lg text-headline-lg text-on-surface">$2,850</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">/ kit starting at</span>
+</div>
+<button class="w-full bg-primary text-on-primary py-4 rounded font-button-text text-button-text hover:opacity-90 transition-all">Request a Quote</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Technical Comparison Table -->
+<section class="py-section-gap bg-surface-gray">
+<div class="max-w-container-max mx-auto px-margin-desktop">
+<div class="mb-12">
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-4">Hardware Matrix</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Direct comparison of industry-standard models compatible with our packages.</p>
+</div>
+<div class="overflow-x-auto rounded border border-subtle bg-surface">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-on-surface text-surface">
+<th class="p-6 font-label-mono text-label-mono">HARDWARE MODEL</th>
+<th class="p-6 font-label-mono text-label-mono">MAX PRINT SPEED</th>
+<th class="p-6 font-label-mono text-label-mono">RESOLUTION</th>
+<th class="p-6 font-label-mono text-label-mono">INTERFACE</th>
+<th class="p-6 font-label-mono text-label-mono">TIER</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm text-on-surface">
+<tr class="border-b border-subtle hover:bg-surface-gray transition-colors">
+<td class="p-6 font-semibold">BIXOLON XT5-40</td>
+<td class="p-6">14 ips (356 mm/sec)</td>
+<td class="p-6">203 / 300 / 600 dpi</td>
+<td class="p-6">USB, Serial, Ethernet, WLAN</td>
+<td class="p-6"><span class="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold">PRO</span></td>
+</tr>
+<tr class="border-b border-subtle bg-surface-gray hover:bg-surface transition-colors">
+<td class="p-6 font-semibold">TSC MB240T</td>
+<td class="p-6">10 ips (254 mm/sec)</td>
+<td class="p-6">203 / 300 dpi</td>
+<td class="p-6">USB, Ethernet, Bluetooth</td>
+<td class="p-6"><span class="px-2 py-1 bg-on-surface/5 text-on-surface-variant rounded-full text-xs font-bold">STARTER</span></td>
+</tr>
+<tr class="border-b border-subtle hover:bg-surface-gray transition-colors">
+<td class="p-6 font-semibold">Zebra ZT411</td>
+<td class="p-6">14 ips (356 mm/sec)</td>
+<td class="p-6">203 / 300 / 600 dpi</td>
+<td class="p-6">USB, Serial, BT, Dual Host</td>
+<td class="p-6"><span class="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold">PRO</span></td>
+</tr>
+<tr class="bg-surface-gray hover:bg-surface transition-colors">
+<td class="p-6 font-semibold">TSC DA220</td>
+<td class="p-6">6 ips (152 mm/sec)</td>
+<td class="p-6">203 dpi</td>
+<td class="p-6">USB 2.0</td>
+<td class="p-6"><span class="px-2 py-1 bg-on-surface/5 text-on-surface-variant rounded-full text-xs font-bold">STARTER</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="mt-8 flex justify-end">
+<button class="flex items-center gap-2 text-primary font-button-text text-button-text hover:underline">
+                        Download Technical Documentation (PDF)
+                        <span class="material-symbols-outlined text-sm">download</span>
+</button>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-section-gap max-w-container-max mx-auto px-margin-desktop">
+<div class="bg-primary rounded p-12 text-center text-on-primary relative overflow-hidden">
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern height="40" id="grid" patternunits="userSpaceOnUse" width="40">
+<path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"></path>
+</pattern>
+</defs>
+<rect fill="url(#grid)" height="100%" width="100%"></rect>
+</svg>
+</div>
+<h2 class="font-headline-lg text-headline-lg mb-4 relative z-10">Need a Custom Configuration?</h2>
+<p class="font-body-md text-body-md mb-10 max-w-2xl mx-auto opacity-90 relative z-10">
+                    Our engineering team can design a bespoke labeling system tailored to your specific hardware requirements and software stack.
+                </p>
+<div class="flex flex-col md:flex-row gap-4 justify-center relative z-10">
+<button class="bg-surface text-primary px-8 py-4 rounded font-button-text text-button-text hover:bg-surface-dim transition-all">Schedule a Consultation</button>
+<button class="border border-on-primary/30 text-on-primary px-8 py-4 rounded font-button-text text-button-text hover:bg-on-primary/10 transition-all">Contact Sales</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-section-gap bg-surface-gray border-t border-subtle">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-desktop py-12 max-w-container-max mx-auto">
+<div class="col-span-1 md:col-span-1">
+<span class="font-headline-lg text-headline-lg text-on-surface block mb-4">PrintFlow</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                    Precision logistics and industrial-grade printing solutions for the global supply chain.
+                </p>
+</div>
+<div class="col-span-1">
+<h4 class="font-button-text text-button-text mb-6">Solutions</h4>
+<ul class="space-y-3 font-body-sm text-body-sm text-on-surface-variant">
+<li><a class="hover:text-primary transition-colors" href="#">Industrial Hardware</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Software Suite</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Cloud Integration</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="font-button-text text-button-text mb-6">Company</h4>
+<ul class="space-y-3 font-body-sm text-body-sm text-on-surface-variant">
+<li><a class="hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Terms of Service</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Global Locations</a></li>
+</ul>
+</div>
+<div class="col-span-1">
+<h4 class="font-button-text text-button-text mb-6">Support</h4>
+<ul class="space-y-3 font-body-sm text-body-sm text-on-surface-variant">
+<li><a class="hover:text-primary transition-colors" href="#">Technical Documentation</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Contact Support</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Cookie Settings</a></li>
+</ul>
+</div>
+</div>
+<div class="max-w-container-max mx-auto px-margin-desktop py-6 border-t border-subtle flex justify-between items-center font-body-sm text-body-sm text-on-surface-variant">
+<span>© 2024 PrintFlow Solutions. All rights reserved. Industrial Grade Reliability.</span>
+<div class="flex gap-4">
+<span class="flex items-center gap-1 text-tertiary">
+<span class="w-2 h-2 bg-tertiary rounded-full"></span>
+                    Systems Operational
+                </span>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interaction for hover states on buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'scale(1.02)';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>
