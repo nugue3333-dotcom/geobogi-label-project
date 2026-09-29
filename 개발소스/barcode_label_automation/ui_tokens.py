@@ -2,38 +2,45 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .font_assets import APP_FONT_FAMILY, register_bundled_font
+
+
+register_bundled_font()
+
 
 @dataclass(frozen=True)
 class ColorTokens:
-    background: str = "#f6f8fb"
+    background: str = "#f3f6f5"
     surface: str = "#ffffff"
-    surface_muted: str = "#eef3f8"
-    surface_subtle: str = "#f8fbff"
-    border: str = "#d8e2ee"
-    border_strong: str = "#c6d4e5"
-    text_primary: str = "#0b1b31"
-    text_secondary: str = "#4d5e72"
-    text_tertiary: str = "#7d899a"
-    primary: str = "#07306f"
-    primary_hover: str = "#042657"
-    accent: str = "#1f7a5a"
-    accent_hover: str = "#145c42"
-    accent_soft: str = "#edf7f1"
-    danger: str = "#ba1a1a"
-    warning: str = "#b86b18"
-    success: str = "#1f7a5a"
-    graphite: str = "#0f2742"
-    panel: str = "#f7fafd"
+    surface_muted: str = "#eaf0ee"
+    surface_subtle: str = "#f7f9f8"
+    border: str = "#cfd9d6"
+    border_subtle: str = "#e4eae8"
+    border_strong: str = "#aebfba"
+    grid: str = "#dde7e4"
+    text_primary: str = "#152126"
+    text_secondary: str = "#52666a"
+    text_tertiary: str = "#75888b"
+    primary: str = "#123f46"
+    primary_hover: str = "#0b3137"
+    accent: str = "#72a91b"
+    accent_hover: str = "#5f8f13"
+    accent_soft: str = "#edf5dd"
+    danger: str = "#c34b43"
+    warning: str = "#b97b24"
+    success: str = "#17785b"
+    graphite: str = "#23474d"
+    panel: str = "#f9fbfa"
 
 
 @dataclass(frozen=True)
 class TypographyTokens:
-    page_title: tuple[str, int, str] = ("Malgun Gothic", 20, "bold")
-    section_title: tuple[str, int, str] = ("Malgun Gothic", 11, "bold")
-    body: tuple[str, int] = ("Malgun Gothic", 10)
-    caption: tuple[str, int] = ("Malgun Gothic", 9)
-    table_text: tuple[str, int] = ("Malgun Gothic", 9)
-    button_text: tuple[str, int, str] = ("Malgun Gothic", 10, "bold")
+    page_title: tuple[str, int, str] = (APP_FONT_FAMILY, 20, "bold")
+    section_title: tuple[str, int, str] = (APP_FONT_FAMILY, 12, "bold")
+    body: tuple[str, int] = (APP_FONT_FAMILY, 10)
+    caption: tuple[str, int] = (APP_FONT_FAMILY, 9)
+    table_text: tuple[str, int] = (APP_FONT_FAMILY, 10)
+    button_text: tuple[str, int, str] = (APP_FONT_FAMILY, 10, "bold")
 
 
 @dataclass(frozen=True)
@@ -42,7 +49,7 @@ class SpacingTokens:
     section_gap: int = 12
     card_padding: int = 16
     form_gap: int = 10
-    table_cell_padding: int = 8
+    table_cell_padding: int = 10
 
 
 @dataclass(frozen=True)

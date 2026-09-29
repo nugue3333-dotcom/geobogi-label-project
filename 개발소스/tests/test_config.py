@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import pytest
 
+from barcode_label_automation import config as config_module
 from barcode_label_automation.config import load_config
 from barcode_label_automation.errors import ConfigError
 
 
-def write_config(tmp_path, brand: str, language: str = "auto"):
+def write_config(tmp_path, brand: str, language: str = "auto", model: str = ""):
     config_path = tmp_path / "config.ini"
     config_path.write_text(
         f"""
 [printer]
 brand = {brand}
+model = {model}
 mode = network
 print_method = direct_thermal
 speed = auto
@@ -37,11 +39,17 @@ language = zpl
 command_encoding = utf-8
 windows_printer_name = ZDesigner Label Printer
 
+[brand.sewoo]
+language = zpl
+command_encoding = utf-8
+windows_printer_name = SEWOO Label Printer
+
 [label]
 width_mm = 50
 height_mm = 30
 dpi = 203
 gap_mm = 3
+media_type = gap
 
 [data]
 excel_file = print_queue.xlsx
@@ -66,6 +74,7 @@ def test_brand_selects_matching_language_and_printer_name(tmp_path, brand, langu
     assert config.printer.brand == brand
     assert config.printer.print_method == "direct_thermal"
     assert config.printer.media_handling == "tear_off"
+    assert config.label.media_type == "gap"
     assert config.printer.print_speed > 0
     assert config.printer.print_density >= 0
     assert config.printer.language == language
@@ -84,6 +93,24 @@ def test_brand_selects_matching_command_encoding(tmp_path, brand, encoding):
     config = load_config(write_config(tmp_path, brand))
 
     assert config.printer.command_encoding == encoding
+
+
+def test_config_allows_only_release_approved_sewoo_zpl_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(config_module, "APPROVED_SEWOO_ZPL_MODELS", frozenset({"SW-TEST-VERIFIED"}))
+
+    config = load_config(write_config(tmp_path, "sewoo", model="sw-test-verified"))
+
+    assert config.printer.brand == "sewoo"
+    assert config.printer.model == "sw-test-verified"
+    assert config.printer.language == "zpl"
+    assert config.printer.command_encoding == "utf-8"
+    assert config.printer.media_handling == "tear_off"
+    assert config.barcode.one_d_wide == 2
+
+
+def test_config_rejects_unapproved_sewoo_model(tmp_path):
+    with pytest.raises(ConfigError, match="approved SEWOO ZPL model"):
+        load_config(write_config(tmp_path, "sewoo", model="UNVERIFIED-MODEL"))
 
 
 def test_brand_rejects_mismatched_language(tmp_path):
@@ -118,6 +145,65 @@ def test_config_reads_media_handling_option(tmp_path):
     config = load_config(config_path)
 
     assert config.printer.media_handling == "cutter"
+
+
+@pytest.mark.parametrize("media_type", ["gap", "black_mark", "continuous"])
+def test_config_reads_supported_media_type(tmp_path, media_type):
+    config_path = write_config(tmp_path, "tsc")
+    text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(text.replace("media_type = gap", f"media_type = {media_type}"), encoding="utf-8")
+
+    config = load_config(config_path)
+
+    assert config.label.media_type == media_type
+
+
+def test_config_rejects_unknown_media_type(tmp_path):
+    config_path = write_config(tmp_path, "tsc")
+    text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(text.replace("media_type = gap", "media_type = notch"), encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="label.media_type"):
+        load_config(config_path)
+
+
+@pytest.mark.parametrize("brand", ["tsc", "zebra"])
+def test_config_allows_peeler_for_supported_languages(tmp_path, brand):
+    config_path = write_config(tmp_path, brand)
+    text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(text.replace("print_method = direct_thermal", "print_method = direct_thermal\nmedia_handling = peeler"), encoding="utf-8")
+
+    config = load_config(config_path)
+
+    assert config.printer.media_handling == "peeler"
+
+
+@pytest.mark.parametrize("media_handling", ["cutter", "peeler"])
+def test_config_rejects_sewoo_postprocessing_without_model_specific_evidence(
+    tmp_path, monkeypatch, media_handling
+):
+    monkeypatch.setattr(config_module, "APPROVED_SEWOO_ZPL_MODELS", frozenset({"SW-TEST-VERIFIED"}))
+    config_path = write_config(tmp_path, "sewoo", model="SW-TEST-VERIFIED")
+    text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(
+        text.replace(
+            "print_method = direct_thermal",
+            f"print_method = direct_thermal\nmedia_handling = {media_handling}",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="restricted to 'tear_off'"):
+        load_config(config_path)
+
+
+def test_config_rejects_bixolon_peeler_until_slcs_command_is_confirmed(tmp_path):
+    config_path = write_config(tmp_path, "bixolon")
+    text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(text.replace("print_method = direct_thermal", "print_method = direct_thermal\nmedia_handling = peeler"), encoding="utf-8")
+
+    with pytest.raises(ConfigError, match="BIXOLON/SLCS peeler"):
+        load_config(config_path)
 
 
 def test_config_rejects_unknown_media_handling_option(tmp_path):

@@ -269,12 +269,12 @@ Private Sub RunEngine(ByVal args As String, ByVal jobName As String)
     Dim rc As Long
 
     folder = BaseFolder()
-    exePath = folder & "\print_labels.exe"
+    exePath = folder & "\라벨출력엔진.exe"
     cfgPath = folder & "\config.ini"
     logPath = folder & "\last_run.log"
 
     If Len(Dir(exePath)) = 0 Then
-        MsgBox "print_labels.exe not found." & vbCrLf & exePath, vbCritical
+        MsgBox "라벨출력엔진.exe 파일이 없습니다." & vbCrLf & exePath, vbCritical
         Exit Sub
     End If
 
@@ -313,6 +313,11 @@ Public Sub DryRunLabels()
 End Sub
 
 Public Sub PrintLabels()
+    If MsgBox("The current print data will be sent to the actual printer." & vbCrLf & vbCrLf & _
+              "Check label stock, printer power, connection status, and label size before continuing.", _
+              vbQuestion + vbYesNo, "Confirm actual printer output") <> vbYes Then
+        Exit Sub
+    End If
     RunEngine "--print --yes", "Print"
 End Sub
 

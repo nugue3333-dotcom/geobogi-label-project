@@ -12,6 +12,12 @@ from .logger import append_print_log
 from .printers.network import check_connection as check_network_connection
 from .printers.network import send_raw as send_network_raw
 from .printers.windows_raw import send_raw as send_windows_raw
+from .print_progress import (
+    PROGRESS_FILE_NAME,
+    PrintProgress,
+    PrintTransportUncertainError,
+    UnknownPrintItemsError,
+)
 from .sanitizer import sanitize_barcode
 from .templates import CommandPayload, render_label
 
@@ -38,6 +44,18 @@ def _main(argv: list[str] | None = None) -> int:
     action.add_argument("--print", dest="do_print", action="store_true", help="Send commands to the configured printer")
     action.add_argument("--check-printer", action="store_true", help="Check printer connectivity without printing")
     parser.add_argument("--yes", action="store_true", help="Confirm non-interactive print execution")
+    parser.add_argument(
+        "--new-job",
+        action="store_true",
+        help="Reset saved print progress and start a separately confirmed new print job",
+    )
+    parser.add_argument("--limit", type=_positive_int, default=None, help="Limit the number of input rows to render or print")
+    parser.add_argument(
+        "--force-print-qty",
+        type=_safe_print_qty,
+        default=None,
+        help=f"Override print_qty for this run only, from 1 to {MAX_PRINT_QTY}",
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -47,19 +65,27 @@ def _main(argv: list[str] | None = None) -> int:
     if args.check_printer:
         _check_printer(config.printer.mode, config.printer)
         return 0
+    if args.new_job and not args.do_print:
+        raise BarcodeLabelAutomationError("--new-job is only valid with --print and --yes.")
 
     dry_run = not args.do_print
     if args.do_print:
+        if not args.yes:
+            raise BarcodeLabelAutomationError("--print requires --yes after confirming actual printer output.")
         print("Print mode enabled. Commands will be sent to the configured printer.")
         print("Dry-run is the default; use --dry-run when you only want files in the output folder.")
 
     labels = read_labels(config.data.excel_file)
+    if args.limit is not None:
+        labels = labels[: args.limit]
+    if args.force_print_qty is not None:
+        labels = [replace(row, print_qty=args.force_print_qty) for row in labels]
     config.data.output_dir.mkdir(parents=True, exist_ok=True)
     log_dir = config.data.output_dir.parent
 
     log_entries: list[dict[str, object]] = []
-    rendered_count = 0
     skipped_count = 0
+    prepared: list[tuple[int, LabelRow, CommandPayload]] = []
     for row_index, row in enumerate(labels, start=1):
         validation_error = _validate_row_for_output(row)
         if validation_error:
@@ -90,8 +116,14 @@ def _main(argv: list[str] | None = None) -> int:
             config.printer.print_speed,
             config.printer.print_density,
             config.printer.media_handling,
+            config.label.media_type,
+            config.printer.print_orientation,
         )
-        output_file = _write_command_file(
+        prepared.append((row_index, row, command))
+
+    output_files: dict[int, Path] = {}
+    for row_index, row, command in prepared:
+        output_files[row_index] = _write_command_file(
             config.data.output_dir,
             config.printer.language,
             config.printer.command_encoding,
@@ -99,33 +131,79 @@ def _main(argv: list[str] | None = None) -> int:
             row_index,
             command,
         )
-        if not dry_run:
-            try:
-                _send_to_printer(config.printer.mode, config.printer, command, config.printer.command_encoding)
-            except BarcodeLabelAutomationError as exc:
+
+    rendered_count = len(prepared)
+    if dry_run:
+        for row_index, row, _command in prepared:
+            log_entries.append(
+                {
+                    "label": row,
+                    "language": config.printer.language,
+                    "mode": "dry-run",
+                    "status": "rendered",
+                    "output_file": output_files[row_index],
+                    "error_message": "",
+                }
+            )
+    else:
+        commands = [command for _row_index, _row, command in prepared]
+        progress = PrintProgress.open_for_job(
+            config.data.output_dir / PROGRESS_FILE_NAME,
+            commands,
+            config.printer.command_encoding,
+            _print_job_context(config.printer),
+            reset=args.new_job,
+        )
+        if progress.unknown_indexes:
+            raise UnknownPrintItemsError(progress.unknown_indexes)
+
+        for item_index, (row_index, row, command) in enumerate(prepared, start=1):
+            if progress.status(item_index) == "sent":
                 log_entries.append(
                     {
                         "label": row,
                         "language": config.printer.language,
                         "mode": config.printer.mode,
-                        "status": "error",
-                        "output_file": output_file,
+                        "status": "already_sent",
+                        "output_file": output_files[row_index],
+                        "error_message": "",
+                    }
+                )
+                continue
+
+            progress.mark_sending(item_index)
+            try:
+                _send_to_printer(config.printer.mode, config.printer, command, config.printer.command_encoding)
+            except Exception as exc:
+                log_entries.append(
+                    {
+                        "label": row,
+                        "language": config.printer.language,
+                        "mode": config.printer.mode,
+                        "status": "unknown",
+                        "output_file": output_files[row_index],
                         "error_message": str(exc),
                     }
                 )
                 append_print_log(log_dir, log_entries)
-                raise
-        rendered_count += 1
-        log_entries.append(
-            {
-                "label": row,
-                "language": config.printer.language,
-                "mode": "dry-run" if dry_run else config.printer.mode,
-                "status": "rendered" if dry_run else "sent",
-                "output_file": output_file,
-                "error_message": "",
-            }
-        )
+                raise PrintTransportUncertainError(item_index, exc) from exc
+            progress.mark_sent(item_index)
+            log_entries.append(
+                {
+                    "label": row,
+                    "language": config.printer.language,
+                    "mode": config.printer.mode,
+                    "status": "sent",
+                    "output_file": output_files[row_index],
+                    "error_message": "",
+                }
+            )
+
+    if not dry_run and prepared:
+        sent_now = sum(1 for entry in log_entries if entry["status"] == "sent")
+        skipped_sent = sum(1 for entry in log_entries if entry["status"] == "already_sent")
+        print(f"RAW printer transport completed for {sent_now} new job(s); {skipped_sent} previously sent job(s) skipped.")
+        print("RAW command transfer success does not confirm physical label output. Check the printer and labels.")
 
     log_path = append_print_log(log_dir, log_entries)
     print(f"{rendered_count} label command file(s) written to {_display_path(config.data.output_dir, log_dir)}")
@@ -164,6 +242,23 @@ def _validate_row_for_output(row: LabelRow) -> str | None:
     return None
 
 
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _safe_print_qty(value: str) -> int:
+    parsed = _positive_int(value)
+    if parsed > MAX_PRINT_QTY:
+        raise argparse.ArgumentTypeError(f"must be between 1 and {MAX_PRINT_QTY}")
+    return parsed
+
+
 def _write_command_file(
     output_dir: Path,
     language: str,
@@ -186,6 +281,22 @@ def _send_to_printer(mode: str, printer_config: object, command: CommandPayload,
         send_windows_raw(printer_config.windows_printer_name, command, command_encoding)  # type: ignore[attr-defined]
         return
     raise ValueError("printer.mode must be 'network' or 'windows_raw'")
+
+
+def _print_job_context(printer_config: object) -> dict[str, object]:
+    mode = str(printer_config.mode)  # type: ignore[attr-defined]
+    target = (
+        f"{printer_config.ip}:{printer_config.port}"  # type: ignore[attr-defined]
+        if mode == "network"
+        else str(printer_config.windows_printer_name)  # type: ignore[attr-defined]
+    )
+    return {
+        "source": "cli",
+        "mode": mode,
+        "target": target,
+        "language": str(printer_config.language),  # type: ignore[attr-defined]
+        "encoding": str(printer_config.command_encoding),  # type: ignore[attr-defined]
+    }
 
 
 def _display_path(path: Path, base_dir: Path) -> str:

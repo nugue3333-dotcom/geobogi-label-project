@@ -6,13 +6,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .errors import ConfigError
+from .runtime_paths import runtime_base_dir
 
 
 @dataclass(frozen=True)
 class PrinterConfig:
     brand: str
+    model: str
     mode: str
     print_method: str
+    print_orientation: str
     media_handling: str
     print_speed: int
     print_density: int
@@ -29,6 +32,7 @@ class LabelConfig:
     height_mm: int
     dpi: int
     gap_mm: float
+    media_type: str
 
 
 @dataclass(frozen=True)
@@ -70,8 +74,10 @@ class AppConfig:
 DEFAULTS = {
     "printer": {
         "brand": "bixolon",
+        "model": "",
         "mode": "network",
         "print_method": "direct_thermal",
+        "print_orientation": "normal",
         "media_handling": "tear_off",
         "speed": "auto",
         "density": "auto",
@@ -96,11 +102,17 @@ DEFAULTS = {
         "command_encoding": "utf-8",
         "windows_printer_name": "ZDesigner Label Printer",
     },
+    "brand.sewoo": {
+        "language": "zpl",
+        "command_encoding": "utf-8",
+        "windows_printer_name": "SEWOO Label Printer",
+    },
     "label": {
         "width_mm": "60",
         "height_mm": "40",
         "dpi": "203",
         "gap_mm": "3",
+        "media_type": "gap",
     },
     "barcode": {
         "type": "code128",
@@ -140,12 +152,14 @@ DEFAULT_LANGUAGE_BY_BRAND = {
     "bixolon": "slcs",
     "tsc": "tspl",
     "zebra": "zpl",
+    "sewoo": "zpl",
 }
 
 DEFAULT_ENCODING_BY_BRAND = {
     "bixolon": "cp949",
     "tsc": "utf-8",
     "zebra": "utf-8",
+    "sewoo": "utf-8",
 }
 
 DEFAULT_SPEED_BY_LANGUAGE = {
@@ -162,7 +176,21 @@ DEFAULT_DENSITY_BY_LANGUAGE = {
 
 SUPPORTED_LANGUAGES = {"slcs", "tspl", "zpl"}
 SUPPORTED_PRINT_METHODS = {"direct_thermal", "thermal_transfer"}
+SUPPORTED_PRINT_ORIENTATIONS = {"normal", "rotate_180"}
 SUPPORTED_MEDIA_HANDLING = {"tear_off", "cutter", "peeler"}
+SUPPORTED_MEDIA_TYPES = {"gap", "black_mark", "continuous"}
+SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE = {
+    "slcs": {"tear_off", "cutter"},
+    "tspl": {"tear_off", "cutter", "peeler"},
+    "zpl": {"tear_off", "cutter", "peeler"},
+}
+SUPPORTED_MEDIA_HANDLING_BY_BRAND = {
+    "sewoo": {"tear_off"},
+}
+# Keep this in sync with the approved-model table in docs/PRODUCT_PACKAGES.md.
+# No SEWOO model is release-approved until model-specific manufacturer ZPL
+# evidence and a physical output check have both been recorded.
+APPROVED_SEWOO_ZPL_MODELS: frozenset[str] = frozenset()
 SUPPORTED_BARCODE_TYPES = {"code128", "code39", "ean13", "ean8", "upca", "itf", "qr", "datamatrix", "pdf417"}
 
 
@@ -178,29 +206,41 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
     if mode not in {"network", "windows_raw"}:
         raise ConfigError("printer.mode must be 'network' or 'windows_raw'.")
     if brand not in DEFAULT_LANGUAGE_BY_BRAND:
-        raise ConfigError("printer.brand must be 'bixolon', 'tsc', or 'zebra'.")
+        raise ConfigError("printer.brand must be 'bixolon', 'tsc', 'zebra', or 'sewoo'.")
+    model = parser.get("printer", "model", fallback="").strip()
     print_method = parser.get("printer", "print_method", fallback="direct_thermal").strip().lower()
     if print_method not in SUPPORTED_PRINT_METHODS:
         raise ConfigError("printer.print_method must be 'direct_thermal' or 'thermal_transfer'.")
+    print_orientation = parser.get("printer", "print_orientation", fallback="normal").strip().lower()
+    if print_orientation not in SUPPORTED_PRINT_ORIENTATIONS:
+        raise ConfigError("printer.print_orientation must be 'normal' or 'rotate_180'.")
     media_handling = parser.get("printer", "media_handling", fallback="tear_off").strip().lower()
     if media_handling not in SUPPORTED_MEDIA_HANDLING:
         raise ConfigError("printer.media_handling must be 'tear_off', 'cutter', or 'peeler'.")
+    media_type = parser.get("label", "media_type", fallback="gap").strip().lower()
+    if media_type not in SUPPORTED_MEDIA_TYPES:
+        raise ConfigError("label.media_type must be 'gap', 'black_mark', or 'continuous'.")
     language = _read_language(parser, brand)
+    _validate_media_handling(brand, language, media_handling)
+    _validate_model_approval(brand, model)
     command_encoding = _read_command_encoding(parser, brand)
     windows_printer_name = _read_windows_printer_name(parser, brand)
     print_speed = _read_print_tuning(parser, "speed", language, DEFAULT_SPEED_BY_LANGUAGE, 1, 20)
     print_density = _read_print_tuning(parser, "density", language, DEFAULT_DENSITY_BY_LANGUAGE, 0, 30)
 
     base_dir = config_path.parent if config_path.exists() else Path.cwd()
-    excel_file = _resolve_path(base_dir, parser.get("data", "excel_file"))
-    output_dir = _resolve_path(base_dir, parser.get("data", "output_dir"))
+    data_base_dir = runtime_base_dir(base_dir)
+    excel_file = _resolve_path(data_base_dir, parser.get("data", "excel_file"))
+    output_dir = _resolve_path(data_base_dir, parser.get("data", "output_dir"))
     port = _read_optional_port(parser)
 
     return AppConfig(
         printer=PrinterConfig(
             brand=brand,
+            model=model,
             mode=mode,
             print_method=print_method,
+            print_orientation=print_orientation,
             media_handling=media_handling,
             print_speed=print_speed,
             print_density=print_density,
@@ -215,6 +255,7 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
             height_mm=parser.getint("label", "height_mm"),
             dpi=parser.getint("label", "dpi"),
             gap_mm=parser.getfloat("label", "gap_mm"),
+            media_type=media_type,
         ),
         barcode=_read_barcode_config(parser, language),
         data=DataConfig(excel_file=excel_file, output_dir=output_dir),
@@ -303,6 +344,45 @@ def _read_print_tuning(
     if value < minimum or value > maximum:
         raise ConfigError(f"printer.{option} must be between {minimum} and {maximum}.")
     return value
+
+
+def supported_media_handling_for_brand(brand: str) -> set[str]:
+    brand_supported = SUPPORTED_MEDIA_HANDLING_BY_BRAND.get(brand)
+    if brand_supported is not None:
+        return set(brand_supported)
+    language = DEFAULT_LANGUAGE_BY_BRAND.get(brand, "")
+    return set(SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE.get(language, SUPPORTED_MEDIA_HANDLING))
+
+
+def _validate_media_handling(brand: str, language: str, media_handling: str) -> None:
+    supported = supported_media_handling_for_brand(brand)
+    if media_handling in supported:
+        return
+    if brand == "sewoo":
+        raise ConfigError(
+            "SEWOO media handling is restricted to 'tear_off' until official model-specific evidence is approved."
+        )
+    if language == "slcs" and media_handling == "peeler":
+        raise ConfigError("BIXOLON/SLCS peeler command is not supported yet. Use tear_off or cutter.")
+    raise ConfigError(f"printer.media_handling '{media_handling}' is not supported for language '{language}'.")
+
+
+def _validate_model_approval(brand: str, model: str) -> None:
+    if is_printer_model_approved(brand, model):
+        return
+    raise ConfigError(
+        "printer.model is not an approved SEWOO ZPL model. "
+        "Record model-specific manufacturer evidence and approval in docs/PRODUCT_PACKAGES.md before use."
+    )
+
+
+def is_printer_model_approved(brand: str, model: str) -> bool:
+    if brand != "sewoo":
+        return True
+    normalized_model = model.strip().casefold()
+    return bool(normalized_model) and normalized_model in {
+        approved.casefold() for approved in APPROVED_SEWOO_ZPL_MODELS
+    }
 
 
 def _read_barcode_config(parser: ConfigParser, language: str) -> BarcodeConfig:

@@ -31,3 +31,7 @@ class PrinterConnectionRefusedError(PrinterError):
 
 class PrinterConnectionError(PrinterError):
     """Raised for other printer connection failures."""
+
+
+class PrinterHostResolutionError(PrinterConnectionError):
+    """Raised when the printer host name cannot be resolved."""

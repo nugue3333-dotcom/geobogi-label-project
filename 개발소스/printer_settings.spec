@@ -1,11 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+
+
+def collect_data_tree(source, target_prefix):
+    root = Path(source)
+    if not root.exists():
+        return []
+    datas = []
+    target_root = Path(target_prefix)
+    for path in root.rglob("*"):
+        if path.is_file():
+            datas.append((str(path), str(target_root / path.relative_to(root).parent)))
+    return datas
+
+
+brand_datas = collect_data_tree("assets/brand", "assets/brand")
+font_datas = collect_data_tree("assets/fonts", "assets/fonts")
+
 
 a = Analysis(
     ['printer_settings_launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=brand_datas + font_datas,
     hiddenimports=['win32print'],
     hookspath=[],
     hooksconfig={},
@@ -22,17 +40,18 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='printer_settings',
+    name='프린터설정',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
-    runtime_tmpdir=None,
+    runtime_tmpdir=r'C:\Users\Public\ChaeumLABRuntime',
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='assets/brand/chaeumlab_app_icon.ico',
 )

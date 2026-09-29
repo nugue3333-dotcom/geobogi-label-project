@@ -1,0 +1,4 @@
+interface:
+  display_name: "Multi-Agent Orchestrator"
+  short_description: "Run a council of Codex agents that diagnose, debate, implement, and verify through a shared transcript."
+  default_prompt: "Use multi-agent-orchestrator to create or launch a council-style Codex multi-agent workflow from this project."

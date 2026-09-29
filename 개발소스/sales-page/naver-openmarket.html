@@ -1,0 +1,1284 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>바코드 프린터 패키지 상세페이지</title>
+    <meta
+      name="description"
+      content="바코드 프린터, 스캐너, 라벨 발행 프로그램, 원격 설치지원을 상담 후 구성하는 네이버 오픈마켓용 상세페이지"
+    />
+    <style>
+      :root {
+        --navy: #08285b;
+        --navy-deep: #041c42;
+        --navy-soft: #12386d;
+        --green: #07873f;
+        --green-dark: #006b32;
+        --green-soft: #eef8f1;
+        --ink: #10213d;
+        --muted: #58677b;
+        --subtle: #7a8796;
+        --line: #dce5f1;
+        --line-strong: #c9d5e5;
+        --paper: #f7faff;
+        --white: #ffffff;
+        --shadow: 0 18px 46px rgba(8, 40, 91, 0.12);
+        --soft-shadow: 0 10px 28px rgba(8, 40, 91, 0.08);
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: #f2f5f9;
+        color: var(--ink);
+        font-family:
+          "Pretendard",
+          "Noto Sans KR",
+          "Malgun Gothic",
+          "Segoe UI",
+          system-ui,
+          sans-serif;
+        letter-spacing: 0;
+      }
+
+      img,
+      svg {
+        display: block;
+      }
+
+      img {
+        max-width: 100%;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .market-page {
+        width: min(100%, 793px);
+        margin: 0 auto;
+        background: var(--white);
+        box-shadow: 0 0 0 1px rgba(8, 40, 91, 0.06);
+      }
+
+      .section {
+        padding: 36px 32px;
+      }
+
+      .section + .section {
+        border-top: 1px solid #edf1f6;
+      }
+
+      .section-heading {
+        margin: 0 0 24px;
+        color: var(--navy);
+        font-size: 25px;
+        font-weight: 900;
+        line-height: 1.28;
+        text-align: center;
+        word-break: keep-all;
+      }
+
+      .section-heading::after {
+        display: block;
+        width: 18px;
+        height: 2px;
+        margin: 11px auto 0;
+        background: var(--navy);
+        content: "";
+      }
+
+      .section-note {
+        max-width: 560px;
+        margin: -16px auto 26px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.75;
+        text-align: center;
+        word-break: keep-all;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 0.47fr 0.53fr;
+        gap: 12px;
+        align-items: center;
+        padding: 28px 28px 24px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 78% 12%, rgba(9, 75, 157, 0.07), transparent 25%),
+          linear-gradient(135deg, #ffffff 0%, #fbfdff 52%, #f1f6fb 100%);
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 2;
+        min-width: 0;
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 0 12px;
+        border-radius: 999px;
+        color: var(--white);
+        background: var(--navy);
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .hero h1 {
+        margin: 16px 0 0;
+        color: var(--navy);
+        font-size: 30px;
+        font-weight: 950;
+        line-height: 1.25;
+        word-break: keep-all;
+      }
+
+      .hero h1 span {
+        display: block;
+        white-space: nowrap;
+      }
+
+      .hero .lead {
+        margin: 18px 0 0;
+        color: #45556b;
+        font-size: 14px;
+        font-weight: 650;
+        line-height: 1.78;
+        word-break: keep-all;
+      }
+
+      .hero-points {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 23px;
+      }
+
+      .hero-point {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 7px;
+        align-items: start;
+        min-width: 0;
+      }
+
+      .icon-line {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        color: var(--navy);
+      }
+
+      .icon-line svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .hero-point strong {
+        display: block;
+        color: var(--navy);
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 1.35;
+        word-break: keep-all;
+      }
+
+      .hero-point span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 9.5px;
+        font-weight: 600;
+        line-height: 1.45;
+        word-break: keep-all;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 10px;
+        margin-top: 26px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        font-size: 14px;
+        font-weight: 900;
+        line-height: 1;
+        white-space: nowrap;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease,
+          background 0.18s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--soft-shadow);
+      }
+
+      .btn-primary {
+        min-width: 150px;
+        color: var(--white);
+        background: linear-gradient(180deg, #0a9648 0%, var(--green-dark) 100%);
+      }
+
+      .btn-secondary {
+        min-width: 136px;
+        color: var(--navy);
+        border-color: #aab8cb;
+        background: var(--white);
+      }
+
+      .btn svg {
+        width: 15px;
+        height: 15px;
+        margin-left: 7px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .hero-media {
+        position: relative;
+        align-self: stretch;
+        min-height: 328px;
+      }
+
+      .hero-media img {
+        position: absolute;
+        right: -6px;
+        top: 5px;
+        width: min(112%, 430px);
+        max-width: none;
+        animation: productFloat 5.4s ease-in-out infinite;
+      }
+
+      .hero-media::after {
+        position: absolute;
+        left: 40px;
+        right: 18px;
+        bottom: 5px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(8, 40, 91, 0.11);
+        filter: blur(14px);
+        content: "";
+      }
+
+      .proof-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        background: linear-gradient(90deg, var(--navy-deep), var(--navy), #0b3169);
+      }
+
+      .proof-item {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 10px;
+        min-height: 70px;
+        padding: 16px 18px;
+        color: var(--white);
+        border-right: 1px solid rgba(255, 255, 255, 0.15);
+      }
+
+      .proof-item:last-child {
+        border-right: 0;
+      }
+
+      .proof-icon {
+        width: 26px;
+        height: 26px;
+        color: #ffffff;
+        opacity: 0.92;
+      }
+
+      .proof-icon svg {
+        width: 26px;
+        height: 26px;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .proof-item strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 900;
+        line-height: 1.32;
+      }
+
+      .proof-item span {
+        display: block;
+        margin-top: 5px;
+        color: #d7e2f4;
+        font-size: 10.5px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+
+      .component-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .component-card,
+      .option-card,
+      .faq-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--white);
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease,
+          transform 0.2s ease;
+      }
+
+      .component-card:hover,
+      .option-card:hover,
+      .faq-card:hover {
+        border-color: #bac9dc;
+        box-shadow: var(--soft-shadow);
+        transform: translateY(-2px);
+      }
+
+      .component-card {
+        display: flex;
+        min-height: 268px;
+        padding: 16px 17px 16px;
+        flex-direction: column;
+        animation: contentRise 0.7s ease both;
+      }
+
+      .component-card:nth-child(2),
+      .step:nth-child(2),
+      .option-card:nth-child(2) {
+        animation-delay: 0.08s;
+      }
+
+      .component-card:nth-child(3),
+      .step:nth-child(3),
+      .option-card:nth-child(3) {
+        animation-delay: 0.16s;
+      }
+
+      .component-card:nth-child(4),
+      .step:nth-child(4) {
+        animation-delay: 0.24s;
+      }
+
+      .component-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 108px;
+        margin-bottom: 13px;
+      }
+
+      .component-visual img {
+        max-width: 100%;
+        max-height: 106px;
+        object-fit: contain;
+      }
+
+      .component-card h3,
+      .option-card h3,
+      .faq-card strong {
+        margin: 0;
+        color: var(--navy);
+        font-size: 16px;
+        font-weight: 900;
+        line-height: 1.35;
+        word-break: keep-all;
+      }
+
+      .component-card p,
+      .option-card p,
+      .faq-card p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.65;
+        word-break: keep-all;
+      }
+
+      .check-list {
+        display: grid;
+        gap: 6px;
+        margin: 14px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .check-list li {
+        position: relative;
+        padding-left: 17px;
+        color: #35485f;
+        font-size: 11.5px;
+        font-weight: 700;
+        line-height: 1.55;
+        word-break: keep-all;
+      }
+
+      .check-list li::before {
+        position: absolute;
+        left: 0;
+        top: 0.32em;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 950;
+        content: "✓";
+      }
+
+      .workflow-wrap {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      }
+
+      .workflow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .step {
+        position: relative;
+        min-height: 128px;
+        padding: 18px 14px 17px;
+        border-right: 1px solid var(--line);
+        text-align: center;
+        animation: contentRise 0.7s ease both;
+      }
+
+      .step:last-child {
+        border-right: 0;
+      }
+
+      .step:not(:last-child)::after {
+        position: absolute;
+        right: -7px;
+        top: 50%;
+        z-index: 2;
+        width: 13px;
+        height: 13px;
+        border-top: 1.5px solid var(--navy);
+        border-right: 1.5px solid var(--navy);
+        background: var(--white);
+        transform: translateY(-50%) rotate(45deg);
+        content: "";
+      }
+
+      .step-icon {
+        display: flex;
+        justify-content: center;
+        height: 33px;
+        color: var(--navy);
+      }
+
+      .step-icon svg {
+        width: 31px;
+        height: 31px;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .step .no {
+        display: block;
+        margin-top: 10px;
+        color: var(--navy);
+        font-size: 10px;
+        font-weight: 900;
+        line-height: 1.1;
+      }
+
+      .step strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--navy);
+        font-size: 14px;
+        font-weight: 900;
+        line-height: 1.35;
+      }
+
+      .step p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.55;
+        word-break: keep-all;
+      }
+
+      .options {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .option-card {
+        position: relative;
+        display: flex;
+        min-height: 338px;
+        padding: 18px 20px 17px;
+        flex-direction: column;
+        animation: contentRise 0.7s ease both;
+      }
+
+      .option-card.recommended {
+        border: 2px solid #2b9b55;
+        box-shadow: 0 16px 34px rgba(7, 135, 63, 0.11);
+      }
+
+      .option-badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        min-height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: var(--white);
+        background: var(--navy);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .recommended .option-badge {
+        background: var(--green);
+      }
+
+      .option-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 92px;
+        margin: 10px 0 8px;
+      }
+
+      .option-visual img {
+        max-width: 100%;
+        max-height: 92px;
+        object-fit: contain;
+      }
+
+      .option-list {
+        display: grid;
+        gap: 6px;
+        margin: 16px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .option-list li {
+        position: relative;
+        padding-left: 16px;
+        color: #2d425a;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.55;
+        word-break: keep-all;
+      }
+
+      .option-list li::before {
+        position: absolute;
+        left: 0;
+        color: var(--navy);
+        font-size: 12px;
+        font-weight: 950;
+        content: "✓";
+      }
+
+      .price {
+        margin-top: auto;
+        padding-top: 14px;
+        color: var(--navy);
+        font-size: 20px;
+        font-weight: 950;
+        letter-spacing: 0;
+      }
+
+      .recommended .price {
+        color: var(--green-dark);
+      }
+
+      .select-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        margin-top: 12px;
+        border: 1px solid var(--navy);
+        border-radius: 5px;
+        color: var(--navy);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .recommended .select-btn {
+        border-color: var(--green);
+        color: var(--green-dark);
+      }
+
+      .option-note {
+        margin: 18px 0 0;
+        color: #4c5f76;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.6;
+        text-align: center;
+      }
+
+      .trust-box {
+        padding: 26px 28px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      }
+
+      .trust-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .trust-item {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .trust-item .icon-line {
+        width: 34px;
+        height: 34px;
+      }
+
+      .trust-item .icon-line svg {
+        width: 34px;
+        height: 34px;
+      }
+
+      .trust-item strong {
+        display: block;
+        color: var(--navy);
+        font-size: 13px;
+        font-weight: 900;
+        line-height: 1.4;
+        word-break: keep-all;
+      }
+
+      .trust-item span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.55;
+        word-break: keep-all;
+      }
+
+      .support-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 20px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--paper);
+      }
+
+      .support-row div {
+        padding: 15px 16px;
+        border-right: 1px solid var(--line);
+        text-align: center;
+      }
+
+      .support-row div:last-child {
+        border-right: 0;
+      }
+
+      .support-row strong {
+        display: block;
+        color: var(--navy);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .support-row span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.55;
+        word-break: keep-all;
+      }
+
+      .faq-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .faq-card {
+        position: relative;
+        min-height: 70px;
+        padding: 15px 36px 15px 18px;
+      }
+
+      .faq-card::after {
+        position: absolute;
+        right: 18px;
+        top: 20px;
+        width: 8px;
+        height: 8px;
+        border-right: 1.5px solid var(--navy);
+        border-bottom: 1.5px solid var(--navy);
+        transform: rotate(45deg);
+        content: "";
+      }
+
+      .faq-card strong {
+        font-size: 13px;
+      }
+
+      .faq-card p {
+        font-size: 11.5px;
+      }
+
+      .final-cta {
+        display: grid;
+        grid-template-columns: 95px minmax(0, 1fr) auto;
+        gap: 22px;
+        align-items: center;
+        margin: 0 32px 18px;
+        padding: 25px 28px;
+        border-radius: var(--radius);
+        color: var(--white);
+        background: linear-gradient(135deg, var(--navy-deep), var(--navy), #061d45);
+        box-shadow: var(--shadow);
+      }
+
+      .chat-mark {
+        position: relative;
+        width: 82px;
+        height: 58px;
+      }
+
+      .chat-mark::before,
+      .chat-mark::after {
+        position: absolute;
+        border-radius: 50%;
+        background: #d8e7fb;
+        content: "";
+      }
+
+      .chat-mark::before {
+        left: 0;
+        top: 12px;
+        width: 46px;
+        height: 36px;
+      }
+
+      .chat-mark::after {
+        right: 0;
+        top: 0;
+        width: 52px;
+        height: 43px;
+        background: #ffffff;
+      }
+
+      .chat-mark span {
+        position: absolute;
+        left: 16px;
+        top: 28px;
+        z-index: 2;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--navy);
+        box-shadow:
+          10px 0 0 var(--navy),
+          20px 0 0 var(--navy);
+      }
+
+      .final-cta h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 950;
+        line-height: 1.35;
+        word-break: keep-all;
+      }
+
+      .final-cta p {
+        margin: 8px 0 0;
+        color: #dbe6f6;
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.6;
+        word-break: keep-all;
+      }
+
+      .final-cta .btn {
+        min-width: 160px;
+        color: var(--navy);
+        background: var(--white);
+      }
+
+      .legal {
+        padding: 0 34px 26px;
+        color: #7a8796;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.7;
+        word-break: keep-all;
+      }
+
+      @media (max-width: 760px) {
+        .section {
+          padding: 40px 20px;
+        }
+
+        .section-heading {
+          font-size: 23px;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          padding: 26px 20px 24px;
+        }
+
+        .hero h1 {
+          font-size: 27px;
+        }
+
+        .hero h1 span {
+          white-space: normal;
+        }
+
+        .hero-points {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+
+        .hero-media {
+          min-height: 245px;
+          order: 2;
+        }
+
+        .hero-media img {
+          right: -18px;
+          width: min(116%, 430px);
+        }
+
+        .hero-actions .btn,
+        .final-cta .btn {
+          width: 100%;
+        }
+
+        .hero-actions {
+          flex-wrap: wrap;
+        }
+
+        .proof-strip,
+        .component-grid,
+        .options,
+        .trust-grid,
+        .support-row,
+        .faq-grid,
+        .final-cta {
+          grid-template-columns: 1fr;
+        }
+
+        .proof-item,
+        .support-row div {
+          border-right: 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+        }
+
+        .support-row div {
+          border-bottom-color: var(--line);
+        }
+
+        .proof-item:last-child,
+        .support-row div:last-child {
+          border-bottom: 0;
+        }
+
+        .workflow {
+          grid-template-columns: 1fr;
+        }
+
+        .step {
+          min-height: 124px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .step:last-child {
+          border-bottom: 0;
+        }
+
+        .step:not(:last-child)::after {
+          right: 50%;
+          top: auto;
+          bottom: -7px;
+          transform: translateX(50%) rotate(135deg);
+        }
+
+        .option-card {
+          min-height: auto;
+        }
+
+        .final-cta {
+          margin: 0 20px 18px;
+          text-align: center;
+        }
+
+        .chat-mark {
+          margin: 0 auto;
+        }
+      }
+
+      @keyframes productFloat {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+
+        50% {
+          transform: translateY(-7px);
+        }
+      }
+
+      @keyframes contentRise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="market-page">
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <span class="hero-badge">바코드·라벨 업무를 한 번에</span>
+          <h1>
+            <span>바코드 프린터 패키지</span>
+            <span>스캐너 + 라벨 발행 프로그램</span>
+            <span>+ 원격 설치지원</span>
+          </h1>
+          <p class="lead">
+            상품 등록, 재고 관리, 출고 작업까지 바코드로 정리한 라벨 발행 환경을 구축해 드립니다.
+          </p>
+          <div class="hero-points" aria-label="핵심 장점">
+            <div class="hero-point">
+              <span class="icon-line" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M6 9V4h12v5" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /></svg>
+              </span>
+              <span><strong>빠른 라벨 발행</strong><span>상품/출고 바코드 즉시 출력</span></span>
+            </div>
+            <div class="hero-point">
+              <span class="icon-line" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z" /><path d="M8.5 12l2.2 2.2L15.8 9" /></svg>
+              </span>
+              <span><strong>정확한 업무 관리</strong><span>자료-출고-라벨 관리 최적화</span></span>
+            </div>
+            <div class="hero-point">
+              <span class="icon-line" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0" /><path d="M4 12v4a2 2 0 0 0 2 2h2v-7H5a1 1 0 0 0-1 1z" /><path d="M20 12v4a2 2 0 0 1-2 2h-2v-7h3a1 1 0 0 1 1 1z" /></svg>
+              </span>
+              <span><strong>전문가 원격 지원</strong><span>설치부터 세팅까지 상담 지원</span></span>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#contact">구매 전 상담하기 <svg viewBox="0 0 24 24"><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></svg></a>
+            <a class="btn btn-secondary" href="#options">패키지 옵션 보기 <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg></a>
+          </div>
+        </div>
+        <figure class="hero-media" aria-label="바코드 프린터 패키지 제품 이미지">
+          <img src="assets/openmarket/hero-products.png" alt="프린터, 스캐너, 라벨 발행 프로그램 화면, 라벨 용지 패키지" />
+        </figure>
+      </section>
+
+      <section class="proof-strip" aria-label="패키지 신뢰 요소">
+        <div class="proof-item">
+          <span class="proof-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 9V4h12v5" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /></svg>
+          </span>
+          <span><strong>다양한 프린터 지원</strong><span>데스크톱 프린터 호환성 확인</span></span>
+        </div>
+        <div class="proof-item">
+          <span class="proof-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z" /><path d="M8.5 12l2.2 2.2L15.8 9" /></svg>
+          </span>
+          <span><strong>주요 쇼핑몰 연동 가능</strong><span>스마트스토어, 오픈마켓 등</span></span>
+        </div>
+        <div class="proof-item">
+          <span class="proof-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6" /><path d="M9 13h6" /><path d="M9 17h6" /></svg>
+          </span>
+          <span><strong>엑셀 대량 출력 지원</strong><span>대량 데이터 기반 발행</span></span>
+        </div>
+        <div class="proof-item">
+          <span class="proof-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
+          </span>
+          <span><strong>지속적인 업데이트</strong><span>기능 개선 및 유지보수</span></span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-heading">패키지 구성</h2>
+        <div class="component-grid">
+          <article class="component-card">
+            <div class="component-visual"><img src="assets/openmarket/card-printer.png" alt="바코드 라벨 프린터" /></div>
+            <h3>바코드 프린터</h3>
+            <p>열전사 방식으로 선명하고 빠른 라벨 출력</p>
+            <ul class="check-list">
+              <li>데스크톱 열전사 프린터</li>
+              <li>최대 108mm 출력</li>
+              <li>USB 연결 지원</li>
+            </ul>
+          </article>
+          <article class="component-card">
+            <div class="component-visual"><img src="assets/openmarket/card-scanner.png" alt="2D 유선 스캐너" /></div>
+            <h3>2D 유선 스캐너</h3>
+            <p>1D/2D 바코드 스캔 지원으로 업무 흐름 향상</p>
+            <ul class="check-list">
+              <li>1D / 2D 바코드 스캔</li>
+              <li>빠른 인식 속도</li>
+              <li>USB 유선 연결</li>
+            </ul>
+          </article>
+          <article class="component-card">
+            <div class="component-visual"><img src="assets/openmarket/card-program.png" alt="라벨 발행 프로그램" /></div>
+            <h3>라벨 발행 프로그램</h3>
+            <p>상품, 재고, 출고 라벨을 손쉽게 디자인하고 출력</p>
+            <ul class="check-list">
+              <li>라벨 디자인 및 미리보기</li>
+              <li>엑셀 연동 대량 출력</li>
+              <li>상품/출고/바코드 관리</li>
+            </ul>
+          </article>
+          <article class="component-card">
+            <div class="component-visual"><img src="assets/openmarket/card-support.png" alt="원격 설치지원" /></div>
+            <h3>원격 설치지원</h3>
+            <p>프로그램 설치 및 세팅을 원격으로 지원</p>
+            <ul class="check-list">
+              <li>원격 설치 및 세팅</li>
+              <li>프린터/스캐너 설정</li>
+              <li>사용 방법 안내</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-heading">이렇게 사용하세요</h2>
+        <div class="workflow-wrap">
+          <div class="workflow">
+            <article class="step">
+              <span class="step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 20h14" /></svg></span>
+              <span class="no">STEP 01</span>
+              <strong>프로그램 설치</strong>
+              <p>원격으로 프로그램 설치 및 환경 설정</p>
+            </article>
+            <article class="step">
+              <span class="step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6" /><path d="M9 13h6" /></svg></span>
+              <span class="no">STEP 02</span>
+              <strong>상품·데이터 등록</strong>
+              <p>상품 정보 및 바코드 데이터 등록</p>
+            </article>
+            <article class="step">
+              <span class="step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h10v18H7z" /><path d="M9 7h6" /><path d="M9 11h6" /><path d="M9 15h6" /></svg></span>
+              <span class="no">STEP 03</span>
+              <strong>라벨 디자인</strong>
+              <p>필요한 라벨 디자인 선택 또는 수정</p>
+            </article>
+            <article class="step">
+              <span class="step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9V4h12v5" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /></svg></span>
+              <span class="no">STEP 04</span>
+              <strong>라벨 출력</strong>
+              <p>프린터로 바코드 라벨 빠르게 출력</p>
+            </article>
+            <article class="step">
+              <span class="step-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5z" /><path d="M3.3 7.5l8.7 5 8.7-5" /><path d="M12 22v-9.5" /></svg></span>
+              <span class="no">STEP 05</span>
+              <strong>상품/출고 적용</strong>
+              <p>상품 부착 및 출고 업무 바로 적용</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="options">
+        <h2 class="section-heading">패키지 옵션</h2>
+        <div class="options">
+          <article class="option-card">
+            <span class="option-badge">기본형</span>
+            <div class="option-visual"><img src="assets/openmarket/option-basic.png" alt="프린터와 스캐너 기본형" /></div>
+            <h3>프린터 + 스캐너</h3>
+            <p>프린터와 스캐너로 바로 시작</p>
+            <ul class="option-list">
+              <li>열전사 프린터 1대</li>
+              <li>2D 유선 스캐너 1대</li>
+              <li>USB 케이블, 라벨 샘플</li>
+            </ul>
+            <div class="price">₩ 440,000~</div>
+            <a class="select-btn" href="#contact">옵션 선택하기</a>
+          </article>
+          <article class="option-card recommended">
+            <span class="option-badge">표준형</span>
+            <div class="option-visual"><img src="assets/openmarket/option-standard.png" alt="프린터 스캐너 프로그램 표준형" /></div>
+            <h3>프린터 + 스캐너 + 프로그램</h3>
+            <p>프로그램으로 라벨 디자인 및 출력</p>
+            <ul class="option-list">
+              <li>열전사 프린터 1대</li>
+              <li>2D 유선 스캐너 1대</li>
+              <li>라벨 발행 프로그램</li>
+              <li>USB 케이블, 라벨 샘플</li>
+            </ul>
+            <div class="price">₩ 580,000~</div>
+            <a class="select-btn" href="#contact">이 옵션 선택</a>
+          </article>
+          <article class="option-card">
+            <span class="option-badge">프리미엄</span>
+            <div class="option-visual"><img src="assets/openmarket/option-premium.png" alt="설치지원 포함 프리미엄형" /></div>
+            <h3>프린터 + 스캐너 + 프로그램 + 원격 설치지원</h3>
+            <p>전문가 원격 지원까지 포함된 완성형</p>
+            <ul class="option-list">
+              <li>열전사 프린터 1대</li>
+              <li>2D 유선 스캐너 1대</li>
+              <li>라벨 발행 프로그램</li>
+              <li>원격 설치지원 상담 포함</li>
+            </ul>
+            <div class="price">₩ 680,000~</div>
+            <a class="select-btn" href="#contact">옵션 선택하기</a>
+          </article>
+        </div>
+        <p class="option-note">※ 라벨 용지, 배송비, 설치 범위는 구매 전 상담 후 확정합니다.</p>
+      </section>
+
+      <section class="section">
+        <h2 class="section-heading">믿고 사용할 수 있는 서비스</h2>
+        <div class="trust-box">
+          <div class="trust-grid">
+            <div class="trust-item">
+              <span class="icon-line" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0" /><path d="M4 12v4a2 2 0 0 0 2 2h2v-7H5a1 1 0 0 0-1 1z" /><path d="M20 12v4a2 2 0 0 1-2 2h-2v-7h3a1 1 0 0 1 1 1z" /></svg></span>
+              <span><strong>전문가 원격 지원</strong><span>설치부터 세팅, 사용법까지 원격으로 지원</span></span>
+            </div>
+            <div class="trust-item">
+              <span class="icon-line" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z" /><path d="M8.5 12l2.2 2.2L15.8 9" /></svg></span>
+              <span><strong>안정적인 호환성</strong><span>장비와 라벨 규격을 상담 후 확인</span></span>
+            </div>
+            <div class="trust-item">
+              <span class="icon-line" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg></span>
+              <span><strong>지속적 업데이트</strong><span>기능 개선 및 오류 수정 업데이트</span></span>
+            </div>
+            <div class="trust-item">
+              <span class="icon-line" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6" /><path d="M9 13h6" /><path d="M9 17h6" /></svg></span>
+              <span><strong>쉽고 자세한 매뉴얼</strong><span>초보자도 따라할 수 있는 매뉴얼 제공</span></span>
+            </div>
+          </div>
+          <div class="support-row">
+            <div><strong>지원 가능 시간</strong><span>평일 09:00 ~ 18:00<br />(토/일/공휴일 휴무)</span></div>
+            <div><strong>지원 방법</strong><span>원격 지원 상담</span></div>
+            <div><strong>대상 고객</strong><span>스마트스토어, 오픈마켓 셀러, 물류/출고 담당자</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-heading">자주 묻는 질문</h2>
+        <div class="faq-grid">
+          <article class="faq-card">
+            <strong>Q. 어떤 프린터와 호환되나요?</strong>
+            <p>A. 주요 열전사 데스크톱형 프린터와 호환성을 상담 후 확인합니다.</p>
+          </article>
+          <article class="faq-card">
+            <strong>Q. 엑셀 파일로 대량 출력이 가능한가요?</strong>
+            <p>A. 상품 데이터를 가져와 대량으로 라벨을 출력할 수 있도록 구성합니다.</p>
+          </article>
+          <article class="faq-card">
+            <strong>Q. 프로그램 설치가 어려운가요?</strong>
+            <p>A. 원격으로 설치와 세팅을 도와드리고 사용 방법도 안내합니다.</p>
+          </article>
+          <article class="faq-card">
+            <strong>Q. 라벨 용지는 포함인가요?</strong>
+            <p>A. 라벨 용지는 별도 구매입니다. 필요한 규격을 상담 후 안내합니다.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="final-cta" id="contact">
+        <div class="chat-mark" aria-hidden="true"><span></span></div>
+        <div>
+          <h2>구매 전 상담이 필요하신가요?</h2>
+          <p>업무 환경에 맞는 구성과 설치 가능 여부를 확인해 드립니다.</p>
+        </div>
+        <a class="btn" href="#top">1:1 상담 신청하기 <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg></a>
+      </section>
+
+      <aside class="legal">
+        본 상품은 설치지원이 포함된 패키지 상품입니다. 제품 구성 및 가격은 여건에 따라 달라질 수 있습니다.
+        실제 판매 가격, 배송비, 설치지원, 보증, 교환/환불 조건은 네이버 상품 옵션과 판매자 정책에 맞춰 별도 확정해야 합니다.
+      </aside>
+    </main>
+  </body>
+</html>

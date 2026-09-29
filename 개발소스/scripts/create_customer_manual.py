@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from shutil import copy2
 
 from docx import Document
 from docx.enum.section import WD_SECTION_START
@@ -16,15 +17,16 @@ CUSTOMER_DIR = ROOT / "고객용_실행폴더"
 OUTPUT_DOCX = CUSTOMER_DIR / "라벨출력패키지_고객용_매뉴얼.docx"
 
 FONT_KO = "맑은 고딕"
-COLOR_NAVY = "0B2545"
-COLOR_BLUE = "2E74B5"
-COLOR_BLUE_DARK = "1F4D78"
-COLOR_MUTED = "5B677A"
-COLOR_GRID = "D8DEE8"
-COLOR_HEADER_FILL = "E8EEF5"
-COLOR_LIGHT_FILL = "F4F6F9"
-COLOR_ACCENT_FILL = "EAF4FF"
-COLOR_WARNING_FILL = "FFF7E0"
+# Match the formal print-manual palette used by the three PDF guides.
+COLOR_NAVY = "171D23"
+COLOR_BLUE = "174B4E"
+COLOR_BLUE_DARK = "103A3D"
+COLOR_MUTED = "68747C"
+COLOR_GRID = "D8DEE0"
+COLOR_HEADER_FILL = "F1F7E3"
+COLOR_LIGHT_FILL = "F6F7F5"
+COLOR_ACCENT_FILL = "F1F7E3"
+COLOR_WARNING_FILL = "FFF7E7"
 
 
 def set_run_font(run, size_pt: float | None = None, bold: bool | None = None, color: str | None = None) -> None:
@@ -173,20 +175,20 @@ def style_table(table, widths_dxa: list[int], header_rows: int = 1) -> None:
                 set_cell_shading(cell, COLOR_HEADER_FILL)
                 for p in cell.paragraphs:
                     for run in p.runs:
-                        set_run_font(run, size_pt=9.5, bold=True, color=COLOR_NAVY)
+                        set_run_font(run, size_pt=10.2, bold=True, color=COLOR_NAVY)
             else:
                 for p in cell.paragraphs:
                     for run in p.runs:
-                        set_run_font(run, size_pt=9.2, color="111827")
+                        set_run_font(run, size_pt=10.2, color="111827")
                     p.paragraph_format.space_after = Pt(0)
-                    p.paragraph_format.line_spacing = 1.15
+                    p.paragraph_format.line_spacing = 1.3
 
 
-def fill_cell(cell, text: str, bold: bool = False, color: str = "111827", size_pt: float = 9.2) -> None:
+def fill_cell(cell, text: str, bold: bool = False, color: str = "111827", size_pt: float = 10.2) -> None:
     cell.text = ""
     p = cell.paragraphs[0]
     p.paragraph_format.space_after = Pt(0)
-    p.paragraph_format.line_spacing = 1.15
+    p.paragraph_format.line_spacing = 1.3
     run = p.add_run(text)
     set_run_font(run, size_pt=size_pt, bold=bold, color=color)
 
@@ -194,13 +196,13 @@ def fill_cell(cell, text: str, bold: bool = False, color: str = "111827", size_p
 def add_heading(doc: Document, text: str, level: int) -> None:
     p = doc.add_heading(text, level=level)
     if level == 1:
-        p.paragraph_format.space_before = Pt(18)
-        p.paragraph_format.space_after = Pt(10)
-        set_paragraph_font(p, size_pt=16, bold=True, color=COLOR_BLUE)
+        p.paragraph_format.space_before = Pt(22)
+        p.paragraph_format.space_after = Pt(12)
+        set_paragraph_font(p, size_pt=18, bold=True, color=COLOR_BLUE)
     elif level == 2:
-        p.paragraph_format.space_before = Pt(14)
-        p.paragraph_format.space_after = Pt(7)
-        set_paragraph_font(p, size_pt=13, bold=True, color=COLOR_BLUE)
+        p.paragraph_format.space_before = Pt(16)
+        p.paragraph_format.space_after = Pt(8)
+        set_paragraph_font(p, size_pt=14, bold=True, color=COLOR_BLUE)
     else:
         p.paragraph_format.space_before = Pt(10)
         p.paragraph_format.space_after = Pt(5)
@@ -209,16 +211,16 @@ def add_heading(doc: Document, text: str, level: int) -> None:
 
 def add_body(doc: Document, text: str, bold_prefix: str | None = None) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(6)
-    p.paragraph_format.line_spacing = 1.25
+    p.paragraph_format.space_after = Pt(8)
+    p.paragraph_format.line_spacing = 1.35
     if bold_prefix and text.startswith(bold_prefix):
         r1 = p.add_run(bold_prefix)
-        set_run_font(r1, size_pt=10.5, bold=True, color=COLOR_NAVY)
+        set_run_font(r1, size_pt=11, bold=True, color=COLOR_NAVY)
         r2 = p.add_run(text[len(bold_prefix) :])
-        set_run_font(r2, size_pt=10.5, color="111827")
+        set_run_font(r2, size_pt=11, color="111827")
     else:
         r = p.add_run(text)
-        set_run_font(r, size_pt=10.5, color="111827")
+        set_run_font(r, size_pt=11, color="111827")
 
 
 def add_callout(doc: Document, title: str, body: str, fill: str = COLOR_LIGHT_FILL) -> None:
@@ -230,12 +232,12 @@ def add_callout(doc: Document, title: str, body: str, fill: str = COLOR_LIGHT_FI
     p_title = cell.paragraphs[0]
     p_title.paragraph_format.space_after = Pt(3)
     r_title = p_title.add_run(title)
-    set_run_font(r_title, size_pt=10.5, bold=True, color=COLOR_NAVY)
+    set_run_font(r_title, size_pt=11, bold=True, color=COLOR_NAVY)
     p_body = cell.add_paragraph()
     p_body.paragraph_format.space_after = Pt(0)
-    p_body.paragraph_format.line_spacing = 1.2
+    p_body.paragraph_format.line_spacing = 1.3
     r_body = p_body.add_run(body)
-    set_run_font(r_body, size_pt=9.5, color="263241")
+    set_run_font(r_body, size_pt=10.2, color="263241")
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
 
 
@@ -245,28 +247,28 @@ def add_footer(section) -> None:
     paragraph = footer.paragraphs[0]
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     paragraph.paragraph_format.space_after = Pt(0)
-    run = paragraph.add_run("라벨 출력 패키지 고객용 매뉴얼 | 2026-06-01")
+    run = paragraph.add_run("채움LAB 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.07")
     set_run_font(run, size_pt=8.5, color=COLOR_MUTED)
 
 
 def add_cover(doc: Document) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(24)
-    p.paragraph_format.space_after = Pt(8)
-    r = p.add_run("라벨 출력 패키지")
-    set_run_font(r, size_pt=28, bold=True, color=COLOR_NAVY)
+    p.paragraph_format.space_before = Pt(42)
+    p.paragraph_format.space_after = Pt(10)
+    r = p.add_run("채움LAB 라벨 출력 패키지")
+    set_run_font(r, size_pt=30, bold=True, color=COLOR_NAVY)
 
     p2 = doc.add_paragraph()
-    p2.paragraph_format.space_after = Pt(20)
+    p2.paragraph_format.space_after = Pt(26)
     r2 = p2.add_run("고객용 프로그램 매뉴얼")
     set_run_font(r2, size_pt=18, bold=True, color=COLOR_BLUE)
 
     metadata = doc.add_table(rows=4, cols=2)
     rows = [
         ("문서 용도", "고객 PC 설치 후 Excel에서 라벨을 바로 출력하기 위한 사용 설명서"),
-        ("지원 프린터", "BIXOLON, TSC, Zebra 라벨 프린터"),
+        ("지원 프린터", "BIXOLON, TSC, Zebra, SEWOO(ZPL) 라벨 프린터"),
         ("배포 폴더", "고객용_실행폴더"),
-        ("문서 버전", "1.0 / 2026-06-01"),
+        ("문서 버전", "2.0 / 2026-07-15"),
     ]
     for row, (label, value) in zip(metadata.rows, rows):
         fill_cell(row.cells[0], label, bold=True, color=COLOR_NAVY)
@@ -278,8 +280,12 @@ def add_cover(doc: Document) -> None:
     add_callout(
         doc,
         "운영 핵심",
-        "고객은 프린터설정.exe로 장비 환경을 저장한 뒤 labels.xlsm에서 라벨 출력 버튼만 누르면 됩니다. "
-        "config.ini는 설정 프로그램이 자동으로 갱신합니다.",
+        "처음 설치한 PC에서는 시작하기.cmd의 처음 실행 점검 또는 처음실행_점검.cmd를 먼저 실행합니다. "
+        "이 점검은 실행 전 점검, .gblabel 저장파일 연결, 출력 파일 생성 테스트, 고객 데이터 백업을 한 번에 수행합니다. "
+        "PC 교체 후에는 고객데이터_복원.cmd로 백업 ZIP을 선택한 뒤 01_output_check.cmd로 복원 결과를 확인합니다. "
+        "고객환경점검.exe로 배포 폴더 상태를 확인한 뒤 프린터설정.exe로 장비 환경을 저장합니다. "
+        "config.ini는 설정 프로그램이 자동으로 갱신합니다. "
+        "업데이트 배포본을 다시 실행해도 이미 저장된 고객 프린터 설정은 자동으로 덮어쓰지 않습니다.",
         COLOR_ACCENT_FILL,
     )
     doc.add_page_break()
@@ -296,10 +302,16 @@ def add_quick_start(doc: Document) -> None:
     for cell, header in zip(table.rows[0].cells, headers):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
-        ("1", "고객용_실행폴더를 고객 PC의 원하는 위치에 복사합니다.", "폴더 안에 labels.xlsm, print_labels.exe, config.ini가 함께 있습니다."),
-        ("2", "00_install_trusted_location.cmd를 마우스 오른쪽 버튼으로 실행합니다.", "Excel 보안 경고 없이 매크로 버튼을 사용할 준비가 됩니다."),
-        ("3", "프린터설정.exe를 열어 브랜드, 연결 방식, 용지 크기, 인쇄 방식을 저장합니다.", "config.ini가 자동으로 갱신됩니다."),
-        ("4", "labels.xlsm을 열고 품목 정보를 입력한 뒤 라벨 출력 버튼을 누릅니다.", "확인창 없이 즉시 출력 작업이 실행됩니다."),
+        ("1", "고객용_실행폴더를 고객 PC의 원하는 위치에 복사합니다.", "폴더 안에 실행 파일, 설정, DB, 템플릿이 함께 있습니다."),
+        ("2", "시작하기.cmd를 실행한 뒤 1번 처음 실행 점검을 선택합니다.", "필수 파일, 설정, 엑셀, .gblabel 더블클릭/아이콘 연결, dry-run, 고객 데이터 백업이 한 번에 진행됩니다."),
+        ("3", "필요하면 시작하기.cmd > 버전 정보 보기를 확인합니다.", "지원 문의 시 버전정보.txt와 지원 ZIP을 함께 전달합니다."),
+        ("4", "Excel 매크로 방식도 사용할 경우 00_install_trusted_location.cmd를 실행합니다.", "Excel 보안 경고 없이 매크로 버튼을 사용할 준비가 됩니다."),
+        ("5", "프린터설정.exe를 열어 브랜드, 연결 방식, 용지 크기, 용지 유형, 인쇄 방식을 입력하고 설정 점검 후 저장합니다.", "config.ini가 자동으로 갱신됩니다."),
+        (
+            "6",
+            "라벨출력관리.exe에서 DB를 연결하고 인쇄 대상을 선택합니다.",
+            "설정 메뉴에서 실행 전 점검, 빠른 사용안내, 상세 매뉴얼, 지원 패키지 생성을 바로 실행할 수 있습니다.",
+        ),
     ]
     for row_data in rows:
         row = table.add_row().cells
@@ -310,7 +322,13 @@ def add_quick_start(doc: Document) -> None:
     add_callout(
         doc,
         "고객 안내 문구",
-        "라벨 출력 버튼은 누르는 즉시 프린터로 전송됩니다. 테스트가 필요하면 설치 담당자가 먼저 01_output_check.cmd로 출력 파일 생성만 확인해 주세요.",
+        "실제 프린터로 보내기 전에는 00_고객PC_실행전점검.cmd와 01_output_check.cmd를 순서대로 실행해 주세요. "
+        "처음 실행 점검은 저장파일 연결도 PowerShell 없이 register_label_filetype.cmd로 처리합니다. "
+        "01/02 배치파일은 label_job_runner.exe를 우선 사용하므로 일반적인 출력 점검과 인쇄 명령 생성은 PowerShell 없이 처리됩니다. "
+        "일상 사용 중에도 라벨출력관리.exe의 설정 > 실행 전 점검 메뉴로 out\\customer_preflight_report.txt를 즉시 갱신할 수 있습니다. "
+        "업데이트 배포본을 복사해도 기존 config.ini가 있으면 고객 프린터 설정은 유지됩니다. 기본값으로 되돌리고 싶을 때만 백업 후 config.example.ini를 참고하세요. "
+        "오류 문의 시 라벨출력관리.exe의 설정 > 지원 패키지 생성 메뉴로 out\\customer_support_package.zip을 새로 만든 뒤 함께 전달하면 원인 확인이 빠릅니다. "
+        "지원 ZIP에는 원본 DB, 인쇄 데이터, labels.xlsm이 포함되지 않습니다.",
         COLOR_WARNING_FILL,
     )
 
@@ -322,10 +340,23 @@ def add_file_map(doc: Document) -> None:
     for cell, header in zip(table.rows[0].cells, ("파일", "용도", "고객 사용 여부")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
+        ("시작하기.cmd", "처음 실행 점검, 실행 전 점검, 프린터 설정, 출력관리, 디자이너, 저장파일 연결, 고객 데이터 백업/복원, 매뉴얼을 한 곳에서 여는 시작 메뉴", "처음 실행"),
+        ("처음실행_점검.cmd", "실행 전 점검, .gblabel 저장파일 연결, 출력 파일 생성 테스트, 고객 데이터 백업을 순서대로 실행하는 최초 설치용 점검 파일", "최초 설치 시 실행"),
+        ("register_label_filetype.cmd", ".gblabel 저장파일 아이콘, 더블클릭 열기, 우클릭 인쇄 연결을 PowerShell 없이 등록", "최초 설치/문제 복구 시 실행"),
+        ("버전정보.txt", "패키지명, 배포 생성시간, 고객 첫 실행 순서, 지원 문의 시 전달할 정보를 적은 버전 확인 파일", "지원/문의용"),
+        ("고객데이터_백업.cmd", "설정, 상품 DB, 인쇄 데이터, 템플릿, assets/images 도안 이미지를 out 폴더의 ZIP으로 백업", "PC 교체 전 실행"),
+        ("고객데이터_복원.cmd", "백업 ZIP에서 설정, 상품 DB, 인쇄 데이터, 템플릿, assets/images 도안 이미지를 현재 PC로 복원", "PC 교체 후 실행"),
         ("labels.xlsm", "품목 입력 및 라벨 출력 버튼이 들어 있는 Excel 파일", "사용"),
+        ("label_job_runner.exe", "01/02/03/04 배치파일에서 사용하는 PowerShell 비의존 작업 실행기", "내부 실행 파일"),
         ("print_labels.exe", "라벨 명령 생성 및 프린터 전송 프로그램", "직접 실행하지 않음"),
-        ("프린터설정.exe", "프린터 브랜드, 연결 방식, 용지 크기, 인쇄 방식 설정 프로그램", "설치 담당자 사용"),
+        ("고객환경점검.exe", "필수 파일, 설정, 엑셀, 인쇄 데이터 바코드/매수, 출력 폴더, dry-run 점검과 지원 ZIP 저장", "최초 설치 또는 지원 요청 시 사용"),
+        ("release_manifest.json", "배포 파일 구성과 해시 검증용 목록", "지원/검증용"),
+        ("배포_파일목록.txt", "고객이 바로 읽을 수 있는 배포 파일 목록", "확인용"),
+        ("라벨출력관리.exe", "DB 조회, 출력 데이터 선택, 인쇄 실행, 설정 메뉴의 실행 전 점검/사용안내 열기/지원 패키지 생성", "일상 사용"),
+        ("라벨디자이너.exe", "텍스트, 바코드, 그림, 표 등 개체를 배치하고 .gblabel 파일로 저장하는 라벨 편집 프로그램", "양식 제작/수정 시 사용"),
+        ("프린터설정.exe", "프린터 브랜드, 연결 방식, 용지 크기, 용지 유형, 인쇄 방식, 저장 전 점검 설정 프로그램", "설치 담당자 사용"),
         ("config.ini", "프린터 설정 저장 파일", "직접 수정하지 않음"),
+        ("00_고객PC_실행전점검.cmd", "고객 환경 점검과 out\\customer_support_package.zip 저장", "최초 설치 시 실행"),
         ("00_install_trusted_location.cmd", "Excel 보안 신뢰 위치 자동 등록", "최초 1회 실행"),
         ("01_output_check.cmd", "프린터 전송 없이 출력 파일만 생성하는 점검용 파일", "문제 점검 시 사용"),
         ("03_open_output_folder.cmd", "생성된 라벨 명령 파일 폴더 열기", "문제 점검 시 사용"),
@@ -404,23 +435,66 @@ def add_daily_operation(doc: Document) -> None:
         "중요: 같은 Excel 파일에서 내용을 수정한 뒤 라벨 출력 버튼을 다시 누르면, 수정된 현재 표 내용이 새로 반영되어 출력됩니다.",
         bold_prefix="중요:",
     )
+    add_body(
+        doc,
+        "인쇄 전 점검: 라벨출력관리.exe는 실제 인쇄 직전에 바코드 누락, 출력 매수 오류, config.ini 프린터 설정 오류를 먼저 확인합니다. 오류가 표시되면 해당 행 또는 프린터 설정을 수정한 뒤 다시 인쇄하세요.",
+        bold_prefix="인쇄 전 점검:",
+    )
+    add_body(
+        doc,
+        "도움말: 라벨출력관리.exe의 설정 메뉴에서 실행 전 점검, 빠른 사용안내 열기, 상세 매뉴얼 열기, 지원 패키지 생성을 바로 선택할 수 있습니다. 01/02 배치파일은 label_job_runner.exe를 우선 사용합니다.",
+        bold_prefix="도움말:",
+    )
+    add_body(
+        doc,
+        "디자이너 출력: 라벨디자이너.exe 상단의 인쇄파일 생성은 프린터로 전송하지 않고 결과 파일만 만듭니다. 실제 인쇄는 출력 메뉴에서 현재 미리보기 또는 선택 항목을 확인한 뒤 실행하세요.",
+        bold_prefix="디자이너 출력:",
+    )
+
+
+def add_label_designer_usage(doc: Document) -> None:
+    add_heading(doc, "5. 라벨 디자이너: 개체 방향 설정", 1)
+    add_body(doc, "라벨디자이너.exe에서는 텍스트, 여러줄 텍스트, 1D/2D 바코드, 그림, 박스, 선, 표를 라벨 크기에 맞춰 배치하고 저장할 수 있습니다.")
+
+    table = doc.add_table(rows=1, cols=2)
+    for cell, header in zip(table.rows[0].cells, ("순서", "작업 방법")):
+        fill_cell(cell, header, bold=True, color=COLOR_NAVY)
+    rows = [
+        ("1. 개체 선택", "캔버스에서 방향을 바꿀 개체를 클릭한 뒤 선택 개체 편집을 엽니다."),
+        ("2. 방향 선택", "방향 메뉴에서 0도(기본), 90도 시계 방향, 180도, 270도 시계 방향 중 하나를 선택합니다."),
+        ("3. 경계 확인", "90도 또는 270도는 가로·세로 사용 영역이 바뀌므로 미리보기에서 라벨 밖으로 잘리지 않는지 확인합니다."),
+        ("4. 저장 및 출력", ".gblabel 저장 시 방향도 함께 저장됩니다. 인쇄파일 생성에서 같은 방향으로 반영됐는지 확인한 뒤 실제 인쇄합니다."),
+    ]
+    for row_data in rows:
+        row = table.add_row().cells
+        fill_cell(row[0], row_data[0], bold=True, color=COLOR_BLUE_DARK)
+        fill_cell(row[1], row_data[1])
+    style_table(table, [2200, 7160])
+
+    add_callout(
+        doc,
+        "적용 대상",
+        "방향 설정은 텍스트, 바코드, 그림, 박스, 선, 표에 적용할 수 있습니다. 텍스트는 왼쪽 정렬, 바코드는 가운데 배치를 기본으로 두고, 방향을 바꾼 뒤에는 바코드가 실제 스캐너로 읽히는지 1장 테스트로 확인하세요.",
+        COLOR_ACCENT_FILL,
+    )
 
 
 def add_installer_settings(doc: Document) -> None:
-    add_heading(doc, "5. 설치 담당자용 설정", 1)
+    add_heading(doc, "6. 설치 담당자용 설정", 1)
     add_body(doc, "고객에게 전달하기 전 프린터설정.exe에서 프린터 환경만 맞춰 두면 됩니다. config.ini는 직접 열지 않아도 됩니다.")
 
     table = doc.add_table(rows=1, cols=3)
     for cell, header in zip(table.rows[0].cells, ("설정 항목", "값", "설명")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
-        ("브랜드", "BIXOLON / TSC / Zebra", "고객이 사용하는 프린터 브랜드 한 가지를 선택합니다."),
+        ("브랜드", "BIXOLON / TSC / Zebra / SEWOO(ZPL)", "고객이 사용하는 프린터 브랜드 한 가지를 선택합니다."),
         ("연결 방식", "LAN / USB", "LAN은 IP 직접 전송, USB는 Windows 프린터 큐를 통해 전송합니다."),
         ("인쇄 방식", "감열 / 열전사", "감열은 리본 없음, 열전사는 리본 사용 환경입니다."),
         ("ip, port", "예: 192.168.0.130 / 9100", "network 방식일 때 프린터 IP와 포트를 입력합니다."),
         ("windows_printer_name", "auto 또는 프린터 이름", "windows_raw 방식일 때 Windows 프린터 이름을 지정합니다."),
         ("width_mm, height_mm", "예: 50 / 30", "라벨 용지 가로, 세로 크기입니다."),
-        ("gap_mm", "예: 3", "라벨 간격입니다. 갭 라벨 기준으로 사용합니다."),
+        ("media_type", "gap / black_mark / continuous", "갭 용지, 블랙마크 용지, 연속 용지 중 실제 라벨지를 선택합니다."),
+        ("gap_mm", "예: 3", "갭 용지와 블랙마크 용지는 0보다 크게 입력합니다. 연속 용지는 0을 권장합니다."),
     ]
     for row_data in rows:
         row = table.add_row().cells
@@ -431,18 +505,36 @@ def add_installer_settings(doc: Document) -> None:
     add_callout(
         doc,
         "브랜드별 기본값",
-        "BIXOLON과 TSC는 한글 출력을 위해 cp949 계열 명령 인코딩을 사용하고, Zebra는 UTF-8 기반 ZPL을 사용합니다. "
+        "BIXOLON은 cp949 계열 명령 인코딩을 사용하고, TSC, Zebra, SEWOO(ZPL)는 UTF-8 기반 명령을 사용합니다. "
         "language와 command_encoding은 auto 상태로 두면 brand 값에 맞춰 자동 적용됩니다.",
+        COLOR_ACCENT_FILL,
+    )
+    add_callout(
+        doc,
+        "저장 전 점검",
+        "프린터설정.exe의 설정 점검 버튼은 IP/포트, Windows 프린터 이름, 용지 유형, 간격, DPI, 브랜드별 인쇄후작업 지원 여부를 확인합니다. "
+        "오류가 표시되면 저장하지 말고 실제 장비 설정과 라벨지를 먼저 맞춘 뒤 다시 저장하세요.",
+        COLOR_WARNING_FILL,
+    )
+    add_callout(
+        doc,
+        "저장하지 않은 변경사항",
+        "프린터설정.exe에서 값을 바꾸면 창 제목 끝에 * 표시가 붙습니다. 저장하지 않은 상태로 현재 설정을 다시 불러오거나 창을 닫으려 하면 확인창이 표시되므로, 실수로 작업 중인 설정을 잃지 않도록 안내에 따라 선택하세요.",
         COLOR_ACCENT_FILL,
     )
 
 
 def add_troubleshooting(doc: Document) -> None:
-    add_heading(doc, "6. 문제 해결", 1)
+    add_heading(doc, "7. 문제 해결", 1)
     table = doc.add_table(rows=1, cols=3)
     for cell, header in zip(table.rows[0].cells, ("증상", "확인할 내용", "조치")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
+        (
+            "처음 설치 후 정상 여부를 모르겠음",
+            "배포 폴더 필수 파일, 설정, 엑셀, 인쇄 데이터 바코드/매수, dry-run",
+            "00_고객PC_실행전점검.cmd를 실행해 오류 항목을 확인하고 out\\customer_support_package.zip을 보관합니다.",
+        ),
         (
             "Excel에서 매크로 보안 경고가 나옴",
             "신뢰 위치 등록 여부",
@@ -450,8 +542,8 @@ def add_troubleshooting(doc: Document) -> None:
         ),
         (
             "라벨 출력 버튼을 눌러도 출력되지 않음",
-            "프린터 전원, 네트워크, config.ini IP",
-            "04_open_last_log.cmd로 마지막 로그를 열고, IP와 포트 9100 연결 상태를 확인합니다.",
+            "인쇄 전 점검 메시지, 프린터 전원, 네트워크, config.ini IP",
+            "먼저 바코드 누락, 출력 매수 오류, 프린터 설정 오류 메시지를 수정합니다. 이후 04_open_last_log.cmd로 마지막 로그를 열고 IP와 포트 9100 연결 상태를 확인합니다.",
         ),
         (
             "한글이 깨져 출력됨",
@@ -473,6 +565,22 @@ def add_troubleshooting(doc: Document) -> None:
             "프린터 전송 전 사전 점검 필요 여부",
             "01_output_check.cmd를 실행한 뒤 out 폴더의 명령 파일을 확인합니다.",
         ),
+        (
+            "지원 담당자에게 원인 확인을 요청함",
+            "점검 보고서, 마지막 실행 로그, 출력 이력",
+            "라벨출력관리.exe의 설정 > 지원 패키지 생성 메뉴를 눌러 out\\customer_support_package.zip을 새로 만든 뒤 전달합니다. "
+            "ZIP 안의 environment_summary.txt, file_inventory.txt, release_manifest_summary.txt로 설치 위치와 누락 파일을 확인할 수 있고 원본 DB와 인쇄 데이터는 포함되지 않습니다.",
+        ),
+        (
+            "PC 교체나 재설치 전 데이터 백업",
+            "config.ini, DB, 인쇄 데이터, 템플릿, 도안 이미지",
+            "시작하기.cmd > 고객 데이터 백업 또는 고객데이터_백업.cmd를 실행해 out\\chaeumlab_customer_backup_*.zip을 별도 보관합니다.",
+        ),
+        (
+            "PC 교체나 재설치 후 데이터 복원",
+            "백업 ZIP, 기존 현재 데이터",
+            "고객데이터_복원.cmd에서 백업 ZIP을 선택합니다. 복원 전 현재 데이터는 out 폴더에 pre-restore 백업으로 먼저 저장됩니다.",
+        ),
     ]
     for row_data in rows:
         row = table.add_row().cells
@@ -482,7 +590,7 @@ def add_troubleshooting(doc: Document) -> None:
 
 
 def add_support(doc: Document) -> None:
-    add_heading(doc, "7. 납품 정보", 1)
+    add_heading(doc, "8. 납품 정보", 1)
     add_body(doc, "아래 정보는 실제 판매처 정보로 수정해 고객에게 전달하면 됩니다.")
     table = doc.add_table(rows=4, cols=2)
     rows = [
@@ -516,17 +624,17 @@ def configure_document() -> Document:
     styles = doc.styles
     normal = styles["Normal"]
     set_style_font(normal, 11, "111827")
-    normal.paragraph_format.space_after = Pt(6)
-    normal.paragraph_format.line_spacing = 1.25
+    normal.paragraph_format.space_after = Pt(8)
+    normal.paragraph_format.line_spacing = 1.35
 
-    set_style_font(styles["Heading 1"], 16, COLOR_BLUE, True)
-    styles["Heading 1"].paragraph_format.space_before = Pt(18)
-    styles["Heading 1"].paragraph_format.space_after = Pt(10)
+    set_style_font(styles["Heading 1"], 18, COLOR_BLUE, True)
+    styles["Heading 1"].paragraph_format.space_before = Pt(22)
+    styles["Heading 1"].paragraph_format.space_after = Pt(12)
     styles["Heading 1"].paragraph_format.line_spacing = 1.25
 
-    set_style_font(styles["Heading 2"], 13, COLOR_BLUE, True)
-    styles["Heading 2"].paragraph_format.space_before = Pt(14)
-    styles["Heading 2"].paragraph_format.space_after = Pt(7)
+    set_style_font(styles["Heading 2"], 14, COLOR_BLUE, True)
+    styles["Heading 2"].paragraph_format.space_before = Pt(16)
+    styles["Heading 2"].paragraph_format.space_after = Pt(8)
     styles["Heading 2"].paragraph_format.line_spacing = 1.25
 
     set_style_font(styles["Heading 3"], 12, COLOR_BLUE_DARK, True)
@@ -545,13 +653,16 @@ def main() -> None:
     add_file_map(doc)
     add_excel_usage(doc)
     add_daily_operation(doc)
+    add_label_designer_usage(doc)
     add_installer_settings(doc)
     add_troubleshooting(doc)
     add_support(doc)
-    doc.core_properties.title = "라벨 출력 패키지 고객용 프로그램 매뉴얼"
+    doc.core_properties.title = "채움LAB 라벨 출력 패키지 고객용 프로그램 매뉴얼"
     doc.core_properties.subject = "Excel 기반 라벨 출력 패키지 사용 설명서"
-    doc.core_properties.author = "라벨 출력 패키지"
+    doc.core_properties.author = "채움LAB"
     doc.save(OUTPUT_DOCX)
+    copy2(OUTPUT_DOCX, ROOT / OUTPUT_DOCX.name)
+    copy2(OUTPUT_DOCX, ROOT.parent / OUTPUT_DOCX.name)
     print(OUTPUT_DOCX)
 
 

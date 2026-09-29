@@ -1,16 +1,39 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+
+
+def collect_data_tree(source, target_prefix):
+    root = Path(source)
+    if not root.exists():
+        return []
+    datas = []
+    target_root = Path(target_prefix)
+    for path in root.rglob("*"):
+        if path.is_file():
+            datas.append((str(path), str(target_root / path.relative_to(root).parent)))
+    return datas
+
+
+ocr_datas = collect_data_tree("tools/ocr", "tools/ocr")
+brand_datas = collect_data_tree("assets/brand", "assets/brand")
+font_datas = collect_data_tree("assets/fonts", "assets/fonts")
+
 a = Analysis(
     ['label_designer_launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=ocr_datas + brand_datas + font_datas,
     hiddenimports=[
         'openpyxl',
         'PIL',
         'PIL.Image',
         'PIL.ImageDraw',
         'PIL.ImageFont',
+        'PIL.ImageOps',
+        'PIL.PsdImagePlugin',
+        'PIL.TiffImagePlugin',
+        'PIL.WebPImagePlugin',
         'qrcode',
         'qrcode.constants',
         'zxingcpp',
@@ -30,18 +53,18 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='label_designer',
+    name='라벨디자이너',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
-    runtime_tmpdir=None,
+    runtime_tmpdir=r'C:\Users\Public\ChaeumLABRuntime',
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/label_designer.ico',
+    icon='assets/brand/chaeumlab_app_icon.ico',
 )

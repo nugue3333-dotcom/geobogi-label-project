@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import subprocess
 import tempfile
+import re
 from pathlib import Path
 
 from openpyxl import Workbook
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EXE_PATH = PROJECT_ROOT / "고객용_실행폴더" / "print_labels.exe"
+EXE_PATH = PROJECT_ROOT / "고객용_실행폴더" / "라벨출력엔진.exe"
 KOREAN_NAME = "한글 브라켓"
 
 
@@ -22,6 +23,7 @@ def main() -> int:
             "bixolon": ("slcs", "cp949"),
             "tsc": ("tspl", "cp949"),
             "zebra": ("zpl", "utf-8"),
+            "sewoo": ("zpl", "utf-8"),
         }
         for brand, (extension, encoding) in checks.items():
             config_path = work_dir / f"config_{brand}.ini"
@@ -43,17 +45,20 @@ def main() -> int:
             label_path = output_dir / f"label_001.{extension}"
             payload = label_path.read_bytes()
             expected = KOREAN_NAME.encode(encoding)
-            if expected not in payload:
+            if brand != "tsc" and expected not in payload:
                 print(f"{brand}: missing {encoding} encoded Korean text in {label_path}")
                 return 1
             if brand == "bixolon" and b"CS13,0" not in payload:
                 print("bixolon: missing Korean character set command CS13,0")
                 return 1
-            if brand == "bixolon" and b"T30,30,b" not in payload:
+            if brand == "bixolon" and re.search(rb"\nT\d+,\d+,b,", payload) is None:
                 print("bixolon: missing Korean resident font command")
                 return 1
             if brand == "tsc" and b"CODEPAGE 949" not in payload:
                 print("tsc: missing Korean code page command")
+                return 1
+            if brand == "tsc" and b"BITMAP " not in payload:
+                print("tsc: missing Korean text bitmap command")
                 return 1
             print(f"{brand}: OK ({extension}, {encoding})")
 
@@ -95,6 +100,11 @@ windows_printer_name = TSC Label Printer
 language = zpl
 command_encoding = utf-8
 windows_printer_name = ZDesigner Label Printer
+
+[brand.sewoo]
+language = zpl
+command_encoding = utf-8
+windows_printer_name = SEWOO Label Printer
 
 [label]
 width_mm = 50

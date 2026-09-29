@@ -17,6 +17,21 @@
 - [ ] Marketing copy unchanged or reviewed
 - [ ] Rollback path documented
 
+## Automated EXE and manifest gate
+
+Run the repository tests first, then pass the real test summary to the single release command:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_release_exes.ps1 -Version (Get-Date -Format "yyyy.MM.dd.HHmm") -TestResult "pytest: actual passing result"
+```
+
+- [ ] All six specs clean-built: `customer_preflight`, `label_designer`, `label_job_runner`, `label_manager`, `print_labels`, `printer_settings`
+- [ ] `dist\` contains only `고객환경점검.exe`, `라벨디자이너.exe`, `라벨작업실행기.exe`, `라벨출력관리.exe`, `라벨출력엔진.exe`, `프린터설정.exe`
+- [ ] EXE SHA-256 values match in the source root, `고객용_실행폴더`, and the parent final folder
+- [ ] `release_manifest.json` validator reports no missing, changed, unexpected, or forbidden files
+- [ ] Manifest build metadata contains all six spec hashes, Python/PyInstaller versions, build ID, package version, and the real test result
+- [ ] Runtime output (`out\`, `_backup\`, logs, support ZIP, PyInstaller `_MEI*`) is not recorded as release payload
+
 ## Hardware verification
 
 - [ ] Printer model checked

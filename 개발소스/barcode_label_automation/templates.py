@@ -6,7 +6,7 @@ from typing import TypeAlias
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .config import BarcodeConfig
+from .config import BarcodeConfig, SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE
 from .excel_reader import LabelRow
 from .sanitizer import sanitize_barcode, sanitize_slcs_text, sanitize_tspl_text, sanitize_zpl_text
 
@@ -52,21 +52,41 @@ def render_slcs(
     print_speed: int | None = None,
     print_density: int | None = None,
     media_handling: str = "tear_off",
+    media_type: str = "gap",
+    print_orientation: str = "normal",
 ) -> str:
     config = barcode_config or default_barcode_config(one_d_wide=6)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
     gap_dot = mm_to_dots(gap_mm, dpi)
 
-    item_name = sanitize_slcs_text(row.item_name)
-    item_code = sanitize_slcs_text(row.item_code)
     barcode = sanitize_barcode(row.barcode)
-    lot_no = sanitize_slcs_text(row.lot_no)
+    text_lines = _display_text_lines(row, sanitize_slcs_text, _max_text_lines(height_mm))
 
     speed = 3 if print_speed is None else print_speed
     density = 20 if print_density is None else print_density
-    layout = _auto_label_layout(width_dot, height_dot, config, barcode)
+    large_label = width_mm >= 80 and height_mm >= 80
+    layout = _auto_label_layout(
+        width_dot,
+        height_dot,
+        config,
+        barcode,
+        len(text_lines),
+        max_text_chars=max(map(len, text_lines), default=1),
+        large_label=large_label,
+    )
     positioned_config = _auto_positioned_barcode_config("slcs", width_dot, height_dot, barcode, config, layout)
+    text_commands = "".join(
+        _slcs_text_command(
+            layout["margin_x"],
+            y,
+            line,
+            index,
+            layout,
+            use_vector_font=large_label,
+        )
+        for index, (line, y) in enumerate(zip(text_lines, layout["text_line_ys"], strict=False))
+    )
 
     return (
         "CB\n"
@@ -76,12 +96,10 @@ def render_slcs(
         f"{_slcs_print_method_command(print_method)}"
         f"{_slcs_media_handling_command(media_handling)}"
         f"SW{width_dot}\n"
-        f"SL{height_dot},{gap_dot},G\n"
-        "SOT\n"
-        f"T{_centered_text_x(width_dot, layout['text_width'], f'ITEM: {item_name}', layout['item_font'])},{layout['item_y']},b,1,1,0,0,N,N,'ITEM: {item_name}'\n"
-        f"T{_centered_text_x(width_dot, layout['text_width'], f'CODE: {item_code}', layout['code_font'])},{layout['code_y']},c,1,1,0,0,N,N,'CODE: {item_code}'\n"
+        f"{_slcs_media_type_command(height_dot, gap_dot, media_type)}"
+        f"{print_orientation_command('slcs', print_orientation)}"
+        f"{text_commands}"
         f"{_render_slcs_barcode(barcode, positioned_config)}"
-        f"T{_centered_text_x(width_dot, layout['text_width'], f'LOT: {lot_no} / QTY: {row.qty}', layout['lot_font'])},{layout['lot_y']},c,1,1,0,0,N,N,'LOT: {lot_no} / QTY: {row.qty}'\n"
         f"P{row.print_qty}\n"
     )
 
@@ -98,28 +116,35 @@ def render_tspl(
     print_speed: int | None = None,
     print_density: int | None = None,
     media_handling: str = "tear_off",
+    media_type: str = "gap",
+    print_orientation: str = "normal",
 ) -> bytes:
     config = barcode_config or default_barcode_config(one_d_wide=2)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
-    item_name = sanitize_tspl_text(row.item_name)
-    item_code = sanitize_tspl_text(row.item_code)
     barcode = sanitize_barcode(row.barcode)
-    lot_no = sanitize_tspl_text(row.lot_no)
-    layout = _auto_label_layout(width_dot, height_dot, config, barcode)
+    text_lines = _display_text_lines(row, sanitize_tspl_text, _max_text_lines(height_mm))
+    layout = _auto_label_layout(
+        width_dot,
+        height_dot,
+        config,
+        barcode,
+        len(text_lines),
+        max_text_chars=max(map(len, text_lines), default=1),
+        large_label=width_mm >= 80 and height_mm >= 80,
+    )
     positioned_config = _auto_positioned_barcode_config("tspl", width_dot, height_dot, barcode, config, layout)
     barcode_command = _render_tspl_barcode(barcode, positioned_config).encode("ascii")
     speed = 4 if print_speed is None else print_speed
     density = 8 if print_density is None else print_density
     header = (
         f"SIZE {width_mm} mm,{height_mm} mm\n"
-        f"GAP {gap_mm} mm,0 mm\n"
+        f"{_tspl_media_type_command(gap_mm, media_type)}"
         f"{_tspl_codepage_command(command_encoding)}"
         f"DENSITY {density}\n"
         f"SPEED {speed}\n"
         f"{_tspl_print_method_command(print_method)}"
-        f"{_tspl_media_handling_command(media_handling)}"
-        "DIRECTION 1\n"
+        f"{print_orientation_command('tspl', print_orientation)}"
         "REFERENCE 0,0\n"
         "CLS\n"
     ).encode("ascii")
@@ -127,31 +152,12 @@ def render_tspl(
     return b"".join(
         [
             header,
-            _tspl_text_bitmap(
-                layout["margin_x"],
-                layout["item_y"],
-                f"ITEM: {item_name}",
-                layout["text_width"],
-                layout["item_font"],
-                "center",
-            ),
-            _tspl_text_bitmap(
-                layout["margin_x"],
-                layout["code_y"],
-                f"CODE: {item_code}",
-                layout["text_width"],
-                layout["code_font"],
-                "center",
-            ),
+            *[
+                _tspl_text_bitmap(layout["margin_x"], y, line, layout["text_width"], layout["text_font"], "left")
+                for line, y in zip(text_lines, layout["text_line_ys"], strict=False)
+            ],
             barcode_command,
-            _tspl_text_bitmap(
-                layout["margin_x"],
-                layout["lot_y"],
-                f"LOT: {lot_no} / QTY: {row.qty}",
-                layout["text_width"],
-                layout["lot_font"],
-                "center",
-            ),
+            _tspl_media_handling_command(media_handling).encode("ascii"),
             f"PRINT 1,{row.print_qty}\n".encode("ascii"),
         ]
     )
@@ -169,33 +175,45 @@ def render_zpl(
     print_speed: int | None = None,
     print_density: int | None = None,
     media_handling: str = "tear_off",
+    media_type: str = "gap",
+    print_orientation: str = "normal",
 ) -> str:
     config = barcode_config or default_barcode_config(one_d_wide=2)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
 
-    item_name = sanitize_zpl_text(row.item_name)
-    item_code = sanitize_zpl_text(row.item_code)
     barcode = sanitize_barcode(row.barcode)
-    lot_no = sanitize_zpl_text(row.lot_no)
+    text_lines = _display_text_lines(row, sanitize_zpl_text, _max_text_lines(height_mm))
     speed = 4 if print_speed is None else print_speed
     density = 10 if print_density is None else print_density
-    layout = _auto_label_layout(width_dot, height_dot, config, barcode)
+    layout = _auto_label_layout(
+        width_dot,
+        height_dot,
+        config,
+        barcode,
+        len(text_lines),
+        max_text_chars=max(map(len, text_lines), default=1),
+        large_label=width_mm >= 80 and height_mm >= 80,
+    )
     positioned_config = _auto_positioned_barcode_config("zpl", width_dot, height_dot, barcode, config, layout)
+    text_commands = "".join(
+        f"^FO{layout['margin_x']},{y}^FB{layout['text_width']},1,0,L,0^A0N,{layout['text_font']},{layout['text_font']}^FD{line}^FS\n"
+        for line, y in zip(text_lines, layout["text_line_ys"], strict=False)
+    )
 
     return (
         "^XA\n"
         "^CI28\n"
+        f"{print_orientation_command('zpl', print_orientation)}"
         f"{_zpl_print_method_command(print_method)}"
         f"{_zpl_media_handling_command(media_handling)}"
+        f"{_zpl_media_type_command(media_type)}"
         f"^PR{speed}\n"
         f"^MD{density}\n"
         f"^PW{width_dot}\n"
         f"^LL{height_dot}\n"
-        f"^FO{layout['margin_x']},{layout['item_y']}^FB{layout['text_width']},1,0,C,0^A0N,{layout['item_font']},{layout['item_font']}^FDITEM: {item_name}^FS\n"
-        f"^FO{layout['margin_x']},{layout['code_y']}^FB{layout['text_width']},1,0,C,0^A0N,{layout['code_font']},{layout['code_font']}^FDCODE: {item_code}^FS\n"
+        f"{text_commands}"
         f"{_render_zpl_barcode(barcode, positioned_config)}"
-        f"^FO{layout['margin_x']},{layout['lot_y']}^FB{layout['text_width']},1,0,C,0^A0N,{layout['lot_font']},{layout['lot_font']}^FDLOT: {lot_no} / QTY: {row.qty}^FS\n"
         f"^PQ{row.print_qty}\n"
         "^XZ\n"
     )
@@ -214,9 +232,24 @@ def render_label(
     print_speed: int | None = None,
     print_density: int | None = None,
     media_handling: str = "tear_off",
+    media_type: str = "gap",
+    print_orientation: str = "normal",
 ) -> CommandPayload:
     if language == "slcs":
-        return render_slcs(row, width_mm, height_mm, dpi, gap_mm, print_method, barcode_config, print_speed, print_density, media_handling)
+        return render_slcs(
+            row,
+            width_mm,
+            height_mm,
+            dpi,
+            gap_mm,
+            print_method,
+            barcode_config,
+            print_speed,
+            print_density,
+            media_handling,
+            media_type,
+            print_orientation,
+        )
     if language == "tspl":
         return render_tspl(
             row,
@@ -230,9 +263,25 @@ def render_label(
             print_speed,
             print_density,
             media_handling,
+            media_type,
+            print_orientation,
         )
     if language == "zpl":
-        return render_zpl(row, width_mm, height_mm, dpi, gap_mm, print_method, barcode_config, command_encoding, print_speed, print_density, media_handling)
+        return render_zpl(
+            row,
+            width_mm,
+            height_mm,
+            dpi,
+            gap_mm,
+            print_method,
+            barcode_config,
+            command_encoding,
+            print_speed,
+            print_density,
+            media_handling,
+            media_type,
+            print_orientation,
+        )
     raise ValueError("language must be 'slcs', 'tspl', or 'zpl'")
 
 
@@ -240,7 +289,7 @@ def _render_slcs_barcode(barcode: str, config: BarcodeConfig) -> str:
     x = config.x
     y = config.y
     rotation = _slcs_rotation(config.rotation)
-    hri = 1 if config.one_d_human_readable else 0
+    hri = _slcs_hri_mode(config)
     if config.barcode_type in {"code128", "code39", "ean13", "ean8", "upca", "itf"}:
         symbology = {
             "code39": 0,
@@ -264,6 +313,18 @@ def _render_slcs_barcode(barcode: str, config: BarcodeConfig) -> str:
             f"0,{hri},1,{config.pdf417_module_width},{config.pdf417_module_height},{rotation},'{barcode}'\n"
         )
     raise ValueError(f"unsupported barcode.type: {config.barcode_type}")
+
+
+def _slcs_hri_mode(config: BarcodeConfig) -> int:
+    if not config.one_d_human_readable:
+        return 0
+    # SLCS B1 p8 values 1/3/5/7 print the HRI below the bars in
+    # progressively larger device fonts.
+    if config.one_d_height >= 200:
+        return 5
+    if config.one_d_height >= 120:
+        return 3
+    return 1
 
 
 def _render_tspl_barcode(barcode: str, config: BarcodeConfig, height: int | None = None) -> str:
@@ -455,16 +516,6 @@ def _centered_object_x(width_dot: int, object_width: int, minimum_margin: int) -
     return max(minimum_margin, round((width_dot - object_width) / 2))
 
 
-def _centered_text_x(width_dot: int, max_width: int, text: str, font_size: int) -> int:
-    text_width = min(max_width, _estimated_text_width(text, font_size))
-    return _centered_object_x(width_dot, text_width, max(12, round(width_dot * 0.04)))
-
-
-def _estimated_text_width(text: str, font_size: int) -> int:
-    visual_units = sum(2 if ord(char) > 127 else 1 for char in text)
-    return max(1, round(visual_units * font_size * 0.33))
-
-
 def _slcs_rotation(rotation: int) -> int:
     return {0: 0, 90: 1, 180: 2, 270: 3}.get(rotation, rotation)
 
@@ -490,17 +541,39 @@ def _tspl_print_method_command(print_method: str) -> str:
 
 
 def _slcs_media_handling_command(media_handling: str) -> str:
+    _ensure_media_handling_supported("slcs", media_handling)
     if media_handling == "cutter":
         return "CUTy\n"
     return "CUTn\n"
 
 
+def _slcs_media_type_command(height_dot: int, gap_dot: int, media_type: str) -> str:
+    if media_type == "gap":
+        return f"SL{height_dot},{gap_dot},G\n"
+    if media_type == "black_mark":
+        return f"SL{height_dot},{gap_dot},B\n"
+    if media_type == "continuous":
+        return f"SL{height_dot},0,C\n"
+    raise ValueError("media_type must be 'gap', 'black_mark', or 'continuous'.")
+
+
 def _tspl_media_handling_command(media_handling: str) -> str:
+    _ensure_media_handling_supported("tspl", media_handling)
     if media_handling == "cutter":
-        return "SET CUTTER 1\nSET PEEL OFF\nSET TEAR OFF\n"
+        return "SET PEEL OFF\nSET CUTTER 1\n"
     if media_handling == "peeler":
-        return "SET CUTTER OFF\nSET PEEL ON\nSET TEAR OFF\n"
+        return "SET CUTTER OFF\nSET PEEL ON\n"
     return "SET CUTTER OFF\nSET PEEL OFF\nSET TEAR ON\n"
+
+
+def _tspl_media_type_command(gap_mm: int | float, media_type: str) -> str:
+    if media_type == "gap":
+        return f"GAP {gap_mm:g} mm,0 mm\n"
+    if media_type == "black_mark":
+        return f"BLINE {gap_mm:g} mm,0 mm\n"
+    if media_type == "continuous":
+        return "GAP 0,0\n"
+    raise ValueError("media_type must be 'gap', 'black_mark', or 'continuous'.")
 
 
 def _tspl_codepage_command(command_encoding: str) -> str:
@@ -510,52 +583,142 @@ def _tspl_codepage_command(command_encoding: str) -> str:
     return "CODEPAGE UTF-8\n"
 
 
-def _auto_label_layout(width_dot: int, height_dot: int, config: BarcodeConfig, barcode: str) -> dict[str, int]:
-    margin_x = max(18, round(width_dot * 0.06))
-    margin_y = max(12, round(height_dot * 0.05))
+def _auto_label_layout(
+    width_dot: int,
+    height_dot: int,
+    config: BarcodeConfig,
+    barcode: str,
+    text_line_count: int = 3,
+    *,
+    max_text_chars: int = 24,
+    large_label: bool = False,
+) -> dict[str, object]:
+    margin_x = max(18, round(width_dot * 0.05))
+    margin_y = max(10, round(height_dot * 0.04))
     text_width = max(120, width_dot - (margin_x * 2))
-    item_font = _clamp(round(height_dot * 0.08), 20, 38)
-    code_font = _clamp(round(height_dot * 0.065), 18, 32)
-    lot_font = _clamp(round(height_dot * 0.065), 18, 32)
-    line_gap = _clamp(round(height_dot * 0.024), 5, 10)
-    hri_space = _clamp(round(height_dot * 0.13), 24, 38) if _is_one_d(config) and config.one_d_human_readable else line_gap
-    reserved_height = item_font + code_font + lot_font + (line_gap * 4) + hri_space + (margin_y * 2)
-    available_barcode_height = max(34, height_dot - reserved_height)
-    barcode_height = min(_scaled_barcode_height(height_dot, config), available_barcode_height)
+    line_count = _clamp(text_line_count, 1, 8)
+    text_font = max(14, round(height_dot * (0.10 if line_count <= 2 else 0.085)))
+    estimated_text_width = max(1, max_text_chars) * text_font * 0.62
+    if estimated_text_width > text_width:
+        text_font = max(14, round(text_font * text_width / estimated_text_width))
+    line_gap = max(3, round(height_dot * 0.018))
+    section_gap = max(line_gap * 2, round(height_dot * 0.04))
+    hri_ratio = 0.12 if large_label else 0.10
+    hri_space = max(18, round(height_dot * hri_ratio)) if _is_one_d(config) and config.one_d_human_readable else line_gap
+    content_height = max(1, height_dot - (margin_y * 2))
+    minimum_barcode_height = 30
+
+    def text_height_for(font_size: int) -> int:
+        return (font_size * line_count) + (line_gap * max(0, line_count - 1))
+
+    text_height = text_height_for(text_font)
+    while text_font > 14 and text_height + section_gap + hri_space + minimum_barcode_height > content_height:
+        text_font -= 1
+        text_height = text_height_for(text_font)
+
+    available_barcode_height = max(
+        minimum_barcode_height,
+        content_height - text_height - section_gap - hri_space,
+    )
+    barcode_height = min(_scaled_barcode_height(height_dot, config, large_label=large_label), available_barcode_height)
     if not _is_one_d(config):
         barcode_height = min(_estimated_2d_size(config, barcode), available_barcode_height, text_width)
-    total_height = item_font + code_font + barcode_height + hri_space + lot_font + (line_gap * 4)
-    item_y = max(margin_y, round((height_dot - total_height) / 2))
-    code_y = item_y + item_font + max(8, round(height_dot * 0.025))
-    barcode_y = code_y + code_font + line_gap
-    lot_y = barcode_y + barcode_height + hri_space + line_gap
-    max_lot_y = height_dot - margin_y - lot_font
-    if lot_y > max_lot_y:
-        shift = lot_y - max_lot_y
-        item_y = max(2, item_y - shift)
-        code_y = item_y + item_font + line_gap
-        barcode_y = code_y + code_font + line_gap
-        lot_y = min(max_lot_y, barcode_y + barcode_height + hri_space + line_gap)
+    # Start text at the printable top margin. Distribute spare vertical space
+    # around the barcode so large square labels do not leave one empty band in
+    # the middle or press the human-readable text against the lower edge.
+    text_y = margin_y
+    minimum_barcode_y = text_y + text_height + section_gap
+    occupied_height = text_height + section_gap + barcode_height + hri_space
+    spare_height = max(0, content_height - occupied_height)
+    barcode_y = minimum_barcode_y + round(spare_height * (0.4 if large_label else 0.6))
+    text_line_ys = [text_y + ((text_font + line_gap) * index) for index in range(line_count)]
     return {
         "margin_x": margin_x,
-        "item_y": item_y,
-        "code_y": code_y,
+        "margin_y": margin_y,
+        "text_line_ys": text_line_ys,
         "barcode_y": barcode_y,
-        "lot_y": lot_y,
         "text_width": text_width,
-        "item_font": item_font,
-        "code_font": code_font,
-        "lot_font": lot_font,
+        "text_font": text_font,
         "barcode_height": barcode_height,
-        "barcode_target_width": text_width,
+        "barcode_target_width": round(text_width * 0.78) if large_label and _is_one_d(config) else text_width,
+        "content_bottom": barcode_y + barcode_height + hri_space,
+        "label_bottom": height_dot - margin_y,
     }
 
 
-def _scaled_barcode_height(height_dot: int, config: BarcodeConfig) -> int:
+def _scaled_barcode_height(height_dot: int, config: BarcodeConfig, *, large_label: bool = False) -> int:
     if not _is_one_d(config):
         return config.one_d_height
-    scaled = round(height_dot * 0.26)
-    return _clamp(max(config.one_d_height, scaled), 54, 180)
+    if large_label:
+        scaled = round(height_dot * 0.30)
+        maximum = max(64, round(height_dot * 0.34))
+        return _clamp(max(config.one_d_height, scaled), 64, maximum)
+    scaled = round(height_dot * 0.38)
+    maximum = max(64, round(height_dot * 0.46))
+    return _clamp(max(config.one_d_height, scaled), 64, maximum)
+
+
+def _max_text_lines(height_mm: int | float) -> int:
+    """Return physical label capacity; the result must not vary by DPI."""
+    if height_mm < 30:
+        return 2
+    if height_mm < 40:
+        return 3
+    # A connected DB can expose more than the built-in four columns. Scale
+    # capacity with physical label height and let the common layout shrink text.
+    return _clamp(int(float(height_mm) // 8), 5, 8)
+
+
+def _display_text_lines(row: LabelRow, sanitize_text, max_lines: int = 4) -> tuple[str, ...]:
+    if row.source_fields:
+        fields = row.source_fields
+        reject_overflow = True
+    else:
+        fields = (
+            ("품명", row.item_name),
+            ("코드", row.item_code),
+            ("LOT", row.lot_no),
+            ("수량", str(row.qty)),
+        )
+        reject_overflow = False
+    lines: list[str] = []
+    for header, raw_value in fields:
+        value = sanitize_text(str(raw_value))
+        if not value:
+            continue
+        label = sanitize_text(str(header))
+        lines.append(f"{label}: {value}" if label else value)
+    if not lines:
+        lines.append(sanitize_text(row.barcode))
+    if reject_overflow and len(lines) > max_lines:
+        raise ValueError(
+            f"라벨 높이에 표시 가능한 DB 항목은 최대 {max_lines}개입니다. "
+            f"현재 값이 있는 항목은 {len(lines)}개입니다. 템플릿에서 항목을 줄이거나 라벨 높이를 늘리세요."
+        )
+    return tuple(lines[:max_lines])
+
+
+def _slcs_text_font(index: int) -> str:
+    return "b" if index < 2 else "c"
+
+
+def _slcs_text_command(
+    x: int,
+    y: int,
+    text: str,
+    index: int,
+    layout: dict[str, object],
+    *,
+    use_vector_font: bool,
+) -> str:
+    requested_height = int(layout["text_font"])
+    if use_vector_font:
+        # SLCS manual 2-1-2: K selects KS5601 text and p4/p5 accept explicit
+        # width/height in dots. This keeps 100 mm labels legible while the
+        # existing bitmap fonts remain unchanged on compact labels.
+        glyph_width = max(16, round(requested_height * 0.62))
+        return f"V{x},{y},K,{glyph_width},{requested_height},0,N,N,N,0,L,0,'{text}'\n"
+    return f"T{x},{y},{_slcs_text_font(index)},1,1,0,0,N,N,'{text}'\n"
 
 
 def _tspl_text_bitmap(x: int, y: int, text: str, max_width: int, requested_font_size: int, align: str = "left") -> bytes:
@@ -622,9 +785,46 @@ def _zpl_print_method_command(print_method: str) -> str:
     return "^MTD\n"
 
 
+def print_orientation_command(language: str, print_orientation: str) -> str:
+    """Return the documented whole-label direction command for one language.
+
+    ``normal`` deliberately preserves the legacy output direction used by this
+    package. ``rotate_180`` selects the opposite device direction.
+    """
+    if print_orientation not in {"normal", "rotate_180"}:
+        raise ValueError("print_orientation must be 'normal' or 'rotate_180'.")
+    if language == "slcs":
+        return "SOT\n" if print_orientation == "normal" else "SOB\n"
+    if language == "tspl":
+        return "DIRECTION 1\n" if print_orientation == "normal" else "DIRECTION 0\n"
+    if language == "zpl":
+        return "^PON\n" if print_orientation == "normal" else "^POI\n"
+    raise ValueError("language must be 'slcs', 'tspl', or 'zpl'.")
+
+
 def _zpl_media_handling_command(media_handling: str) -> str:
+    _ensure_media_handling_supported("zpl", media_handling)
     if media_handling == "cutter":
         return "^MMC\n"
     if media_handling == "peeler":
         return "^MMP\n"
     return "^MMT\n"
+
+
+def _zpl_media_type_command(media_type: str) -> str:
+    if media_type == "gap":
+        return "^MNY\n"
+    if media_type == "black_mark":
+        return "^MNM,0\n"
+    if media_type == "continuous":
+        return "^MNN\n"
+    raise ValueError("media_type must be 'gap', 'black_mark', or 'continuous'.")
+
+
+def _ensure_media_handling_supported(language: str, media_handling: str) -> None:
+    supported = SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE.get(language, {"tear_off"})
+    if media_handling in supported:
+        return
+    if language == "slcs" and media_handling == "peeler":
+        raise ValueError("BIXOLON/SLCS peeler command is not supported yet. Use tear_off or cutter.")
+    raise ValueError(f"media_handling '{media_handling}' is not supported for {language}.")

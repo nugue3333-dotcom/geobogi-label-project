@@ -13,7 +13,7 @@ final class LabelCommandRenderer {
         if (PrinterSettings.BRAND_TSC.equals(settings.brand)) {
             return new RenderedCommand(renderTspl(settings, row), "MS949");
         }
-        if (PrinterSettings.BRAND_ZEBRA.equals(settings.brand)) {
+        if (PrinterSettings.BRAND_ZEBRA.equals(settings.brand) || PrinterSettings.BRAND_SEWOO.equals(settings.brand)) {
             return new RenderedCommand(renderZpl(settings, row), "UTF-8");
         }
         throw new IllegalArgumentException("지원하지 않는 프린터 브랜드입니다.");
@@ -38,8 +38,9 @@ final class LabelCommandRenderer {
                 + "SD20\n"
                 + "CS13,0\n"
                 + slcsPrintMethod(settings.printMethod)
+                + slcsMediaHandling(settings.mediaHandling)
                 + "SW" + widthDot + "\n"
-                + "SL" + heightDot + "," + gapDot + ",G\n"
+                + slcsMediaType(heightDot, gapDot, settings.mediaType)
                 + "SOT\n"
                 + "T30,30,b,1,1,0,0,N,N,'ITEM: " + itemName + "'\n"
                 + "T30,75,c,1,1,0,0,N,N,'CODE: " + itemCode + "'\n"
@@ -55,7 +56,7 @@ final class LabelCommandRenderer {
         String lotNo = sanitizeTspl(row.lotNo);
 
         return "SIZE " + settings.widthMm + " mm," + settings.heightMm + " mm\n"
-                + "GAP " + formatMm(settings.gapMm) + " mm,0 mm\n"
+                + tsplMediaType(settings.gapMm, settings.mediaType)
                 + "CODEPAGE 949\n"
                 + "DENSITY 8\n"
                 + "SPEED 4\n"
@@ -67,6 +68,7 @@ final class LabelCommandRenderer {
                 + "TEXT 30,75,\"2\",0,1,1,\"CODE: " + itemCode + "\"\n"
                 + "BARCODE 130,115,\"128\",80,1,0,2,2,\"" + barcode + "\"\n"
                 + "TEXT 30,225,\"2\",0,1,1,\"LOT: " + lotNo + " / QTY: " + row.qty + "\"\n"
+                + tsplMediaHandling(settings.mediaHandling)
                 + "PRINT 1," + row.printQty + "\n";
     }
 
@@ -82,6 +84,8 @@ final class LabelCommandRenderer {
         return "^XA\n"
                 + "^CI28\n"
                 + zplPrintMethod(settings.printMethod)
+                + zplMediaHandling(settings.mediaHandling)
+                + zplMediaType(settings.mediaType)
                 + "^PW" + widthDot + "\n"
                 + "^LL" + heightDot + "\n"
                 + "^FO30,30^A0N,28,28^FDITEM: " + itemName + "^FS\n"
@@ -99,6 +103,26 @@ final class LabelCommandRenderer {
         return "STd\n";
     }
 
+    private static String slcsMediaHandling(String mediaHandling) {
+        if (PrinterSettings.HANDLING_PEELER.equals(mediaHandling)) {
+            throw new IllegalArgumentException("BIXOLON/SLCS 필러 명령은 아직 지원하지 않습니다. 뜯어내기 또는 커터를 선택하세요.");
+        }
+        if (PrinterSettings.HANDLING_CUTTER.equals(mediaHandling)) {
+            return "CUTy\n";
+        }
+        return "CUTn\n";
+    }
+
+    private static String slcsMediaType(int heightDot, int gapDot, String mediaType) {
+        if (PrinterSettings.MEDIA_BLACK_MARK.equals(mediaType)) {
+            return "SL" + heightDot + "," + gapDot + ",B\n";
+        }
+        if (PrinterSettings.MEDIA_CONTINUOUS.equals(mediaType)) {
+            return "SL" + heightDot + ",0,C\n";
+        }
+        return "SL" + heightDot + "," + gapDot + ",G\n";
+    }
+
     private static String tsplPrintMethod(String printMethod) {
         if (PrinterSettings.METHOD_THERMAL_TRANSFER.equals(printMethod)) {
             return "SET RIBBON ON\n";
@@ -106,11 +130,51 @@ final class LabelCommandRenderer {
         return "SET RIBBON OFF\n";
     }
 
+    private static String tsplMediaHandling(String mediaHandling) {
+        if (PrinterSettings.HANDLING_CUTTER.equals(mediaHandling)) {
+            return "SET PEEL OFF\nSET CUTTER 1\n";
+        }
+        if (PrinterSettings.HANDLING_PEELER.equals(mediaHandling)) {
+            return "SET CUTTER OFF\nSET PEEL ON\n";
+        }
+        return "SET CUTTER OFF\nSET PEEL OFF\nSET TEAR ON\n";
+    }
+
+    private static String tsplMediaType(float gapMm, String mediaType) {
+        if (PrinterSettings.MEDIA_BLACK_MARK.equals(mediaType)) {
+            return "BLINE " + formatMm(gapMm) + " mm,0 mm\n";
+        }
+        if (PrinterSettings.MEDIA_CONTINUOUS.equals(mediaType)) {
+            return "GAP 0,0\n";
+        }
+        return "GAP " + formatMm(gapMm) + " mm,0 mm\n";
+    }
+
     private static String zplPrintMethod(String printMethod) {
         if (PrinterSettings.METHOD_THERMAL_TRANSFER.equals(printMethod)) {
             return "^MTT\n";
         }
         return "^MTD\n";
+    }
+
+    private static String zplMediaHandling(String mediaHandling) {
+        if (PrinterSettings.HANDLING_CUTTER.equals(mediaHandling)) {
+            return "^MMC\n";
+        }
+        if (PrinterSettings.HANDLING_PEELER.equals(mediaHandling)) {
+            return "^MMP\n";
+        }
+        return "^MMT\n";
+    }
+
+    private static String zplMediaType(String mediaType) {
+        if (PrinterSettings.MEDIA_BLACK_MARK.equals(mediaType)) {
+            return "^MNM,0\n";
+        }
+        if (PrinterSettings.MEDIA_CONTINUOUS.equals(mediaType)) {
+            return "^MNN\n";
+        }
+        return "^MNY\n";
     }
 
     private static String sanitizeBarcode(String value) {

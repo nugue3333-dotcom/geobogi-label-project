@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "projectName": "New project",
+  "defaultAgents": [
+    "project-mapper",
+    "feature-worker",
+    "qa-release-verifier"
+  ],
+  "codex": {
+    "command": "codex",
+    "defaultSandbox": "workspace-write",
+    "approvalPolicy": "never"
+  },
+  "collaboration": {
+    "defaultMode": "council",
+    "defaultCouncilAgents": [
+      "project-mapper",
+      "label-release-reviewer",
+      "feature-worker",
+      "qa-release-verifier",
+      "lead-integrator"
+    ],
+    "rounds": [
+      {
+        "id": "diagnosis",
+        "title": "문제 진단",
+        "writePolicy": "read-only"
+      },
+      {
+        "id": "solution-debate",
+        "title": "해결안 토론",
+        "writePolicy": "read-only"
+      },
+      {
+        "id": "implementation",
+        "title": "합의안 구현",
+        "writePolicy": "assigned-write-scopes-only"
+      },
+      {
+        "id": "verification",
+        "title": "검증과 출시 판단",
+        "writePolicy": "read-only-unless-fix-is-requested"
+      }
+    ]
+  },
+  "agents": {
+    "lead-integrator": {
+      "displayName": "리드 통합자",
+      "promptFile": "prompts/lead-integrator.md",
+      "defaultPurpose": "작업 분해, 충돌 조정, 최종 품질 판단",
+      "writeScope": "coordination-only"
+    },
+    "project-mapper": {
+      "displayName": "구조 분석 에이전트",
+      "promptFile": "prompts/project-mapper.md",
+      "defaultPurpose": "저장소 구조, 실행 명령, 위험 지점 조사",
+      "writeScope": "read-only"
+    },
+    "feature-worker": {
+      "displayName": "기능 구현 에이전트",
+      "promptFile": "prompts/feature-worker.md",
+      "defaultPurpose": "명확히 지정된 파일/모듈의 구현",
+      "writeScope": "assigned-files-only"
+    },
+    "ui-ux-worker": {
+      "displayName": "UI/UX 구현 에이전트",
+      "promptFile": "prompts/ui-ux-worker.md",
+      "defaultPurpose": "화면 구조, 반응형, 접근성, 한국어 문구 개선",
+      "writeScope": "assigned-ui-files-only"
+    },
+    "qa-release-verifier": {
+      "displayName": "검증/릴리스 에이전트",
+      "promptFile": "prompts/qa-release-verifier.md",
+      "defaultPurpose": "테스트, 빌드, 고객 실행 표면 검증",
+      "writeScope": "read-only-unless-fix-is-requested"
+    },
+    "docs-ops": {
+      "displayName": "문서/운영 에이전트",
+      "promptFile": "prompts/docs-ops.md",
+      "defaultPurpose": "실행 문서, 배포 절차, 운영 체크리스트 정리",
+      "writeScope": "docs-and-runbooks"
+    },
+    "label-release-reviewer": {
+      "displayName": "라벨/장비 릴리스 검토 에이전트",
+      "promptFile": "prompts/label-release-reviewer.md",
+      "defaultPurpose": "라벨 정확도, 프린터 dry-run, 고객 배포, 템플릿 무결성 검토",
+      "writeScope": "read-only-release-review"
+    }
+  }
+}
