@@ -644,6 +644,14 @@ def _normalize_element(element: dict[str, object]) -> dict[str, object]:
 
 
 def _open_design_image(path: str | Path) -> Image.Image:
+    with Path(path).open("rb") as source:
+        header = source.read(128)
+    if b"Bar Tender Format File" in header:
+        raise ValueError(
+            "이 파일은 PNG 이미지가 아니라 BarTender 도안(.btw)입니다. "
+            "확장자를 바꿔도 이미지로 변환되지 않습니다. 원본 프로그램에서 열어 "
+            "실제 이미지로 내보내거나 인쇄 미리보기를 저장해야 합니다."
+        )
     with Image.open(path) as opened:
         try:
             opened.seek(0)
@@ -651,6 +659,13 @@ def _open_design_image(path: str | Path) -> Image.Image:
             pass
         image = ImageOps.exif_transpose(opened)
         return image.convert("RGBA").copy()
+
+
+def _design_image_on_white(image: Image.Image) -> Image.Image:
+    """Analyze transparent exports as ink on a white label, preserving their size."""
+    rgba = image.convert("RGBA")
+    background = Image.new("RGBA", rgba.size, "white")
+    return Image.alpha_composite(background, rgba).convert("RGB")
 
 
 def _save_design_image_asset(source_path: Path, image_dir: Path) -> tuple[Path, tuple[int, int]]:
@@ -1147,7 +1162,7 @@ def _tesseract_language(tessdata_dir: Path | None) -> str:
 
 
 def _prepare_ocr_image(image: Image.Image) -> Image.Image:
-    prepared = ImageOps.grayscale(image.convert("RGB"))
+    prepared = ImageOps.grayscale(_design_image_on_white(image))
     if prepared.width < 900:
         scale = max(2, min(5, round(900 / max(1, prepared.width))))
         prepared = prepared.resize((prepared.width * scale, prepared.height * scale), Image.Resampling.LANCZOS)
@@ -1964,6 +1979,7 @@ def _design_template_elements_from_image(
     max_elements: int = 120,
     base_dir: Path | None = None,
 ) -> list[dict[str, object]]:
+    image = _design_image_on_white(image)
     analysis = _analysis_grayscale_image(image)
     table_grid = _table_grid_from_image(image)
     table_elements: list[dict[str, object]] = []
@@ -2311,7 +2327,7 @@ class LabelDesignerApp(tk.Tk):
         self.template_path_var = tk.StringVar(value=str(self.template_path))
         self.document_state_var = tk.StringVar(value="")
         self.tools_panel_text_var = tk.StringVar(value="도구 숨기기")
-        self.data_panel_text_var = tk.StringVar(value="속성 숨기기")
+        self.data_panel_text_var = tk.StringVar(value="DB 숨기기")
         self.tools_panel_visible = True
         self.data_panel_visible = True
         self.snap_to_grid_var = tk.BooleanVar(value=False)
@@ -2845,19 +2861,9 @@ class LabelDesignerApp(tk.Tk):
         properties_inner.bind("<Configure>", sync_properties_scrollregion)
         properties_canvas.bind("<Configure>", sync_properties_width)
         properties_inner.columnconfigure(0, weight=1)
-        view_row = ttk.Frame(properties_inner, style="SidePanel.TFrame")
-        view_row.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        view_row.columnconfigure(0, weight=1)
-        view_row.columnconfigure(1, weight=1)
-        ttk.Button(view_row, text="개체 속성", command=lambda: self.show_property_view("object"), style="Secondary.TButton").grid(row=0, column=0, sticky="ew", padx=(0, 4))
-        ttk.Button(view_row, text="상품 데이터", command=lambda: self.show_property_view("data"), style="Secondary.TButton").grid(row=0, column=1, sticky="ew", padx=(4, 0))
         self._property_data_frame = ttk.Frame(properties_inner, style="SidePanel.TFrame")
-        self._property_data_frame.grid(row=1, column=0, sticky="nsew")
+        self._property_data_frame.grid(row=0, column=0, sticky="nsew")
         self._build_property_panel(self._property_data_frame)
-        self._property_object_frame = ttk.Frame(properties_inner, style="SidePanel.TFrame")
-        self._property_object_frame.grid(row=1, column=0, sticky="nsew")
-        self._build_inline_property_panel(self._property_object_frame)
-        self.show_property_view("object")
         properties_canvas.bind("<MouseWheel>", scroll_properties, add="+")
         for widget in self._walk_widgets(properties_inner):
             widget.bind("<MouseWheel>", scroll_properties, add="+")
@@ -2943,21 +2949,6 @@ class LabelDesignerApp(tk.Tk):
             style="Tool.TButton",
         ).grid(row=row + 4, column=0, columnspan=2, sticky="ew", pady=2)
         ttk.Separator(parent, orient="horizontal").grid(row=row + 5, column=0, columnspan=2, sticky="ew", pady=(10, 8))
-        ttk.Label(parent, text="정밀 편집", style="PropertyGroupTitle.TLabel").grid(row=row + 6, column=0, columnspan=2, sticky="w")
-        for offset, (label, action) in enumerate((
-            ("복제", self.duplicate_selected), ("그룹", self.group_selected),
-            ("그룹 해제", self.ungroup_selected), ("잠금/해제", self.toggle_lock_selected),
-            ("왼쪽 맞춤", self.align_selected_left), ("가로 간격 맞춤", self.distribute_selected_horizontally),
-        )):
-            ttk.Button(parent, text=label, command=action, style="Tool.TButton").grid(
-                row=row + 7 + offset // 2, column=offset % 2, sticky="ew", padx=(0 if offset % 2 == 0 else 4, 4 if offset % 2 == 0 else 0), pady=2
-            )
-        ttk.Checkbutton(parent, text="이동할 때 1mm 격자 맞춤", variable=self.snap_to_grid_var).grid(
-            row=row + 10, column=0, columnspan=2, sticky="w", pady=(8, 0)
-        )
-        ttk.Label(parent, text="Ctrl+클릭 다중 선택 · 방향키 1mm · Shift+방향키 0.1mm", style="Status.TLabel", wraplength=270).grid(
-            row=row + 11, column=0, columnspan=2, sticky="w", pady=(4, 0)
-        )
 
     def _build_canvas_toolbar(self, parent: ttk.Frame) -> None:
         toolbar = ttk.Frame(parent, style="Toolbar.TFrame", padding=(0, 0, 0, 6))
@@ -2996,7 +2987,7 @@ class LabelDesignerApp(tk.Tk):
         transfer_menu.add_command(label="이동용 프로젝트 내보내기", command=self.export_project)
         transfer_menu.add_command(label="이동용 프로젝트 가져오기", command=self.import_project)
         transfer_menu.add_separator()
-        transfer_menu.add_command(label="BarTender 도안 전환 안내", command=self.show_bartender_migration_help)
+        transfer_menu.add_command(label="다른 프로그램 도안 가져오기 안내", command=self.show_bartender_migration_help)
         transfer_button.configure(menu=transfer_menu)
         transfer_button.grid(row=0, column=3, padx=(4, 0), sticky="ew")
 
@@ -3040,37 +3031,39 @@ class LabelDesignerApp(tk.Tk):
 
         size_row = ttk.Frame(toolbar, style="Toolbar.TFrame")
         size_row.grid(row=1, column=0, sticky="ew", pady=(2, 0))
-        size_row.columnconfigure(8, weight=1)
+        size_row.columnconfigure(5, weight=1)
         ttk.Label(size_row, text="라벨").grid(row=0, column=0, padx=(0, 10), sticky="w")
         ttk.Label(size_row, text="가로(mm)").grid(row=0, column=1, sticky="e")
         ttk.Spinbox(size_row, textvariable=self.width_var, from_=20, to=120, width=8, command=self.update_label_size).grid(row=0, column=2, padx=(5, 12), sticky="w")
         ttk.Label(size_row, text="세로(mm)").grid(row=0, column=3, sticky="e")
         ttk.Spinbox(size_row, textvariable=self.height_var, from_=15, to=120, width=8, command=self.update_label_size).grid(row=0, column=4, padx=(5, 12), sticky="w")
         size_apply_button = ttk.Button(size_row, text="크기 적용", command=self.update_label_size, style="Ribbon.TButton")
-        center_button = ttk.Button(size_row, text="가운데 정렬", command=self.center_selected, style="Ribbon.TButton")
+        center_button = ttk.Button(size_row, text="좌우 가운데 정렬", command=self.center_selected, style="Ribbon.TButton")
+        vertical_center_button = ttk.Button(size_row, text="상하 가운데 정렬", command=self.center_selected_vertically, style="Ribbon.TButton")
         reset_button = ttk.Button(size_row, text="빈 라벨로 초기화", command=self.reset_template, style="Danger.TButton")
-        size_apply_button.grid(row=0, column=5, padx=(0, 6), sticky="ew")
-        center_button.grid(row=0, column=6, padx=(0, 6), sticky="ew")
-        reset_button.grid(row=0, column=7, sticky="ew")
+        size_apply_button.grid(row=1, column=0, columnspan=2, padx=(0, 6), pady=(8, 0), sticky="ew")
+        center_button.grid(row=1, column=2, columnspan=2, padx=(0, 6), pady=(8, 0), sticky="ew")
+        vertical_center_button.grid(row=2, column=0, columnspan=2, padx=(0, 6), pady=(6, 0), sticky="ew")
+        reset_button.grid(row=2, column=2, columnspan=2, padx=(0, 6), pady=(6, 0), sticky="ew")
 
         size_row_compact: bool | None = None
 
         def layout_size_row(event: tk.Event) -> None:
             nonlocal size_row_compact
-            compact = event.width < 720
+            compact = event.width < 900
             if compact == size_row_compact:
                 return
             size_row_compact = compact
-            for column in range(9):
-                size_row.columnconfigure(column, weight=1 if compact or column == 8 else 0)
             if compact:
-                size_apply_button.grid_configure(row=1, column=0, columnspan=3, padx=(0, 6), pady=(8, 0))
-                center_button.grid_configure(row=1, column=3, columnspan=3, padx=(0, 6), pady=(8, 0))
-                reset_button.grid_configure(row=1, column=6, columnspan=3, padx=0, pady=(8, 0))
+                size_apply_button.grid_configure(row=1, column=0, columnspan=2, padx=(0, 6), pady=(8, 0))
+                center_button.grid_configure(row=1, column=2, columnspan=3, padx=0, pady=(8, 0))
+                vertical_center_button.grid_configure(row=2, column=0, columnspan=2, padx=(0, 6), pady=(6, 0))
+                reset_button.grid_configure(row=2, column=2, columnspan=3, padx=0, pady=(6, 0))
                 return
-            size_apply_button.grid_configure(row=0, column=5, columnspan=1, padx=(0, 6), pady=0)
-            center_button.grid_configure(row=0, column=6, columnspan=1, padx=(0, 6), pady=0)
-            reset_button.grid_configure(row=0, column=7, columnspan=1, padx=0, pady=0)
+            size_apply_button.grid_configure(row=1, column=0, columnspan=1, padx=(0, 6), pady=(8, 0))
+            center_button.grid_configure(row=1, column=1, columnspan=1, padx=(0, 6), pady=(8, 0))
+            vertical_center_button.grid_configure(row=1, column=2, columnspan=1, padx=(0, 6), pady=(8, 0))
+            reset_button.grid_configure(row=1, column=3, columnspan=2, padx=0, pady=(8, 0))
 
         size_row.bind("<Configure>", layout_size_row)
 
@@ -3190,7 +3183,7 @@ class LabelDesignerApp(tk.Tk):
 
     def _build_property_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        ttk.Label(parent, text="상품 데이터", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(parent, text="상품 DB", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             parent,
             text="상품 엑셀 연결 상태와 선택 개체의 열을 확인합니다.",
@@ -3228,7 +3221,6 @@ class LabelDesignerApp(tk.Tk):
         self.field_combo.grid(row=3, column=0, sticky="ew")
         self.field_combo.bind("<<ComboboxSelected>>", lambda _event: self._apply_selected_data_field())
         ttk.Label(mapping_group, textvariable=self.db_mapping_help_var, style="Status.TLabel", wraplength=270).grid(row=4, column=0, sticky="w", pady=(6, 0))
-        ttk.Button(mapping_group, text="선택 개체 편집", command=self.open_element_editor, style="Primary.TButton").grid(row=5, column=0, sticky="ew", pady=(8, 0))
 
         preview_group = ttk.Frame(parent, style="PropertyGroup.TFrame")
         preview_group.grid(row=4, column=0, sticky="nsew")
@@ -3249,47 +3241,6 @@ class LabelDesignerApp(tk.Tk):
         preview_scroll.grid(row=0, column=1, sticky="ns")
         self.property_widgets = {}
 
-    def show_property_view(self, view: str) -> None:
-        data_frame = self.__dict__.get("_property_data_frame")
-        object_frame = self.__dict__.get("_property_object_frame")
-        if data_frame is None or object_frame is None:
-            return
-        if view == "data":
-            object_frame.grid_remove()
-            data_frame.grid()
-        else:
-            data_frame.grid_remove()
-            object_frame.grid()
-
-    def _build_inline_property_panel(self, parent: ttk.Frame) -> None:
-        parent.columnconfigure(0, weight=1)
-        parent.columnconfigure(1, weight=1)
-        ttk.Label(parent, text="선택한 개체", style="SidePanelTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
-        ttk.Label(parent, text="캔버스에서 개체를 선택한 뒤 값을 바꾸세요.", style="SidePanelBody.TLabel", wraplength=260).grid(
-            row=1, column=0, columnspan=2, sticky="w", pady=(4, 12)
-        )
-        type_combo = self._property_combo(parent, 1, "종류", self.type_var, list(ELEMENT_TYPES.values()), state="readonly")
-        text_entry = self._property_entry(parent, 2, "텍스트 / 바코드 값", self.text_var)
-        geometry = ttk.Frame(parent, style="SidePanel.TFrame")
-        geometry.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(10, 0))
-        for column in range(2):
-            geometry.columnconfigure(column, weight=1)
-        position_entries = [
-            self._small_property(geometry, row, column, label, variable)
-            for row, column, label, variable in (
-                (0, 0, "가로 위치(mm)", self.x_var), (0, 1, "세로 위치(mm)", self.y_var),
-                (2, 0, "너비(mm)", self.w_var), (2, 1, "높이(mm)", self.h_var),
-            )
-        ]
-        font_entry = self._property_entry(parent, 4, "글자 크기", self.font_var)
-        align_combo = self._property_combo(parent, 5, "정렬", self.align_var, list(ALIGNMENTS.values()), state="readonly")
-        buttons = ttk.Frame(parent, style="SidePanel.TFrame")
-        buttons.grid(row=12, column=0, columnspan=2, sticky="ew", pady=(14, 0))
-        buttons.columnconfigure(0, weight=1)
-        ttk.Button(buttons, text="속성 적용", command=self.apply_properties, style="Primary.TButton").grid(row=0, column=0, sticky="ew")
-        ttk.Button(buttons, text="자세히 편집", command=self.open_element_editor, style="Secondary.TButton").grid(row=1, column=0, sticky="ew", pady=(6, 0))
-        self.property_widgets = {"always": [type_combo, *position_entries], "text": [text_entry, font_entry, align_combo]}
-
     def toggle_side_panel(self, side: str) -> None:
         if side == "tools":
             self.tools_panel_visible = not self.tools_panel_visible
@@ -3302,7 +3253,7 @@ class LabelDesignerApp(tk.Tk):
             card = self._properties_card
             column = 2
             visible = self.data_panel_visible
-            self.data_panel_text_var.set("속성 숨기기" if visible else "속성 보이기")
+            self.data_panel_text_var.set("DB 숨기기" if visible else "DB 보이기")
         if visible:
             card.grid()
         else:
@@ -3312,24 +3263,6 @@ class LabelDesignerApp(tk.Tk):
         self._workbench_body.columnconfigure(column, minsize=minsize if visible else 0)
         self.update_idletasks()
         self.redraw()
-
-    def _property_entry(self, parent: ttk.Frame, row: int, label: str, variable: tk.StringVar) -> ttk.Entry:
-        ttk.Label(parent, text=label).grid(row=row * 2, column=0, sticky="w", pady=(5, 3))
-        entry = ttk.Entry(parent, textvariable=variable)
-        entry.grid(row=row * 2 + 1, column=0, sticky="ew")
-        return entry
-
-    def _property_combo(self, parent: ttk.Frame, row: int, label: str, variable: tk.StringVar, values: list[str], state: str = "normal") -> ttk.Combobox:
-        ttk.Label(parent, text=label).grid(row=row * 2, column=0, sticky="w", pady=(5, 3))
-        combo = ttk.Combobox(parent, textvariable=variable, values=values, state=state)
-        combo.grid(row=row * 2 + 1, column=0, sticky="ew")
-        return combo
-
-    def _small_property(self, parent: ttk.Frame, row: int, column: int, label: str, variable: tk.StringVar) -> ttk.Entry:
-        ttk.Label(parent, text=label).grid(row=row, column=column, sticky="w", padx=(0 if column == 0 else 8, 0), pady=(5, 3))
-        entry = ttk.Entry(parent, textvariable=variable, width=10)
-        entry.grid(row=row + 1, column=column, sticky="ew", padx=(0 if column == 0 else 8, 0))
-        return entry
 
     def _load_initial_template(self) -> dict[str, object]:
         if self.template_path.exists():
@@ -4861,11 +4794,34 @@ class LabelDesignerApp(tk.Tk):
         if any(candidate.get("review_source") for candidate in generated):
             self.after(100, self.open_ocr_review_dialog)
 
-    def open_ocr_review_dialog(self) -> None:
-        candidates = [
+    def _recognition_review_candidates(self) -> list[dict[str, object]]:
+        return [
             element for element in self.elements
             if element.get("review_source") and str(element.get("type")) in TEXT_ELEMENT_TYPES | {"barcode", "qr"}
         ]
+
+    def confirm_recognized_values(self, values: dict[str, str]) -> int:
+        """Validate the entire requested batch before changing any recognition state."""
+        by_id = {str(element["id"]): element for element in self._recognition_review_candidates()}
+        staged: list[tuple[dict[str, object], str]] = []
+        for key, raw_value in values.items():
+            if key not in by_id:
+                raise ValueError("도안이 변경되었습니다. 인식 값 검토 창을 다시 열어 주세요.")
+            element = by_id[key]
+            value = raw_value.strip()
+            if not value or (element.get("review_source") == "placeholder" and value == BARCODE_FALLBACK_VALUE):
+                raise ValueError(f"'{element.get('text', '')}' 항목의 빈 값 또는 임시 값을 원본 값으로 수정하세요.")
+            staged.append((element, value))
+        for element, value in staged:
+            element["text"] = value
+            element["review_confirmed"] = True
+        if staged:
+            self.load_selected_properties()
+            self.redraw()
+        return len(staged)
+
+    def open_ocr_review_dialog(self) -> None:
+        candidates = self._recognition_review_candidates()
         if not candidates:
             messagebox.showinfo("인식 값 검토", "검토할 도안 인식 값이 없습니다.", parent=self)
             return
@@ -4873,13 +4829,14 @@ class LabelDesignerApp(tk.Tk):
         dialog = tk.Toplevel(self)
         dialog.title("도안 인식 값 검토")
         dialog.transient(self)
+        dialog.grab_set()
         set_initial_window_size(dialog, preferred_width=1020, preferred_height=650, minimum_width=760, minimum_height=500)
         dialog.columnconfigure(0, weight=1)
         dialog.rowconfigure(1, weight=1)
         ttk.Label(
             dialog,
-            text="원본과 추정 값을 비교해 각 항목을 확인하세요. 미확인 값은 출력할 수 없습니다.",
-            style="Title.TLabel",
+            text="원본과 값을 대조한 뒤 '전체 값 확인'을 누르세요. 잘못된 값은 먼저 수정하세요.",
+            style="Title.TLabel", wraplength=720,
         ).grid(row=0, column=0, sticky="w", padx=18, pady=(16, 10))
         body = ttk.Frame(dialog, padding=(18, 0, 18, 12))
         body.grid(row=1, column=0, sticky="nsew")
@@ -4902,7 +4859,7 @@ class LabelDesignerApp(tk.Tk):
             if image_path.is_file():
                 try:
                     original = _open_design_image(image_path)
-                    preview = ImageOps.contain(original.convert("RGB"), (460, 500), Image.Resampling.LANCZOS)
+                    preview = ImageOps.contain(_design_image_on_white(original), (460, 500), Image.Resampling.LANCZOS)
                     dialog._review_image = ImageTk.PhotoImage(preview)  # type: ignore[attr-defined]
                     image_label.configure(image=dialog._review_image, text="")  # type: ignore[attr-defined]
                 except (OSError, ValueError):
@@ -4944,20 +4901,21 @@ class LabelDesignerApp(tk.Tk):
 
         tree.bind("<<TreeviewSelect>>", select_candidate)
 
-        def confirm_candidate() -> None:
+        def apply_review(*, all_values: bool) -> None:
             selection = tree.selection()
-            if not selection:
+            if not selection and not all_values:
                 return
-            element = by_id[selection[0]]
-            value = value_var.get().strip()
-            if not value or (str(element.get("review_source")) == "placeholder" and value == BARCODE_FALLBACK_VALUE):
-                messagebox.showwarning("인식 값 검토", "임시 값 대신 원본에서 확인한 값을 입력하세요.", parent=dialog)
+            values = {key: str(element.get("text", "")) for key, element in by_id.items()} if all_values else {}
+            if selection:
+                values[selection[0]] = value_var.get()
+            try:
+                self.confirm_recognized_values(values)
+            except ValueError as exc:
+                messagebox.showwarning("인식 값 검토", str(exc), parent=dialog)
                 return
-            element["text"] = value
-            element["review_confirmed"] = True
-            tree.set(selection[0], "value", value)
-            tree.set(selection[0], "state", "확인")
-            self.redraw()
+            for key in values:
+                tree.set(key, "value", str(by_id[key]["text"]))
+                tree.set(key, "state", "확인")
             remaining = [item for item in candidates if not item.get("review_confirmed")]
             if remaining:
                 tree.selection_set(str(remaining[0]["id"]))
@@ -4968,8 +4926,9 @@ class LabelDesignerApp(tk.Tk):
         controls = ttk.Frame(dialog, padding=(18, 0, 18, 16))
         controls.grid(row=2, column=0, sticky="ew")
         controls.columnconfigure(0, weight=1)
-        ttk.Button(controls, text="선택 값 확인", command=confirm_candidate, style="Primary.TButton").grid(row=0, column=1, padx=(0, 8))
-        ttk.Button(controls, text="나중에 검토", command=dialog.destroy, style="Secondary.TButton").grid(row=0, column=2)
+        ttk.Button(controls, text="전체 값 확인", command=lambda: apply_review(all_values=True), style="Primary.TButton").grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(controls, text="선택 값 수정·확인", command=lambda: apply_review(all_values=False), style="Secondary.TButton").grid(row=0, column=2, padx=(0, 8))
+        ttk.Button(controls, text="닫기", command=dialog.destroy, style="Secondary.TButton").grid(row=0, column=3)
         if candidates:
             tree.selection_set(str(candidates[0]["id"]))
             select_candidate()
@@ -5912,13 +5871,30 @@ class LabelDesignerApp(tk.Tk):
         self.redraw()
 
     def center_selected(self) -> None:
-        element = self.selected_element()
-        if element is None:
+        self._center_selected_axis("x")
+
+    def center_selected_vertically(self) -> None:
+        self._center_selected_axis("y")
+
+    def _center_selected_axis(self, axis: str) -> None:
+        selected = [element for element in self._selected_elements() if not element.get("locked")]
+        if not selected:
+            self.status_var.set("정렬할 개체를 선택하세요. 잠긴 개체는 이동하지 않습니다.")
             return
         label = self.template["label"]  # type: ignore[index]
-        element["x"] = round((float(label["width_mm"]) - float(element.get("width", 1))) / 2, 1)  # type: ignore[index]
+        dimension = "width" if axis == "x" else "height"
+        label_size = float(label[dimension + "_mm"])  # type: ignore[index]
+        start = min(float(element.get(axis, 0)) for element in selected)
+        end = max(float(element.get(axis, 0)) + float(element.get(dimension, 1)) for element in selected)
+        if end - start > label_size:
+            self.status_var.set("선택한 개체가 라벨보다 큽니다. 크기를 줄인 뒤 정렬하세요.")
+            return
+        delta = (label_size - (end - start)) / 2 - start
+        for element in selected:
+            element[axis] = round(float(element.get(axis, 0)) + delta, 1)
         self.load_selected_properties()
         self.redraw()
+        self.status_var.set(f"선택한 개체 {len(selected)}개를 {'좌우' if axis == 'x' else '상하'} 가운데로 정렬했습니다.")
 
     def update_label_size(self) -> None:
         try:
@@ -6257,11 +6233,12 @@ class LabelDesignerApp(tk.Tk):
 
     def show_bartender_migration_help(self) -> None:
         messagebox.showinfo(
-            "BarTender 도안 전환",
-            ".btw 파일은 직접 열 수 없습니다. BarTender에서 라벨을 PNG로 내보낸 뒤 "
-            "채움랩의 '도안 불러오기'와 '도안 적용'을 사용하세요. "
-            "추정 텍스트·바코드를 확인하고 엑셀 열, 라벨 크기, 프린터 설정을 다시 연결한 뒤 "
-            "원본과 첫 장 실물을 비교하세요.",
+            "다른 프로그램 도안 가져오기",
+            ".btw/.nlbl/.lbl 같은 원본 파일의 이름만 .png로 바꿔서는 가져올 수 없습니다.\n\n"
+            "원본 프로그램에서 실제 이미지로 내보내거나 인쇄 미리보기를 저장하세요. "
+            "라벨 1장만 여백 없이 저장하고 용지 크기를 동일하게 맞춘 뒤 도안 불러오기 → 도안 적용 → 인식 값 검토를 사용합니다.\n\n"
+            "글꼴·수식·DB 연결은 이미지에 남지 않아 다시 연결해야 합니다. "
+            "원본 파일을 직접 읽는 연동 방식은 프로그램별 SDK와 버전 검증이 필요하며 현재 지원하지 않습니다.",
             parent=self,
         )
 

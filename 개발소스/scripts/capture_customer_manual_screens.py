@@ -60,7 +60,6 @@ def main() -> None:
         _capture(designer, OUTPUT / "label-designer-final.png")
         designer_data = LabelDesignerApp(runtime, initial_template_path=sample_template)
         designer_data.connect_data_source_path(runtime / "barcode_db.xlsx")
-        designer_data.show_property_view("data")
         _capture(designer_data, OUTPUT / "label-designer-data.png")
         _capture(LabelManagerApp(runtime), OUTPUT / "label-manager-final.png")
         _capture(SettingsApp(runtime / "config.ini"), OUTPUT / "printer-settings.png")

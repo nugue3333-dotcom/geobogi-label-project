@@ -202,6 +202,8 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
             "새 라벨",
             "열기",
             "저장",
+            "좌우 가운데 정렬",
+            "상하 가운데 정렬",
         )
         main_actions: list[tk.Misc] = []
         for text in main_action_labels:
@@ -210,6 +212,10 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
             main_actions.extend(matches)
         _assert_visible_inside(app, *main_actions)
         _assert_text_not_clipped(*main_actions)
+        assert not _widgets_with_text(app, "개체 속성")
+        assert not _widgets_with_text(app, "선택 개체 편집")
+        assert not _widgets_with_text(app, "정밀 편집")
+        assert _only_widget(app, "상품 DB").winfo_ismapped()
         tools_canvas = next(
             widget for widget in _descendants(app._tools_card)
             if isinstance(widget, tk.Canvas)
@@ -261,6 +267,39 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
             _only_widget(quantity_dialog, "취소"),
             _only_widget(quantity_dialog, "인쇄 시작"),
         )
+    finally:
+        app.destroy()
+
+
+def test_recognition_review_all_button_confirms_draft_at_150_percent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    large_font_work_area: None,
+) -> None:
+    monkeypatch.setattr(label_designer_app, "load_header_logo", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(label_designer_app, "apply_window_icon", lambda *_args, **_kwargs: None)
+    app = label_designer_app.LabelDesignerApp(tmp_path)
+    try:
+        app.elements = [
+            label_designer_app._element("text", "상품", 2, 2, 20, 5),
+            label_designer_app._element("barcode", "001234", 2, 10, 20, 8),
+        ]
+        for element in app.elements:
+            element.update(review_source="ocr_estimate", review_confirmed=False)
+        app.open_ocr_review_dialog()
+        dialog = _window_with_title(app, "도안 인식 값 검토")
+        _settle(dialog)
+        all_button = _only_widget(dialog, "전체 값 확인")
+        _assert_visible_inside(dialog, all_button, _only_widget(dialog, "선택 값 수정·확인"), _only_widget(dialog, "닫기"))
+        _assert_text_not_clipped(all_button)
+        entry = next(widget for widget in _descendants(dialog) if isinstance(widget, ttk.Entry))
+        entry.delete(0, "end")
+        entry.insert(0, "수정 상품명")
+        all_button.invoke()
+        assert app.elements[0]["text"] == "수정 상품명"
+        assert all(element["review_confirmed"] for element in app.elements)
+        assert app.elements[1]["text"] == "001234"
+        dialog.destroy()
     finally:
         app.destroy()
 

@@ -1268,7 +1268,7 @@ def test_designer_visible_copy_keeps_db_ui_minimal_until_connection():
     assert "상품 엑셀 연결" in source
     assert "연결 해제" in source
     assert "프린터 설정" in source
-    assert "상품 데이터" in source
+    assert "상품 DB" in source
     assert '("새 라벨", self.new_label)' in source
     assert '("저장", self.save_template)' in source
     tool_source = inspect.getsource(LabelDesignerApp._build_tool_panel)
@@ -1812,7 +1812,7 @@ def test_db_toolbar_reflows_in_narrow_window() -> None:
     assert "column_count = 1 if event.width < 680 else 2 if event.width < 1200 else 4" in source
     assert "if column_count == ribbon_column_count" in source
     assert "def layout_size_row" in source
-    assert "compact = event.width < 720" in source
+    assert "compact = event.width < 900" in source
     assert "if compact == size_row_compact" in source
     assert "size_apply_button.grid_configure(row=1" in source
     assert "minimum_width=960" in startup_source
@@ -1849,7 +1849,7 @@ def test_data_source_window_reuses_existing_instance(tmp_path) -> None:
 def test_right_panel_is_db_workspace_without_duplicate_properties() -> None:
     source = inspect.getsource(LabelDesignerApp._build_property_panel)
 
-    assert 'text="상품 데이터"' in source
+    assert 'text="상품 DB"' in source
     assert 'text="상품 엑셀 상태"' in source
     assert 'text="연결 해제"' in source
     assert 'text="DB 연결"' not in source
@@ -3676,6 +3676,91 @@ def test_multi_selection_group_lock_alignment_and_duplicate() -> None:
     assert len(app.elements) == 6
     assert {element["group_id"] for element in app.elements[3:]} != group_ids
     assert all(not element["locked"] for element in app.elements[3:])
+
+
+def _review_and_alignment_app() -> LabelDesignerApp:
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.template = default_template(50, 40)
+    app.elements = [_element("text", "상품", 2, 3, 10, 4), _element("barcode", "001234", 20, 15, 12, 8)]
+    for element in app.elements:
+        element.update(review_source="ocr_estimate", review_confirmed=False)
+    app.selected_id = str(app.elements[0]["id"])
+    app.selected_ids = {app.selected_id}
+    app.redraw = lambda: None
+    app.load_selected_properties = lambda: None
+    app.status_var = SimpleNamespace(set=lambda _message: None)
+    return app
+
+
+def test_recognition_review_confirms_all_values_in_one_batch() -> None:
+    app = _review_and_alignment_app()
+    values = {str(element["id"]): str(element["text"]) for element in app.elements}
+    values[str(app.elements[0]["id"])] = "수정한 상품명"
+    assert app.confirm_recognized_values(values) == 2
+    assert all(element["review_confirmed"] for element in app.elements)
+    assert app.elements[0]["text"] == "수정한 상품명"
+    assert app.elements[1]["text"] == "001234"
+
+
+@pytest.mark.parametrize("invalid", ["", "   ", label_designer_app.BARCODE_FALLBACK_VALUE])
+def test_recognition_batch_validation_does_not_partially_confirm(invalid: str) -> None:
+    app = _review_and_alignment_app()
+    app.elements[1]["review_source"] = "placeholder"
+    values = {str(app.elements[0]["id"]): "다른 값", str(app.elements[1]["id"]): invalid}
+    with pytest.raises(ValueError, match="원본 값"):
+        app.confirm_recognized_values(values)
+    assert app.elements[0]["text"] == "상품"
+    assert all(not element["review_confirmed"] for element in app.elements)
+
+
+def test_recognition_review_rejects_stale_dialog_identifiers() -> None:
+    app = _review_and_alignment_app()
+    with pytest.raises(ValueError, match="도안이 변경"):
+        app.confirm_recognized_values({str(app.elements[0]["id"]): "수정", "old-document": "값"})
+    assert app.elements[0]["text"] == "상품"
+    assert not app.elements[0]["review_confirmed"]
+
+
+def test_horizontal_and_vertical_centering_only_change_the_requested_axis() -> None:
+    app = _review_and_alignment_app()
+    app.center_selected()
+    assert (app.elements[0]["x"], app.elements[0]["y"]) == (20, 3)
+    app.center_selected_vertically()
+    assert (app.elements[0]["x"], app.elements[0]["y"]) == (20, 18)
+
+
+def test_centering_multi_selection_preserves_relative_positions_and_locks() -> None:
+    app = _review_and_alignment_app()
+    app.selected_ids = {str(element["id"]) for element in app.elements}
+    app.center_selected_vertically()
+    assert [element["y"] for element in app.elements] == [10, 22]
+    assert app.elements[1]["y"] - app.elements[0]["y"] == 12
+    app.elements[1]["locked"] = True
+    app.center_selected()
+    assert [element["x"] for element in app.elements] == [20, 20]
+    app.elements[0]["width"] = 60
+    app.center_selected()
+    assert app.elements[0]["x"] == 20
+
+
+def test_renamed_bartender_file_has_actionable_image_import_error(tmp_path: Path) -> None:
+    path = tmp_path / "label.png"
+    path.write_bytes(b"\r\nBar Tender Format File\r\nnot a PNG")
+    with pytest.raises(ValueError, match="확장자를 바꿔도"):
+        label_designer_app._open_design_image(path)
+
+
+def test_transparent_export_is_analyzed_on_white_without_changing_source() -> None:
+    image = Image.new("RGBA", (900, 20), (0, 0, 0, 0))
+    image.putpixel((5, 5), (0, 0, 0, 255))
+    image.putpixel((6, 5), (0, 0, 0, 128))
+    prepared = label_designer_app._design_image_on_white(image)
+    assert prepared.size == image.size
+    assert prepared.getpixel((0, 0)) == (255, 255, 255)
+    assert prepared.getpixel((5, 5)) == (0, 0, 0)
+    assert prepared.getpixel((6, 5)) == (127, 127, 127)
+    assert image.getpixel((0, 0)) == (0, 0, 0, 0)
+    assert label_designer_app._prepare_ocr_image(image).getpixel((0, 0)) == 255
 
 
 def test_zoom_uses_fit_relative_levels_without_changing_label_size() -> None:

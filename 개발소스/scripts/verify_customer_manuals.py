@@ -17,7 +17,7 @@ COPIES = (
 )
 
 EXPECTED = {
-    "채움LAB_라벨디자이너_고객용_매뉴얼.pdf": (10, 9, ("예제로 시작", "상품 엑셀 연결", "인식 값 검토", ".gbproject", ".btw", "프린터 전송 완료")),
+    "채움LAB_라벨디자이너_고객용_매뉴얼.pdf": (10, 9, ("예제로 시작", "상품 엑셀 연결", "인식 값 검토", "전체 값 확인", "좌우 가운데 정렬", "상하 가운데 정렬", ".gbproject", ".btw", "프린터 전송 완료")),
     "채움LAB_라벨출력관리_고객용_매뉴얼.pdf": (7, 6, ("중복 선택 창", "체크가 0개일 때", "인쇄가 차단됩니다", "지원 패키지 생성")),
     "채움LAB_프린터설정_고객용_매뉴얼.pdf": (7, 6, ("180도 회전", "연결 확인", "BIXOLON/빅솔론")),
 }
@@ -66,7 +66,7 @@ def main() -> int:
             [paragraph.text for paragraph in document.paragraphs]
             + [cell.text for table in document.tables for row in table.rows for cell in row.cells]
         )
-        for phrase in ("예제로 시작", "인식 값 검토", ".gbproject", ".btw", "선택 항목이 없으면", "실제 출력 확인"):
+        for phrase in ("예제로 시작", "인식 값 검토", "전체 값 확인", "좌우 가운데 정렬", "상하 가운데 정렬", ".gbproject", ".btw", "선택 항목이 없으면", "실제 출력 확인"):
             if phrase not in docx_text:
                 errors.append(f"{docx_name}: missing required phrase: {phrase}")
         source_hash = digest(docx_source)
