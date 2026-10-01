@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from docx import Document
 from pypdf import PdfReader
 
 
@@ -16,8 +17,8 @@ COPIES = (
 )
 
 EXPECTED = {
-    "채움LAB_라벨디자이너_고객용_매뉴얼.pdf": (8, 7, ("데이터 소스 열기", "선택 개체 편집", "90도 시계 방향", "도안 적용")),
-    "채움LAB_라벨출력관리_고객용_매뉴얼.pdf": (8, 6, ("중복 선택 창", "체크가 0개일 때", "지원 패키지 생성")),
+    "채움LAB_라벨디자이너_고객용_매뉴얼.pdf": (10, 9, ("예제로 시작", "상품 엑셀 연결", "인식 값 검토", ".gbproject", ".btw", "프린터 전송 완료")),
+    "채움LAB_라벨출력관리_고객용_매뉴얼.pdf": (7, 6, ("중복 선택 창", "체크가 0개일 때", "인쇄가 차단됩니다", "지원 패키지 생성")),
     "채움LAB_프린터설정_고객용_매뉴얼.pdf": (7, 6, ("180도 회전", "연결 확인", "BIXOLON/빅솔론")),
 }
 
@@ -54,6 +55,25 @@ def main() -> int:
             if not copied.exists() or digest(copied) != source_hash:
                 errors.append(f"{filename}: copy mismatch: {copied}")
         print(f"OK {filename}: pages={len(reader.pages)}, bookmarks={len(reader.outline)}, sha256={source_hash[:12]}")
+
+    docx_name = "라벨출력패키지_고객용_매뉴얼.docx"
+    docx_source = ROOT / "고객용_실행폴더" / docx_name
+    if not docx_source.exists():
+        errors.append(f"missing: {docx_source}")
+    else:
+        document = Document(docx_source)
+        docx_text = "\n".join(
+            [paragraph.text for paragraph in document.paragraphs]
+            + [cell.text for table in document.tables for row in table.rows for cell in row.cells]
+        )
+        for phrase in ("예제로 시작", "인식 값 검토", ".gbproject", ".btw", "선택 항목이 없으면", "실제 출력 확인"):
+            if phrase not in docx_text:
+                errors.append(f"{docx_name}: missing required phrase: {phrase}")
+        source_hash = digest(docx_source)
+        for copy in (ROOT / docx_name, ROOT.parent / docx_name):
+            if not copy.exists() or digest(copy) != source_hash:
+                errors.append(f"{docx_name}: copy mismatch: {copy}")
+        print(f"OK {docx_name}: sha256={source_hash[:12]}")
 
     if errors:
         for error in errors:

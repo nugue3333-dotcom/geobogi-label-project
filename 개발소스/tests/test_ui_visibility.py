@@ -182,9 +182,9 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
         app.wait_window = lambda _window: None  # type: ignore[method-assign]
         _settle(app)
         assert (app.winfo_width(), app.winfo_height()) == EXPECTED_CLIENT_SIZE
-        main_action_labels = (
+        tool_action_labels = (
             "텍스트",
-            "여러 줄 텍스트",
+            "여러 줄",
             "1D 바코드",
             "2D 코드",
             "그림",
@@ -193,22 +193,35 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
             "박스",
             "선",
             "표",
-            "DB 연결",
-            "데이터 소스 열기",
-            "DB 해제",
+        )
+        main_action_labels = (
+            "상품 엑셀 연결",
+            "상품 선택",
             "프린터 설정",
             "인쇄파일 생성",
+            "새 라벨",
+            "열기",
+            "저장",
         )
         main_actions: list[tk.Misc] = []
         for text in main_action_labels:
             matches = _widgets_with_text(app, text)
             assert matches, f"메뉴를 찾을 수 없습니다: {text}"
             main_actions.extend(matches)
-        file_buttons = [widget for widget in _widgets_with_text(app, "파일") if isinstance(widget, ttk.Button)]
-        assert file_buttons, "메뉴를 찾을 수 없습니다: 파일"
-        main_actions.extend(file_buttons)
         _assert_visible_inside(app, *main_actions)
         _assert_text_not_clipped(*main_actions)
+        tools_canvas = next(
+            widget for widget in _descendants(app._tools_card)
+            if isinstance(widget, tk.Canvas)
+        )
+        scroll_height = max(1, tools_canvas.bbox("all")[3])
+        for text in tool_action_labels:
+            matches = _widgets_with_text(app, text)
+            assert matches, f"도구를 찾을 수 없습니다: {text}"
+            button = matches[0]
+            tools_canvas.yview_moveto(min(1.0, max(0.0, button.winfo_y() / scroll_height - 0.1)))
+            _assert_visible_inside(app, button)
+            _assert_text_not_clipped(button)
 
         app.data_source_path = tmp_path / "barcode_db.xlsx"
         app.data_source_headers = ("barcode", "item_name")

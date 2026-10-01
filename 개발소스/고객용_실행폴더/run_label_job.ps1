@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("DryRun", "Print", "OpenOutputFolder", "OpenLastRunLog")]
     [string]$Mode,
@@ -7,10 +7,82 @@
 )
 
 $ErrorActionPreference = "Stop"
-$BaseDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$InstallDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$LocalAppDataDir = [Environment]::GetFolderPath("LocalApplicationData")
+if ([string]::IsNullOrWhiteSpace($LocalAppDataDir)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+        $LocalAppDataDir = Join-Path $env:USERPROFILE "AppData\Local"
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:PUBLIC)) {
+        $LocalAppDataDir = Join-Path $env:PUBLIC "Documents"
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:SystemDrive)) {
+        $LocalAppDataDir = Join-Path $env:SystemDrive "Users\Public\Documents"
+    }
+    else {
+        $LocalAppDataDir = "C:\Users\Public\Documents"
+    }
+}
+$UserDataDir = Join-Path (Join-Path $LocalAppDataDir "ChaeumLAB") "LabelPrint"
+$LegacyUserDataDir = Join-Path $LocalAppDataDir "GeobogiLabel"
+
+function Test-RestrictedInstallDir {
+    param([string]$Path)
+
+    $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd("\")
+    $programRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramW6432) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    foreach ($root in $programRoots) {
+        $rootPath = [System.IO.Path]::GetFullPath($root).TrimEnd("\")
+        if ($resolved.StartsWith($rootPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    try {
+        $probe = Join-Path $Path (".write_probe_" + [Guid]::NewGuid().ToString("N") + ".tmp")
+        Set-Content -LiteralPath $probe -Value "ok" -Encoding UTF8
+        Remove-Item -LiteralPath $probe -Force
+        return $false
+    }
+    catch {
+        return $true
+    }
+}
+
+function Initialize-UserDataDir {
+    if ((-not (Test-Path -LiteralPath $UserDataDir)) -and (Test-Path -LiteralPath $LegacyUserDataDir)) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $UserDataDir) | Out-Null
+        Copy-Item -LiteralPath $LegacyUserDataDir -Destination $UserDataDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $UserDataDir | Out-Null
+    foreach ($fileName in @("config.ini", "config.example.ini", "barcode_db.xlsx", "print_queue.xlsx", "labels.xlsm", "sample_direct_open.gblabel")) {
+        $source = Join-Path $InstallDir $fileName
+        $target = Join-Path $UserDataDir $fileName
+        if ((Test-Path -LiteralPath $source) -and -not (Test-Path -LiteralPath $target)) {
+            Copy-Item -LiteralPath $source -Destination $target -Force
+        }
+    }
+    foreach ($dirName in @("templates", "db", "assets", "tools")) {
+        $source = Join-Path $InstallDir $dirName
+        $target = Join-Path $UserDataDir $dirName
+        if ((Test-Path -LiteralPath $source) -and -not (Test-Path -LiteralPath $target)) {
+            Copy-Item -LiteralPath $source -Destination $target -Recurse -Force
+        }
+    }
+}
+
+if (Test-RestrictedInstallDir $InstallDir) {
+    Initialize-UserDataDir
+    $BaseDir = $UserDataDir
+}
+else {
+    $BaseDir = $InstallDir
+}
+
 $QueuePath = Join-Path $BaseDir "print_queue.xlsx"
 $ConfigPath = Join-Path $BaseDir "config.ini"
-$ExePath = Join-Path $BaseDir "print_labels.exe"
+$ExePath = Join-Path $InstallDir "라벨출력엔진.exe"
 $LogPath = Join-Path $BaseDir "last_run.log"
 $OutputDir = Join-Path $BaseDir "out"
 $script:OpenedLabelsWorkbook = $false
@@ -18,7 +90,7 @@ $script:OpenedLabelsWorkbook = $false
 function Show-Message {
     param(
         [string]$Text,
-        [string]$Title = "거복이의꿈 라벨 출력",
+        [string]$Title = "채움랩 라벨 출력",
         [string]$Icon = "Information"
     )
 
@@ -42,7 +114,7 @@ function Ask-YesNo {
     Add-Type -AssemblyName System.Windows.Forms
     $result = [System.Windows.Forms.MessageBox]::Show(
         $Text,
-        "거복이의꿈 라벨 출력",
+        "채움랩 라벨 출력",
         [System.Windows.Forms.MessageBoxButtons]::YesNo,
         [System.Windows.Forms.MessageBoxIcon]::Question
     )
@@ -264,7 +336,7 @@ function Invoke-Engine {
     param([string]$Argument)
 
     if (-not (Test-Path -LiteralPath $ExePath)) {
-        throw "print_labels.exe 파일이 없습니다.`r`n$ExePath"
+        throw "라벨출력엔진.exe 파일이 없습니다.`r`n$ExePath"
     }
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
         throw "config.ini 파일이 없습니다.`r`n$ConfigPath"
@@ -299,7 +371,15 @@ try {
             Show-Message "출력 전 검증 완료`r`n`r`n$QueuePath`r`n$OutputDir`r`n$LogPath"
         }
         "Print" {
+            if ($Quiet) {
+                throw "Quiet 모드에서는 실제 출력 전송을 실행할 수 없습니다. 화면 확인 후 다시 실행하세요."
+            }
+            if (-not (Ask-YesNo "현재 인쇄 데이터가 실제 프린터로 전송됩니다.`r`n`r`n라벨 용지, 프린터 전원, 연결 상태, 라벨 크기를 확인한 뒤 진행하세요.")) {
+                Show-Message "실제 출력 전송을 취소했습니다."
+                exit 0
+            }
             Invoke-Engine -Argument "--print --yes"
+            Show-Message "프린터 전송 완료`r`n`r`n프린터 실제 출력 여부는 장비 상태와 라벨 배출을 확인하세요." "프린터 전송 완료"
         }
         "OpenOutputFolder" {
             if (-not (Test-Path -LiteralPath $OutputDir)) {
@@ -309,7 +389,7 @@ try {
         }
         "OpenLastRunLog" {
             if (-not (Test-Path -LiteralPath $LogPath)) {
-                Show-Message "last_run.log 파일이 아직 없습니다." "거복이의꿈 라벨 출력" "Warning"
+                Show-Message "last_run.log 파일이 아직 없습니다." "채움랩 라벨 출력" "Warning"
                 exit 0
             }
             Start-Process notepad.exe -ArgumentList "`"$LogPath`""
@@ -317,6 +397,6 @@ try {
     }
 }
 catch {
-    Show-Message $_.Exception.Message "거복이의꿈 라벨 출력 오류" "Error"
+    Show-Message $_.Exception.Message "채움랩 라벨 출력 오류" "Error"
     exit 1
 }

@@ -4,8 +4,12 @@
 
 ## 고객 PC 설치
 
+라벨디자이너의 도안 글자 인식 엔진은 배포 폴더의 `tools/ocr`에서 실행합니다.
+EXE 안에는 같은 엔진을 중복 저장하지 않습니다. `라벨디자이너.exe`만 따로
+옮기지 말고 `tools/ocr`와 글꼴·설정이 포함된 배포 폴더 전체를 복사하세요.
+
 1. `고객용_실행폴더` 전체를 고객 PC 원하는 위치에 복사합니다.
-2. `시작하기.cmd`를 실행하고 `1. 처음 실행 점검`을 선택해 필수 파일, 설정, 엑셀, `.gblabel` 저장파일 연결, 출력 폴더, dry-run 결과를 확인합니다.
+2. `처음실행_점검.cmd`를 실행해 필수 파일, 설정, 엑셀, `.gblabel` 저장파일 연결, 출력 폴더, dry-run 결과를 확인합니다. `시작하기.cmd`는 라벨출력관리 화면을 바로 엽니다. 번호 메뉴가 필요하면 `시작하기.cmd menu`를 실행하세요.
    오류가 있으면 `out\customer_preflight_report.txt`를 확인하거나 `out\customer_support_package.zip`을 지원 담당자에게 전달합니다.
 3. `.gblabel` 저장파일 더블클릭/아이콘만 다시 등록해야 할 때는 `시작하기.cmd file-association` 또는 `register_label_filetype.cmd`를 실행합니다.
 4. Excel 매크로 방식도 사용할 경우 처음 한 번 `00_install_trusted_location.cmd`를 실행합니다.
@@ -80,3 +84,6 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_release_exes.ps1 -
 ## 모바일 앱
 
 Android 모바일 앱 소스는 `mobile-android` 폴더에 있습니다. 무선랜/LAN 출력과 Bluetooth Classic SPP 출력을 지원합니다. APK 빌드는 Android Studio에서 `mobile-android` 폴더를 열어 진행합니다.
+## BarTender 도안 전환
+
+기존 `.btw` 도안은 직접 열 수 없습니다. 이미지 기반 재작성과 현장 확인 절차는 [BarTender 도안 전환 안내](docs/BARTENDER_MIGRATION.md)를 참고하세요.

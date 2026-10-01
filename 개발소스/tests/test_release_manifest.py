@@ -75,6 +75,9 @@ def test_write_release_manifest_records_full_payload_and_build_metadata(tmp_path
     assert all(entry["size"] >= 0 and len(entry["sha256"]) == 64 for entry in payload["files"])
     assert payload["summary"]["missing_required_files"] == 0
     assert "버전: 2026.07.14" in version_text
+    assert "처음실행_점검.cmd 실행" in version_text
+    assert "시작하기.cmd 또는 라벨출력관리.exe" in version_text
+    assert "1번 처음 실행 점검" not in version_text
     assert "테스트패키지" in text_path.read_text(encoding="utf-8-sig")
     assert validate_release_manifest(package_dir) == (True, "release_manifest.json 기준 필수 파일 확인")
 

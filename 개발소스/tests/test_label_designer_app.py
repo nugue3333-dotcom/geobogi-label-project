@@ -339,6 +339,7 @@ def test_reset_template_button_clears_all_objects(monkeypatch, tmp_path):
     app.elements = [{"id": "old", "type": "text", "text": "OLD"}]
     app.selected_id = "old"
     app._load_values_to_controls = lambda: None
+    app.load_selected_properties = lambda: None
     app.redraw = lambda: None
     monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.askyesno", lambda *args, **kwargs: True)
 
@@ -532,6 +533,80 @@ def test_close_dirty_prompt_handles_cancel_discard_and_save(answer, expected_sav
     assert len(closes) == expected_closes
 
 
+def _history_test_app(tmp_path: Path):
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.base_dir = tmp_path
+    app.template_path = tmp_path / "templates" / "work.gblabel"
+    app.template = default_template(50, 40)
+    app.elements = []
+    app.selected_id = None
+    app.drag_state = None
+    app._saved_payload_signature = app._current_payload_signature()
+    app._history = [app._history_snapshot()]
+    app._history_index = 0
+    app._history_restoring = False
+    app._history_suspended = 0
+    app._recovery_write_failed = False
+    app._load_values_to_controls = lambda: None
+    app.load_selected_properties = lambda: None
+    app.redraw = lambda: app._record_history()
+    statuses: list[str] = []
+    app.status_var = SimpleNamespace(set=statuses.append)
+    return app, statuses
+
+
+def test_document_undo_redo_and_recovery_follow_design_state(tmp_path) -> None:
+    app, statuses = _history_test_app(tmp_path)
+    first = _element("text", "상품명", 2, 2, 20, 5)
+    app.elements.append(first)
+    app._record_history()
+    recovery_path = app._recovery_path()
+
+    assert recovery_path.exists()
+    app.undo()
+    assert app.elements == []
+    assert not recovery_path.exists()
+    app.redo()
+    assert app.elements == [first]
+    assert recovery_path.exists()
+    assert statuses[-1] == "다시실행했습니다."
+
+
+def test_drag_creates_single_undo_step_after_release(tmp_path) -> None:
+    app, _statuses = _history_test_app(tmp_path)
+    app.elements.append(_element("box", "", 2, 2, 10, 5))
+    app._record_history()
+    app.drag_state = {"mode": "move"}
+    app.elements[0]["x"] = 3
+    app._record_history()
+    app.elements[0]["x"] = 4
+    app._record_history()
+    assert len(app._history) == 2
+
+    app.on_canvas_release(None)
+
+    assert len(app._history) == 3
+    app.undo()
+    assert app.elements[0]["x"] == 2
+
+
+def test_crash_recovery_restores_to_memory_without_overwriting_saved_file(monkeypatch, tmp_path) -> None:
+    original, _statuses = _history_test_app(tmp_path)
+    original.template_path.parent.mkdir(parents=True)
+    saved_bytes = json.dumps(default_template(50, 40)).encode("utf-8")
+    original.template_path.write_bytes(saved_bytes)
+    original.elements.append(_element("text", "복구할 내용", 2, 2, 20, 5))
+    original._record_history()
+    restored, statuses = _history_test_app(tmp_path)
+    monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.askyesno", lambda *_args, **_kwargs: True)
+
+    restored._offer_recovery()
+
+    assert restored.elements[0]["text"] == "복구할 내용"
+    assert original.template_path.read_bytes() == saved_bytes
+    assert "직접 저장" in statuses[-1]
+
+
 def test_dirty_prompt_save_failure_blocks_followup_action(monkeypatch):
     app = LabelDesignerApp.__new__(LabelDesignerApp)
     app.template = default_template(50, 40)
@@ -542,6 +617,28 @@ def test_dirty_prompt_save_failure_blocks_followup_action(monkeypatch):
     monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.askyesnocancel", lambda *_args, **_kwargs: True)
 
     assert app._confirm_save_changes("계속하기 전에") is False
+
+
+def test_discard_prompt_preserves_recovery_until_document_transition_succeeds(monkeypatch, tmp_path) -> None:
+    app, _statuses = _history_test_app(tmp_path)
+    app.elements.append(_element("text", "보존할 변경", 2, 2, 20, 5))
+    app._record_history()
+    recovery_path = app._recovery_path()
+    broken_path = tmp_path / "broken.gblabel"
+    broken_path.write_text("not valid json", encoding="utf-8")
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app.messagebox.askyesnocancel",
+        lambda *_args, **_kwargs: False,
+    )
+
+    assert app._confirm_save_changes("다른 라벨을 열기 전에")
+    assert recovery_path.exists()
+    app.template_dir = tmp_path / "templates"
+    app.config_path = tmp_path / "config.ini"
+    with pytest.raises(json.JSONDecodeError):
+        app.open_template_path(broken_path)
+    assert recovery_path.exists()
+    assert app.elements[0]["text"] == "보존할 변경"
 
 
 def test_open_failure_keeps_current_document_state(tmp_path):
@@ -565,6 +662,33 @@ def test_open_failure_keeps_current_document_state(tmp_path):
     assert app.elements is current_elements
 
 
+def test_opening_another_label_clears_previous_print_selection_and_recovery(tmp_path) -> None:
+    app, _statuses = _history_test_app(tmp_path)
+    app.template_dir = tmp_path / "templates"
+    app.config_path = tmp_path / "config.ini"
+    app.data_source_path = tmp_path / "products.xlsx"
+    app.selected_data_indexes = {0}
+    app.elements.append(_element("text", "이전 라벨", 2, 2, 20, 5))
+    app._record_history()
+    recovery_path = app._recovery_path()
+    target = app.template_dir / "other.gblabel"
+    target.parent.mkdir(parents=True)
+    target.write_text(json.dumps(default_template(50, 40)), encoding="utf-8")
+    property_refreshes: list[bool] = []
+    app.load_selected_properties = lambda: property_refreshes.append(True)
+    app._remember_template = lambda: None
+    app.title = lambda _value: None
+    app.template_path_var = SimpleNamespace(set=lambda _value: None)
+    app._update_document_state = lambda: None
+
+    app.open_template_path(target)
+
+    assert app.selected_data_indexes == set()
+    assert app.template_path == target.resolve()
+    assert not recovery_path.exists()
+    assert property_refreshes == [True]
+
+
 def test_opening_nonempty_default_recovers_design_and_loads_blank(monkeypatch, tmp_path):
     write_label_size_config(tmp_path, 70, 30)
     template_dir = tmp_path / "templates"
@@ -582,6 +706,7 @@ def test_opening_nonempty_default_recovers_design_and_loads_blank(monkeypatch, t
     app.title = lambda _value: None
     app.template_path_var = SimpleNamespace(set=lambda _value: None)
     app._load_values_to_controls = lambda: None
+    app.load_selected_properties = lambda: None
     app.redraw = lambda: None
     app.status_var = SimpleNamespace(set=lambda _value: None)
     notices: list[str] = []
@@ -672,6 +797,8 @@ def test_design_template_analysis_creates_editable_text_candidate():
     text_elements = [element for element in elements if element["type"] == "text"]
     assert text_elements
     assert text_elements[0]["text"]
+    assert text_elements[0]["review_confirmed"] is False
+    assert text_elements[0]["review_source"] in {"ocr_estimate", "ocr_fallback"}
     assert text_elements[0]["width"] > 1
     assert text_elements[0]["height"] > 1
 
@@ -821,6 +948,20 @@ def test_resolve_tesseract_prefers_bundled_engine(tmp_path):
     tesseract.write_bytes(b"fake")
 
     assert _resolve_tesseract_executable(tmp_path) == tesseract
+
+
+def test_resolve_tesseract_uses_exe_sidecar_with_separate_customer_data(monkeypatch, tmp_path):
+    install_dir = tmp_path / "install"
+    data_dir = tmp_path / "customer_data"
+    tesseract = install_dir / "tools" / "ocr" / "tesseract.exe"
+    tesseract.parent.mkdir(parents=True)
+    tesseract.write_bytes(b"fake")
+    for name in ("GEBOGI_TESSERACT_EXE", "TESSERACT_EXE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("barcode_label_automation.label_designer_app.executable_dir", lambda: install_dir)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "bundle_without_ocr"), raising=False)
+
+    assert _resolve_tesseract_executable(data_dir) == tesseract
 
 
 def test_resolve_tesseract_falls_back_to_pyinstaller_bundle(monkeypatch, tmp_path):
@@ -1124,11 +1265,12 @@ def test_designer_visible_copy_keeps_db_ui_minimal_until_connection():
     assert "필드 삽입" not in source
     assert "라벨디자이너 Pro" not in source
     assert "데이터 원본 연결" not in source
-    assert "DB 연결" in source
-    assert "DB 해제" in source
+    assert "상품 엑셀 연결" in source
+    assert "연결 해제" in source
     assert "프린터 설정" in source
-    assert "데이터 소스" in source
-    assert 'text="파일"' in source
+    assert "상품 데이터" in source
+    assert '("새 라벨", self.new_label)' in source
+    assert '("저장", self.save_template)' in source
     tool_source = inspect.getsource(LabelDesignerApp._build_tool_panel)
     assert "삭제" not in tool_source
     assert "앞으로" not in tool_source
@@ -1497,8 +1639,71 @@ def test_connect_data_source_replaces_rows_headers_and_preview(monkeypatch, tmp_
     assert app.preview_row == rows[0]
     assert app.selected_data_indexes == set()
     assert app.template["label"] == {"width_mm": 60, "height_mm": 35}
-    assert "템플릿 60×35mm" in status[-1]
-    assert status[-1].startswith("DB 연결 완료:")
+    assert "라벨 60×35mm" in status[-1]
+    assert status[-1].startswith("상품 엑셀 연결 완료:")
+
+
+def test_example_start_keeps_default_blank_and_requires_explicit_row_choice(tmp_path) -> None:
+    template_dir = tmp_path / "templates"
+    template_dir.mkdir()
+    default_path = template_dir / "default_label.json"
+    default_path.write_text(json.dumps(default_template(50, 40)), encoding="utf-8")
+    sample_source = Path(__file__).parents[1] / "templates" / "sample_excel_product.gblabel"
+    (template_dir / "sample_excel_product.gblabel").write_text(sample_source.read_text(encoding="utf-8"), encoding="utf-8")
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["barcode", "item_code", "item_name", "판매가"])
+    sheet.append(["001234", "SKU-1", "예제 상품", "4600원"])
+    workbook.save(tmp_path / "barcode_db.xlsx")
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.base_dir = tmp_path
+    app.template_dir = template_dir
+    app.template_path = default_path
+    app.config_path = tmp_path / "config.ini"
+    app.template = default_template(50, 40)
+    app.elements = []
+    app.selected_id = None
+    app._saved_payload_signature = app._current_payload_signature()
+    app._history = [app._history_snapshot()]
+    app._history_index = 0
+    app._confirm_save_changes = lambda _action: True
+    app._load_values_to_controls = lambda: None
+    app._apply_loaded_db_rows = lambda rows, headers: (
+        setattr(app, "db_rows", rows), setattr(app, "data_source_headers", headers),
+        setattr(app, "selected_data_indexes", set()), (50, 40)
+    )[-1]
+    app.title = lambda _title: None
+    app.template_path_var = SimpleNamespace(set=lambda _value: None)
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    opened: list[bool] = []
+    app.open_data_source_window = lambda: opened.append(True)
+
+    app.start_with_example()
+
+    assert app.template_path == default_path
+    assert app.data_source_path == tmp_path / "barcode_db.xlsx"
+    assert app.selected_data_indexes == set()
+    assert len(app.elements) == 3
+    assert opened == [True]
+    assert json.loads(default_path.read_text(encoding="utf-8"))["elements"] == []
+
+
+def test_new_label_clears_previous_print_selection(tmp_path) -> None:
+    app, statuses = _history_test_app(tmp_path)
+    app.template_dir = tmp_path / "templates"
+    app.config_path = tmp_path / "config.ini"
+    app.data_source_path = tmp_path / "products.xlsx"
+    app.selected_data_indexes = {2}
+    app._confirm_save_changes = lambda _action: True
+    app.title = lambda _value: None
+    app.template_path_var = SimpleNamespace(set=lambda _value: None)
+    app._update_document_state = lambda: None
+
+    app.new_label()
+
+    assert app.selected_data_indexes == set()
+    assert app.elements == []
+    assert "다시 선택" in statuses[-1]
 
 
 def test_data_source_search_filters_every_actual_db_column() -> None:
@@ -1602,9 +1807,9 @@ def test_db_toolbar_reflows_in_narrow_window() -> None:
     source = inspect.getsource(LabelDesignerApp._build_canvas_toolbar)
     startup_source = inspect.getsource(LabelDesignerApp.__init__)
 
-    assert 'text="데이터 소스"' in source
-    assert 'text="파일"' in source
-    assert "column_count = 1 if event.width < 680 else 2 if event.width < 900 else 4" in source
+    assert 'text="상품 선택"' in source
+    assert '("열기", self.open_template)' in source
+    assert "column_count = 1 if event.width < 680 else 2 if event.width < 1200 else 4" in source
     assert "if column_count == ribbon_column_count" in source
     assert "def layout_size_row" in source
     assert "compact = event.width < 720" in source
@@ -1644,9 +1849,10 @@ def test_data_source_window_reuses_existing_instance(tmp_path) -> None:
 def test_right_panel_is_db_workspace_without_duplicate_properties() -> None:
     source = inspect.getsource(LabelDesignerApp._build_property_panel)
 
-    assert 'text="DB 작업"' in source
-    assert 'text="연결 상태"' in source
-    assert 'text="데이터 소스 열기"' in source
+    assert 'text="상품 데이터"' in source
+    assert 'text="상품 엑셀 상태"' in source
+    assert 'text="연결 해제"' in source
+    assert 'text="DB 연결"' not in source
     assert 'text="미리보기 행"' not in source
     assert 'text="현재 행 값"' in source
     assert 'text="선택 개체 DB 연결"' in source
@@ -1681,9 +1887,36 @@ def test_main_workbench_keeps_a_small_canvas_request_between_side_panels() -> No
 
     assert "body.columnconfigure(0, minsize=330)" in source
     assert "body.columnconfigure(2, minsize=300)" in source
-    assert "body.columnconfigure(0, minsize=290 if compact else 330)" in source
-    assert "body.columnconfigure(2, minsize=280 if compact else 300)" in source
+    assert "if self.tools_panel_visible else 0" in source
+    assert "if self.data_panel_visible else 0" in source
     assert "width=240" in source
+
+
+def test_side_panels_release_canvas_width_when_hidden() -> None:
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    grid_calls: list[str] = []
+    column_sizes: list[tuple[int, int]] = []
+    app.tools_panel_visible = True
+    app.data_panel_visible = True
+    app.tools_panel_text_var = SimpleNamespace(set=lambda value: grid_calls.append(value))
+    app.data_panel_text_var = SimpleNamespace(set=lambda value: grid_calls.append(value))
+    app._tools_card = SimpleNamespace(grid=lambda: grid_calls.append("show tools"), grid_remove=lambda: grid_calls.append("hide tools"))
+    app._properties_card = SimpleNamespace(grid=lambda: grid_calls.append("show data"), grid_remove=lambda: grid_calls.append("hide data"))
+    app._workbench_body = SimpleNamespace(
+        winfo_width=lambda: 1000,
+        columnconfigure=lambda column, *, minsize: column_sizes.append((column, minsize)),
+    )
+    app.update_idletasks = lambda: None
+    app.redraw = lambda: None
+
+    app.toggle_side_panel("tools")
+    app.toggle_side_panel("data")
+    app.toggle_side_panel("tools")
+
+    assert column_sizes == [(0, 0), (2, 0), (0, 290)]
+    assert "hide tools" in grid_calls
+    assert "hide data" in grid_calls
+    assert "show tools" in grid_calls
 
 
 def test_tool_buttons_keep_long_labels_full_width() -> None:
@@ -1693,7 +1926,7 @@ def test_tool_buttons_keep_long_labels_full_width() -> None:
     assert 'text="도안 불러오기"' in source
     assert "command=self.add_label_image_element" in source
     assert 'text="도안 적용"' in source
-    assert "command=self.apply_design_template" in source
+    assert "command=self.start_apply_design_template" in source
     assert "parent.columnconfigure(1, weight=1)" in source
 
 
@@ -1819,8 +2052,8 @@ def test_connect_data_source_failure_keeps_previous_connection(monkeypatch, tmp_
     assert app.db_rows == previous_rows
     assert app.data_source_headers == ("barcode", "item_name")
     assert app.preview_row == previous_rows[0]
-    assert errors == [("DB 연결 실패", "엑셀 형식을 읽을 수 없습니다.")]
-    assert status[-1] == "DB 연결 실패 · 기존 데이터소스를 유지합니다."
+    assert errors == [("상품 엑셀 연결 실패", "엑셀 형식을 읽을 수 없습니다.")]
+    assert status[-1] == "상품 엑셀 연결 실패 · 기존 데이터는 유지합니다."
 
 
 def test_disconnect_data_source_closes_window_and_clears_selection(tmp_path) -> None:
@@ -2022,6 +2255,96 @@ def test_print_rejects_template_without_renderable_content_before_quantity(monke
     assert warnings[0][0] == "인쇄할 내용 확인"
 
 
+def test_print_rejects_element_outside_label_before_quantity(monkeypatch, tmp_path) -> None:
+    element = _element("text", "품명", 47, 2, 10, 5)
+    app, _statuses = _direct_print_app(tmp_path, [{"barcode": "001"}], [element])
+    app.ask_print_quantity = lambda: pytest.fail("out-of-bounds element must stop before quantity")
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app.messagebox.showwarning",
+        lambda _title, message: warnings.append(message),
+    )
+
+    app.run_output_test(send_to_printer=True)
+
+    assert "1번 개체가 라벨 50×40mm 경계를 벗어납니다" in warnings[0]
+
+
+def test_print_rejects_unconfirmed_ocr_value_before_quantity(monkeypatch, tmp_path) -> None:
+    element = _element("barcode", "12345678", 2, 2, 30, 12)
+    element["review_source"] = "placeholder"
+    element["review_confirmed"] = False
+    app, _statuses = _direct_print_app(tmp_path, [{"barcode": "001"}], [element])
+    app.ask_print_quantity = lambda: pytest.fail("unreviewed OCR value must stop before quantity")
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app.messagebox.showwarning",
+        lambda _title, message: warnings.append(message),
+    )
+
+    app.run_output_test(send_to_printer=True)
+
+    assert "도안 인식 값이 미확인" in warnings[0]
+    element["review_confirmed"] = True
+    app._validate_output_row({"barcode": "001"}, row_number=1)
+
+
+def test_ocr_review_state_survives_template_normalization() -> None:
+    element = _element("text", "인식 품명", 2, 2, 20, 5)
+    element.update(review_source="ocr_estimate", review_confirmed=True, review_image_path="assets/images/source.png")
+
+    normalized = normalize_template({"label": {"width_mm": 50, "height_mm": 40}, "elements": [element]})
+
+    assert normalized["elements"][0]["review_source"] == "ocr_estimate"
+    assert normalized["elements"][0]["review_confirmed"] is True
+    assert normalized["elements"][0]["review_image_path"] == "assets/images/source.png"
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_print_rejects_missing_required_mapped_value(monkeypatch, tmp_path, required) -> None:
+    field = "lot_no" if required else "item_name"
+    element = _element("text", "{{" + field + "}}", 2, 2, 30, 7, field=field)
+    element["required"] = required
+    app, _statuses = _direct_print_app(tmp_path, [{"barcode": "001", field: ""}], [element])
+    app.ask_print_quantity = lambda: pytest.fail("missing required value must stop before quantity")
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app.messagebox.showwarning",
+        lambda _title, message: warnings.append(message),
+    )
+
+    app.run_output_test(send_to_printer=True)
+
+    assert "필수 값" in warnings[0]
+    assert "1번째 출력 대상" in warnings[0]
+
+
+def test_print_warning_requires_confirmation_before_render(monkeypatch, tmp_path) -> None:
+    element = _element("text", "{{item_name}}", 2, 2, 8, 5, field="item_name")
+    app, statuses = _direct_print_app(tmp_path, [{"item_name": "길이가 매우 긴 상품명이라 자동 축소가 발생합니다"}], [element])
+    app.render_designer_print_command = lambda *_args: pytest.fail("cancelled warning must not render")
+    prompts: list[str] = []
+    monkeypatch.setattr("barcode_label_automation.label_designer_app.load_config", lambda _path: SimpleNamespace())
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app.messagebox.askyesno",
+        lambda _title, message, **_kwargs: prompts.append(message) or False,
+    )
+
+    app.run_output_test(send_to_printer=True)
+
+    assert "글자가 크게 축소" in prompts[0]
+    assert "전송하지 않았습니다" in statuses[-1]
+
+
+def test_small_qr_preflight_warns_using_printer_dpi(tmp_path) -> None:
+    element = _element("qr", "{{barcode}}", 2, 2, 5, 5, field="barcode")
+    app, _statuses = _direct_print_app(tmp_path, [{"barcode": "001234567890"}], [element])
+
+    warnings = app._output_preflight_warnings([{"barcode": "001234567890"}], 203)
+
+    assert any("QR" in warning and "2도트 미만" in warning for warning in warnings)
+
+
 def test_direct_print_uses_quantity_selected_in_popup(monkeypatch, tmp_path) -> None:
     rows = [{"barcode": "001", "print_qty": "1"}, {"barcode": "002", "print_qty": "9"}]
     app, _statuses = _direct_print_app(
@@ -2150,7 +2473,7 @@ def test_print_send_failure_reports_retryable_counts(monkeypatch, tmp_path) -> N
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sent == ["001", "002"]
-    assert "완료 1건 / 재시도 가능 2건" in statuses[-1]
+    assert "전송 1건 / 재시도 가능 2건 · 실제 출력 확인 필요" in statuses[-1]
     assert errors[-1][0] == "인쇄 오류"
     assert "인쇄 버튼을 다시 누르세요" in errors[-1][1]
 
@@ -2197,7 +2520,7 @@ def test_designer_send_failure_retries_remaining_items(monkeypatch, tmp_path) ->
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert resumed == ["002", "003"]
-    assert statuses[-1].startswith("인쇄 완료 2건")
+    assert statuses[-1].startswith("프린터 전송 완료 · 실제 출력 확인 필요 2건")
     assert [PrintProgress.load(progress_path).status(index) for index in (1, 2, 3)] == [
         "sent",
         "sent",
@@ -2226,7 +2549,7 @@ def test_designer_first_item_failure_allows_next_explicit_print(monkeypatch, tmp
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sends == [b"001", b"002"]
-    assert statuses[-1].startswith("인쇄 완료 2건")
+    assert statuses[-1].startswith("프린터 전송 완료 · 실제 출력 확인 필요 2건")
 
 
 def test_designer_explicit_print_recovers_persisted_unknown_item(monkeypatch, tmp_path) -> None:
@@ -2240,6 +2563,11 @@ def test_designer_explicit_print_recovers_persisted_unknown_item(monkeypatch, tm
     app._write_designer_command_file = lambda _config, _out, _payload, *, index: tmp_path / f"{index}.zpl"
     monkeypatch.setattr("barcode_label_automation.label_designer_app.load_config", lambda _path: SimpleNamespace())
     monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.showinfo", lambda *_args: None)
+    confirmations: list[int] = []
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app._ask_unknown_resolution",
+        lambda _parent, item_index: confirmations.append(item_index) or "pending",
+    )
 
     progress_path = tmp_path / "out" / DESIGNER_PROGRESS_FILE_NAME
     progress = PrintProgress.open_for_job(
@@ -2255,8 +2583,53 @@ def test_designer_explicit_print_recovers_persisted_unknown_item(monkeypatch, tm
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sent == [b"001", b"002"]
-    assert statuses[-1].startswith("인쇄 완료 2건")
+    assert confirmations == [1]
+    assert statuses[-1].startswith("프린터 전송 완료 · 실제 출력 확인 필요 2건")
     assert PrintProgress.load(progress_path).unknown_indexes == []
+
+
+@pytest.mark.parametrize(
+    ("resolution", "expected_sends", "expected_status"),
+    [
+        ("sent", [b"002"], ["sent", "sent"]),
+        (None, [], ["unknown", "pending"]),
+    ],
+)
+def test_designer_uncertain_output_requires_resolution_before_resend(
+    monkeypatch, tmp_path, resolution, expected_sends, expected_status
+) -> None:
+    rows = [{"barcode": "001"}, {"barcode": "002"}]
+    app, statuses = _direct_print_app(
+        tmp_path,
+        rows,
+        [_element("barcode", "{{barcode}}", 2, 2, 30, 12, field="barcode")],
+    )
+    app.render_designer_print_command = lambda _config, row, _qty: row["barcode"].encode("ascii")
+    app._write_designer_command_file = lambda _config, _out, _payload, *, index: tmp_path / f"{index}.zpl"
+    monkeypatch.setattr("barcode_label_automation.label_designer_app.load_config", lambda _path: SimpleNamespace())
+    monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.showinfo", lambda *_args: None)
+    monkeypatch.setattr(
+        "barcode_label_automation.label_designer_app._ask_unknown_resolution",
+        lambda _parent, _index: resolution,
+    )
+
+    progress_path = tmp_path / "out" / DESIGNER_PROGRESS_FILE_NAME
+    progress = PrintProgress.open_for_job(
+        progress_path,
+        [b"001", b"002"],
+        "utf-8",
+        label_designer_app._designer_print_job_context(SimpleNamespace()),
+    )
+    progress.mark_sending(1)
+
+    sent: list[bytes] = []
+    app._send_designer_print = lambda _config, payload: sent.append(payload)
+    app.run_output_test(send_to_printer=True, selected_only=True)
+
+    assert sent == expected_sends
+    assert [PrintProgress.load(progress_path).status(index) for index in (1, 2)] == expected_status
+    if resolution is None:
+        assert "취소" in statuses[-1]
 
 
 def test_designer_new_job_replaces_stale_unknown_progress(monkeypatch, tmp_path) -> None:
@@ -2285,7 +2658,7 @@ def test_designer_new_job_replaces_stale_unknown_progress(monkeypatch, tmp_path)
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sent == [b"NEW"]
-    assert statuses[-1].startswith("인쇄 완료 1건")
+    assert statuses[-1].startswith("프린터 전송 완료 · 실제 출력 확인 필요 1건")
     assert PrintProgress.load(progress_path).unknown_indexes == []
 
 
@@ -2307,7 +2680,7 @@ def test_designer_repeated_explicit_print_restarts_completed_job(monkeypatch, tm
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sent == ["001", "002", "001", "002"]
-    assert statuses[-1].startswith("인쇄 완료 2건")
+    assert statuses[-1].startswith("프린터 전송 완료 · 실제 출력 확인 필요 2건")
 
 
 def test_designer_unknown_resolution_dialog_has_three_explicit_choices():
@@ -3269,6 +3642,169 @@ def _config(
             pdf417_security_level=2,
         ),
     )
+
+
+def test_multi_selection_group_lock_alignment_and_duplicate() -> None:
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.template = default_template(50, 40)
+    app.elements = [
+        _element("text", "상품", 2, 2, 10, 4),
+        _element("text", "가격", 8, 10, 10, 4),
+        _element("barcode", "1234", 15, 20, 12, 8),
+    ]
+    ids = [str(element["id"]) for element in app.elements]
+    app.selected_id = ids[0]
+    app.selected_ids = set(ids)
+    app.redraw = lambda: None
+    app.load_selected_properties = lambda: None
+    app.status_var = SimpleNamespace(set=lambda _message: None)
+
+    app.align_selected_left()
+    assert [element["x"] for element in app.elements] == [2, 2, 2]
+    app.group_selected()
+    group_ids = {element["group_id"] for element in app.elements}
+    assert len(group_ids) == 1
+    app.toggle_lock_selected()
+    app.nudge_selected(1, 0)
+    assert [element["x"] for element in app.elements] == [2, 2, 2]
+    app.delete_selected()
+    assert len(app.elements) == 3
+    app.toggle_lock_selected()
+    app.nudge_selected(1, 0)
+    assert [element["x"] for element in app.elements] == [3, 3, 3]
+    app.duplicate_selected()
+    assert len(app.elements) == 6
+    assert {element["group_id"] for element in app.elements[3:]} != group_ids
+    assert all(not element["locked"] for element in app.elements[3:])
+
+
+def test_zoom_uses_fit_relative_levels_without_changing_label_size() -> None:
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.template = default_template(50, 40)
+    app.zoom_factor = 1.0
+    displayed: list[str] = []
+    app.zoom_display_var = SimpleNamespace(set=displayed.append)
+    app.redraw = lambda: None
+
+    app.change_zoom(1)
+    assert app.zoom_factor == 1.25
+    assert displayed[-1] == "125% · 맞춤 기준"
+    app.fit_zoom()
+    assert app.zoom_factor == 1.0
+    assert displayed[-1] == "화면 맞춤"
+    assert app.template["label"]["width_mm"] == 50
+
+
+def test_bartender_file_is_rejected_before_current_document_changes(tmp_path: Path) -> None:
+    assert all(pattern != "*.*" for _label, pattern in LABEL_FILE_TYPES)
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.template_dir = tmp_path
+    app.template_path = tmp_path / "current.gblabel"
+    app.template = default_template(50, 40)
+    original = _element("text", "기존 도안", 2, 2, 20, 5)
+    app.elements = [original]
+    with pytest.raises(ValueError, match=r"\.btw"):
+        app.open_template_path(tmp_path / "existing.btw")
+    assert app.elements == [original]
+    assert app.template_path.name == "current.gblabel"
+
+
+def test_async_excel_connection_applies_rows_only_after_worker_result(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "products.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "BarcodeDB"
+    sheet.append(["barcode", "item_name"])
+    sheet.append(["0000123", "상품"])
+    workbook.save(source)
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.base_dir = tmp_path
+    app.data_source_path = None
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    captured: dict[str, object] = {}
+    app._start_background_job = lambda title, work, apply: captured.update(title=title, work=work, apply=apply)
+    app._apply_loaded_db_rows = lambda rows, headers: (
+        captured.update(rows=rows, headers=headers) or (50, 40)
+    )
+    monkeypatch.setattr(label_designer_app.filedialog, "askopenfilename", lambda **_kwargs: str(source))
+
+    app.connect_data_source_async()
+    assert app.data_source_path is None
+    result = captured["work"]()
+    captured["apply"](result)
+    assert app.data_source_path == source
+    assert captured["rows"][0]["barcode"] == "0000123"
+
+
+@pytest.mark.parametrize("changed_state", ["document", "selection", "source"])
+def test_async_excel_connection_discards_result_after_user_changes_context(monkeypatch, tmp_path: Path, changed_state: str) -> None:
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.base_dir = tmp_path
+    app.template_path = tmp_path / "templates" / "current.gblabel"
+    app.template = default_template(50, 40)
+    app.elements = []
+    app.data_source_path = None
+    app.db_rows = [{"barcode": "old"}]
+    app.selected_data_indexes = set()
+    statuses: list[str] = []
+    app.status_var = SimpleNamespace(set=statuses.append)
+    captured: dict[str, object] = {}
+    app._start_background_job = lambda title, work, apply: captured.update(apply=apply)
+    app._apply_loaded_db_rows = lambda _rows, _headers: pytest.fail("stale Excel data must not be applied")
+    monkeypatch.setattr(label_designer_app.filedialog, "askopenfilename", lambda **_kwargs: str(tmp_path / "new.xlsx"))
+    app.connect_data_source_async()
+
+    if changed_state == "document":
+        app.template_path = tmp_path / "templates" / "different.gblabel"
+    elif changed_state == "selection":
+        app.selected_data_indexes.add(0)
+    else:
+        app.data_source_path = tmp_path / "other.xlsx"
+    captured["apply"](([{"barcode": "new"}], ("barcode",)))
+
+    assert app.data_source_path != tmp_path / "new.xlsx"
+    assert app.db_rows == [{"barcode": "old"}]
+    assert "적용하지 않았습니다" in statuses[-1]
+
+
+def test_output_waits_for_background_excel_or_ocr_result(monkeypatch, tmp_path: Path) -> None:
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app._active_background_job = {"title": "상품 엑셀 읽기", "cancelled": False}
+    app.selected_data_rows = lambda **_kwargs: pytest.fail("output must not read rows during background work")
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        label_designer_app.messagebox,
+        "showwarning",
+        lambda _title, message, **_kwargs: warnings.append(message),
+    )
+
+    app.run_output_test(send_to_printer=True)
+
+    assert "상품 엑셀 읽기" in warnings[0]
+
+
+def test_async_ocr_discard_if_document_changes_while_analyzing(monkeypatch, tmp_path: Path) -> None:
+    image_path = tmp_path / "design.png"
+    Image.new("RGB", (20, 20), "white").save(image_path)
+    app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.base_dir = tmp_path
+    app.template = default_template(50, 40)
+    reference = _element("image", "", 0, 0, 50, 40)
+    reference.update(template_role=label_designer_app.DESIGN_REFERENCE_ROLE, printable=False)
+    app.elements = [reference]
+    app.selected_id = str(reference["id"])
+    app._element_image_path = lambda _element: image_path
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    captured: dict[str, object] = {}
+    app._start_background_job = lambda title, work, apply: captured.update(title=title, work=work, apply=apply)
+    app._apply_generated_design_template = lambda _reference, _generated: captured.update(applied=True)
+    monkeypatch.setattr(label_designer_app, "_design_template_elements_from_image", lambda *_args, **_kwargs: [{"id": "new"}])
+
+    app.start_apply_design_template()
+    app.elements.append(_element("text", "사용자 변경", 1, 1, 10, 4))
+    captured["apply"](captured["work"]())
+    assert "applied" not in captured
+    assert len(app.elements) == 2
 
 
 class _FakeCanvas:

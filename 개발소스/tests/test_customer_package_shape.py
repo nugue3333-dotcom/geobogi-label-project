@@ -5,6 +5,37 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CUSTOMER_DIR = PROJECT_ROOT / "고객용_실행폴더"
 
 
+def test_designer_spec_keeps_assets_without_embedding_external_ocr(monkeypatch) -> None:
+    import runpy
+    from types import SimpleNamespace
+
+    captured = {}
+
+    def analysis(scripts, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(pure=[], scripts=scripts, binaries=[], datas=kwargs["datas"])
+
+    monkeypatch.chdir(PROJECT_ROOT)
+    runpy.run_path(str(PROJECT_ROOT / "label_designer.spec"), init_globals={
+        "Analysis": analysis,
+        "PYZ": lambda *args, **kwargs: None,
+        "EXE": lambda *args, **kwargs: None,
+    })
+    destinations = [Path(target).as_posix() for _, target in captured["datas"]]
+    assert destinations
+    assert any(path.startswith("assets/brand") for path in destinations)
+    assert any(path.startswith("assets/fonts") for path in destinations)
+    assert all(path.startswith("assets/") for path in destinations)
+    assert captured["binaries"] == []
+
+
+def test_customer_folder_keeps_external_ocr_engine_and_languages() -> None:
+    ocr_dir = CUSTOMER_DIR / "tools" / "ocr"
+    for relative in ("tesseract.exe", "tessdata/kor.traineddata", "tessdata/eng.traineddata"):
+        assert (ocr_dir / relative).stat().st_size > 0
+    assert list(ocr_dir.glob("*.dll"))
+
+
 def test_customer_folder_does_not_ship_duplicate_gui_aliases() -> None:
     duplicate_aliases = [
         "label_designer.exe",

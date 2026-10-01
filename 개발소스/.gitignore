@@ -46,3 +46,4 @@ print_log.xlsx
 print_queue.xlsx
 release_manifest.json
 last_run.log
+qa_designer_size_*/

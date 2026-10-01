@@ -15,7 +15,9 @@ def collect_data_tree(source, target_prefix):
     return datas
 
 
-ocr_datas = collect_data_tree("tools/ocr", "tools/ocr")
+# OCR is shipped once, beside the EXE in tools/ocr. The designer already
+# resolves that directory, including when customer data lives elsewhere.
+# Embedding it also makes PyInstaller collect duplicate dependent DLLs.
 brand_datas = collect_data_tree("assets/brand", "assets/brand")
 font_datas = collect_data_tree("assets/fonts", "assets/fonts")
 
@@ -23,7 +25,7 @@ a = Analysis(
     ['label_designer_launcher.py'],
     pathex=[],
     binaries=[],
-    datas=ocr_datas + brand_datas + font_datas,
+    datas=brand_datas + font_datas,
     hiddenimports=[
         'openpyxl',
         'PIL',

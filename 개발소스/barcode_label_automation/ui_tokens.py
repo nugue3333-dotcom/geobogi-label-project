@@ -20,7 +20,7 @@ class ColorTokens:
     grid: str = "#dde7e4"
     text_primary: str = "#152126"
     text_secondary: str = "#52666a"
-    text_tertiary: str = "#75888b"
+    text_tertiary: str = "#596b6e"
     primary: str = "#123f46"
     primary_hover: str = "#0b3137"
     accent: str = "#72a91b"

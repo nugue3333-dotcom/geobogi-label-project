@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 from openpyxl import Workbook, load_workbook
 
@@ -69,11 +70,11 @@ def load_db_source(path: str | Path) -> tuple[list[dict[str, str]], tuple[str, .
         for row_number in range(2, sheet.max_row + 1):
             row: dict[str, str] = {}
             for header, column_index in header_map.items():
-                row[header] = _cell_text(sheet.cell(row_number, column_index).value)
+                row[header] = _db_cell_text(sheet.cell(row_number, column_index), row_number, header)
             for column_index, header in enumerate(source_headers, start=1):
                 if not header or header in row:
                     continue
-                row[header] = _cell_text(sheet.cell(row_number, column_index).value)
+                row[header] = _db_cell_text(sheet.cell(row_number, column_index), row_number, header)
             if any(value.strip() for value in row.values()):
                 rows.append(row)
         return rows, visible_headers
@@ -257,6 +258,24 @@ def _cell_text(value: object) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value).strip()
+
+
+def _db_cell_text(cell: object, row_number: int, header: str) -> str:
+    value = cell.value
+    text = _cell_text(value)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return text
+    if isinstance(value, float) and not value.is_integer():
+        return text
+
+    number_format = str(cell.number_format or "General")
+    if _field_for_header(header) == "barcode" and len(text.lstrip("-")) > 15:
+        raise ValueError(f"{row_number}행 '{header}' 바코드는 Excel 숫자 정밀도를 넘습니다. 셀을 텍스트로 저장하세요.")
+    if value >= 0 and re.fullmatch(r"0{2,}", number_format):
+        return text.zfill(len(number_format))
+    if _field_for_header(header) == "barcode" and number_format not in {"General", "0"}:
+        raise ValueError(f"{row_number}행 '{header}' 바코드의 숫자 서식 '{number_format}'을 안전하게 읽을 수 없습니다. 셀을 텍스트로 저장하세요.")
+    return text
 
 
 def _legacy_sample_db_rows() -> list[dict[str, str]]:

@@ -108,7 +108,7 @@ def test_window_titles_use_chaeumlab_brand() -> None:
     manager = (PROJECT_ROOT / "barcode_label_automation" / "label_manager_app.py").read_text(encoding="utf-8")
     settings = (PROJECT_ROOT / "barcode_label_automation" / "settings_app.py").read_text(encoding="utf-8")
 
-    assert 'return f"채움랩 라벨 디자이너 - {self.template_path.name}"' in designer
+    assert 'return f"채움랩 라벨 디자이너 - {name}{marker}"' in designer
     assert 'return "채움랩 라벨 디자이너"' in designer
     assert 'self.title("채움랩 라벨 출력 관리")' in manager
     assert 'self._base_title = "채움랩 프린터 설정"' in settings

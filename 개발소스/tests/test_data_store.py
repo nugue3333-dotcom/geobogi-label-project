@@ -124,6 +124,43 @@ def test_db_source_returns_only_the_workbook_headers_for_ui(tmp_path):
     assert canonical_db_field("가격") is None
 
 
+def test_db_source_preserves_excel_zero_padded_numeric_barcode(tmp_path):
+    path = tmp_path / "numeric_barcode.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "BarcodeDB"
+    sheet.append(["바코드", "상품코드", "품명", "가격"])
+    sheet.append([123, 7, "테스트 상품", 1200])
+    sheet["A2"].number_format = "00000000"
+    sheet["B2"].number_format = "0000"
+    sheet["D2"].number_format = "#,##0"
+    sheet.append(["00000999", "0008", "문자 바코드", 900])
+    workbook.save(path)
+
+    rows, headers = load_db_source(path)
+
+    assert headers == ("바코드", "상품코드", "품명", "가격")
+    assert rows[0]["barcode"] == rows[0]["바코드"] == "00000123"
+    assert rows[0]["item_code"] == rows[0]["상품코드"] == "0007"
+    assert rows[0]["가격"] == "1200"
+    assert rows[1]["barcode"] == "00000999"
+    assert load_db_rows(path)[0]["barcode"] == "00000123"
+
+
+def test_db_source_rejects_numeric_barcode_format_that_cannot_be_reproduced(tmp_path):
+    path = tmp_path / "formatted_barcode.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "BarcodeDB"
+    sheet.append(["바코드", "품명"])
+    sheet.append([12345, "테스트 상품"])
+    sheet["A2"].number_format = "000-00"
+    workbook.save(path)
+
+    with pytest.raises(ValueError, match="2행.*바코드.*텍스트"):
+        load_db_source(path)
+
+
 def test_barcode_db_reports_missing_barcode_header(tmp_path):
     path = tmp_path / "bad_db.xlsx"
     workbook = Workbook()

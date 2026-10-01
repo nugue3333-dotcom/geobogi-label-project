@@ -7,6 +7,9 @@ import subprocess
 from types import SimpleNamespace
 from pathlib import Path
 
+import pytest
+from openpyxl import Workbook
+
 from barcode_label_automation import cli as print_cli
 from barcode_label_automation.data_store import (
     DB_HEADERS,
@@ -181,6 +184,43 @@ def test_dynamic_db_excel_roundtrip_preserves_custom_headers(tmp_path):
     assert loaded_headers == headers
     assert loaded_rows == rows
     assert _row_field_value(loaded_rows[0], "barcode") == "8801234"
+
+
+def test_manager_db_preserves_excel_zero_padded_numeric_barcode_in_print_rows(tmp_path):
+    db_path = tmp_path / "numeric_barcode.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "BarcodeDB"
+    sheet.append(["바코드", "상품코드", "품명", "판매가"])
+    sheet.append([123, 7, "테스트 상품", 1200])
+    sheet["A2"].number_format = "00000000"
+    sheet["B2"].number_format = "0000"
+    sheet["D2"].number_format = "#,##0"
+    sheet.append(["00000999", "0008", "문자 바코드", 900])
+    workbook.save(db_path)
+
+    headers, rows = _load_dynamic_db_rows(db_path)
+    assert headers == ("바코드", "상품코드", "품명", "판매가")
+    assert rows[0] == {"바코드": "00000123", "상품코드": "0007", "품명": "테스트 상품", "판매가": "1200"}
+    assert rows[1]["바코드"] == "00000999"
+
+    _db_headers, _db_rows, label_headers, label_rows = _load_active_db_state(db_path)
+    printable = _printable_rows_from_label_rows(label_rows, label_headers)
+    assert [row["barcode"] for row in printable] == ["00000123", "00000999"]
+
+
+def test_manager_db_rejects_numeric_barcode_format_that_cannot_be_reproduced(tmp_path):
+    db_path = tmp_path / "formatted_barcode.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "BarcodeDB"
+    sheet.append(["바코드", "품명"])
+    sheet.append([12345, "테스트 상품"])
+    sheet["A2"].number_format = "000-00"
+    workbook.save(db_path)
+
+    with pytest.raises(ValueError, match="2행.*바코드.*텍스트"):
+        _load_dynamic_db_rows(db_path)
 
 
 def test_switching_active_db_replaces_all_rows_headers_and_print_values(tmp_path):
@@ -851,8 +891,8 @@ def test_print_quantity_override_uses_temporary_excel_without_replacing_full_que
     assert "--yes" in calls[0]
     assert popups == [
         (
-            "인쇄 완료",
-            "1건의 인쇄 명령을 프린터로 전송했습니다.\n실제 라벨은 프린터에서 확인하세요.",
+            "프린터 전송 완료 · 출력 확인 필요",
+            "1건의 인쇄 명령을 프린터로 전송했습니다.\n실제 라벨 출력 여부는 프린터에서 확인하세요.",
         )
     ]
 
@@ -890,7 +930,7 @@ def test_print_with_quantity_prompts_for_selected_rows_and_passes_override(monke
 def test_print_with_quantity_cancel_does_not_start_print(monkeypatch):
     app = LabelManagerApp.__new__(LabelManagerApp)
     app.label_rows = [{"barcode": "A", "print_qty": "2"}]
-    app.selected_label_indexes = set()
+    app.selected_label_indexes = {0}
     app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
     monkeypatch.setattr(app, "ask_print_quantity", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -902,6 +942,20 @@ def test_print_with_quantity_cancel_does_not_start_print(monkeypatch):
     app.print_with_quantity()
 
     assert app.status_var.value == "인쇄 매수 선택을 취소했습니다."
+
+
+def test_print_with_quantity_requires_explicit_output_selection(monkeypatch):
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.label_rows = [{"barcode": "A", "print_qty": "2"}]
+    app.selected_label_indexes = set()
+    warnings: list[str] = []
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.showwarning", lambda _title, message: warnings.append(message))
+    app.ask_print_quantity = lambda *_args, **_kwargs: pytest.fail("no quantity popup before selection")
+    app.run_print_job = lambda *_args, **_kwargs: pytest.fail("no print without selection")
+
+    app.print_with_quantity()
+
+    assert "먼저 선택하세요" in warnings[0]
 
 
 def test_print_job_sends_without_confirmation(monkeypatch, tmp_path):
@@ -945,7 +999,7 @@ def test_print_job_sends_without_confirmation(monkeypatch, tmp_path):
 
     assert calls
     assert "--yes" in calls[0]
-    assert popups and popups[-1][0] == "인쇄 완료"
+    assert popups and popups[-1][0] == "프린터 전송 완료 · 출력 확인 필요"
 
 
 def test_manager_unknown_state_reports_error_and_blocks_retry_without_dialog(monkeypatch, tmp_path):

@@ -17,6 +17,7 @@ from .config import load_config
 from .data_store import (
     DB_HEADERS,
     LABEL_HEADERS,
+    _db_cell_text,
     load_db_source,
     load_db_rows,
     load_label_rows,
@@ -100,6 +101,10 @@ class LabelManagerApp(tk.Tk):
             self.install_dir / "고객환경점검.exe",
             base_dir / "고객환경점검.exe",
         )
+        self.designer_exe = _first_existing(
+            self.install_dir / "라벨디자이너.exe",
+            base_dir / "라벨디자이너.exe",
+        )
         self.quick_guide_path = _first_existing(
             base_dir / "사용안내.txt",
             self.install_dir / "사용안내.txt",
@@ -144,7 +149,18 @@ class LabelManagerApp(tk.Tk):
         self._configure_style()
         self._apply_window_icon()
         self._build_ui()
+        self.bind_all("<Control-f>", lambda _event: self._focus_scan_input())
+        self.bind_all("<Control-s>", lambda _event: self._run_keyboard_command(self.save_files))
+        self.bind_all("<Control-p>", lambda _event: self._run_keyboard_command(self.print_with_quantity))
         self.load_files()
+
+    def _run_keyboard_command(self, command) -> str:
+        command()
+        return "break"
+
+    def _focus_scan_input(self) -> str:
+        self.scan_box.focus_set()
+        return "break"
 
     def _resolve_display_scale(self) -> float:
         try:
@@ -441,7 +457,7 @@ class LabelManagerApp(tk.Tk):
         ttk.Label(title_block, text="\ub77c\ubca8 \ucd9c\ub825 \uad00\ub9ac", style="HeaderTitle.TLabel").grid(row=0, column=1, sticky="w")
         ttk.Label(
             title_block,
-            text="DB 연동, 인쇄 데이터, 프린터 설정",
+            text="상품 선택과 반복 출력 · 도안 편집은 '라벨 디자인'에서",
             style="Subtitle.TLabel",
         ).grid(row=1, column=1, sticky="w", pady=(self._scaled(3), 0))
 
@@ -456,6 +472,7 @@ class LabelManagerApp(tk.Tk):
             pady=(0, self._scaled(5)),
         )
         scan_box = ttk.Entry(scan_group, textvariable=self.scan_var)
+        self.scan_box = scan_box
         scan_box.grid(row=1, column=0, sticky="ew")
         scan_box.bind("<Return>", self.scan_barcode)
         ttk.Button(scan_group, text="\uc870\ud68c", command=self.scan_barcode, style="Secondary.TButton").grid(
@@ -499,6 +516,9 @@ class LabelManagerApp(tk.Tk):
         settings_menu.add_command(label="빠른 사용안내 열기", command=self.open_quick_guide)
         settings_menu.add_command(label="상세 매뉴얼 열기", command=self.open_manual)
         settings_menu.add_separator()
+        settings_menu.add_command(label="고객 데이터 백업", command=self.open_backup)
+        settings_menu.add_command(label="고객 데이터 복원", command=self.open_restore)
+        settings_menu.add_separator()
         settings_menu.add_command(label="지원 패키지 생성", command=self.create_support_package)
         settings_button.configure(menu=settings_menu)
         settings_button.grid(row=0, column=1, padx=(0, self._scaled(8)), sticky="w")
@@ -511,6 +531,9 @@ class LabelManagerApp(tk.Tk):
         output_button.configure(menu=output_menu)
         output_button.grid(row=0, column=2, sticky="w")
         self.output_menu = output_menu
+        ttk.Button(menu_bar, text="라벨 디자인", command=self.open_designer, style="Secondary.TButton").grid(
+            row=0, column=3, sticky="w", padx=(self._scaled(8), 0)
+        )
 
         ttk.Label(
             menu_bar,
@@ -707,6 +730,7 @@ class LabelManagerApp(tk.Tk):
         xscroll.grid(row=1, column=0, sticky="ew")
         if headers and headers[0] == SELECT_HEADER:
             tree.bind("<Button-1>", self._handle_label_click)
+            tree.bind("<space>", self._toggle_focused_label)
         tree.bind("<Double-1>", lambda event, active_tree=tree: self.begin_edit(active_tree, event))
         tree.bind("<Return>", lambda event, active_tree=tree: self.begin_edit(active_tree, event))
         tabs.add(frame, text=title)
@@ -763,7 +787,7 @@ class LabelManagerApp(tk.Tk):
         elif selected_count:
             scope_text = f"선택 {selected_count}건 인쇄"
         else:
-            scope_text = f"전체 {total_count}건 인쇄"
+            scope_text = f"출력 대상 선택 필요 · 전체 {total_count}건"
 
         scope_var = self.__dict__.get("print_scope_var")
         if scope_var is not None:
@@ -1062,6 +1086,8 @@ class LabelManagerApp(tk.Tk):
             else:
                 selected_positions.add(position)
             refresh_tree()
+            tree.focus(str(position))
+            tree.selection_set(str(position))
 
         def on_tree_click(event: tk.Event) -> None:
             row_id = tree.identify_row(event.y)
@@ -1089,7 +1115,14 @@ class LabelManagerApp(tk.Tk):
             dialog.destroy()
 
         tree.tag_configure("checked", background=COLORS.accent_soft)
+        def on_tree_space(_event: tk.Event) -> str:
+            focused = tree.focus()
+            if focused:
+                toggle_position(int(focused))
+            return "break"
+
         tree.bind("<Button-1>", on_tree_click)
+        tree.bind("<space>", on_tree_space)
         refresh_tree()
 
         button_row = ttk.Frame(container, style="Surface.TFrame")
@@ -1192,8 +1225,11 @@ class LabelManagerApp(tk.Tk):
         self._select_index(tree, index)
 
     def print_with_quantity(self) -> None:
-        selected_only = bool(self.selected_label_indexes)
-        rows_to_print = self._selected_print_rows() if selected_only else list(self.label_rows)
+        selected_only = True
+        if not self.selected_label_indexes:
+            messagebox.showwarning("출력 대상 선택", "인쇄할 항목을 먼저 선택하세요. 전체를 출력하려면 '전체 선택'을 누르세요.")
+            return
+        rows_to_print = self._selected_print_rows()
         if not rows_to_print:
             messagebox.showwarning("\ucd9c\ub825 \ubaa9\ub85d", "\ucd9c\ub825\ud560 \ud56d\ubaa9\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.")
             return
@@ -1399,15 +1435,15 @@ class LabelManagerApp(tk.Tk):
             self.status_var.set("인쇄 오류")
             messagebox.showerror("인쇄 오류", (result.stderr or result.stdout or "").strip())
             return
-        title = "출력 파일 생성 완료" if action == "--dry-run" else "인쇄 완료"
+        title = "출력 파일 생성 완료" if action == "--dry-run" else "프린터 전송 완료 · 실제 출력 확인 필요"
         if selected_only:
             title = f"\uc120\ud0dd {len(rows_to_print)}건 {title}"
         detail = (result.stdout or "").strip()
         self.status_var.set(f"{title}: {detail}" if detail else title)
         if action == "--print":
             messagebox.showinfo(
-                "인쇄 완료",
-                f"{len(rows_to_print)}건의 인쇄 명령을 프린터로 전송했습니다.\n실제 라벨은 프린터에서 확인하세요.",
+                "프린터 전송 완료 · 출력 확인 필요",
+                f"{len(rows_to_print)}건의 인쇄 명령을 프린터로 전송했습니다.\n실제 라벨 출력 여부는 프린터에서 확인하세요.",
             )
 
     def _invoke_print_engine(self, args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -1454,6 +1490,25 @@ class LabelManagerApp(tk.Tk):
             messagebox.showwarning("\ud504\ub9b0\ud130 \uc124\uc815", "\ud504\ub9b0\ud130\uc124\uc815.exe\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.")
             return
         subprocess.Popen([str(self.settings_exe), "--config", str(self.config_path)], cwd=self.base_dir, creationflags=_creationflags())
+
+    def open_designer(self) -> None:
+        if self.designer_exe is None:
+            messagebox.showwarning("라벨 디자인", "라벨디자이너.exe를 찾을 수 없습니다. 배포 폴더 전체를 복사했는지 확인하세요.")
+            return
+        subprocess.Popen([str(self.designer_exe)], cwd=self.base_dir, creationflags=_creationflags())
+
+    def _open_customer_data_script(self, name: str) -> None:
+        script = self.base_dir / name
+        if not script.is_file():
+            messagebox.showwarning("고객 데이터", f"{name} 파일을 찾을 수 없습니다.")
+            return
+        subprocess.Popen(["cmd.exe", "/c", str(script)], cwd=self.base_dir)
+
+    def open_backup(self) -> None:
+        self._open_customer_data_script("고객데이터_백업.cmd")
+
+    def open_restore(self) -> None:
+        self._open_customer_data_script("고객데이터_복원.cmd")
 
     def open_quick_guide(self) -> None:
         self._open_document(self.quick_guide_path, "빠른 사용안내")
@@ -1594,6 +1649,12 @@ class LabelManagerApp(tk.Tk):
         self._toggle_label_index(self.labels_tree.index(item))
         return "break"
 
+    def _toggle_focused_label(self, _event: tk.Event) -> str:
+        item = self.labels_tree.focus()
+        if item:
+            self._toggle_label_index(self.labels_tree.index(item))
+        return "break"
+
     def _toggle_label_index(self, index: int) -> None:
         if index in self.selected_label_indexes:
             self.selected_label_indexes.remove(index)
@@ -1661,6 +1722,8 @@ class LabelManagerApp(tk.Tk):
         children = tree.get_children()
         if 0 <= index < len(children):
             tree.selection_set(children[index])
+            if callable(getattr(tree, "focus", None)):
+                tree.focus(children[index])
             tree.see(children[index])
 
     def _see_index(self, tree: ttk.Treeview, index: int) -> None:
@@ -1832,20 +1895,25 @@ def _load_dynamic_db_rows(path: Path) -> tuple[tuple[str, ...], list[dict[str, s
         rows, headers = load_db_source(path)
         return headers, rows
     workbook = load_workbook(path, data_only=True)
-    sheet = workbook["BarcodeDB"] if "BarcodeDB" in workbook.sheetnames else workbook.active
-    values = list(sheet.iter_rows(values_only=True))
-    if not values:
-        return tuple(DB_HEADERS), []
-    headers = _normalize_dynamic_headers(values[0])
-    rows: list[dict[str, str]] = []
-    for source_row in values[1:]:
-        row = {
-            header: _cell_to_text(source_row[index] if index < len(source_row) else "")
-            for index, header in enumerate(headers)
-        }
-        if any(row.values()):
-            rows.append(row)
-    return headers, rows
+    try:
+        sheet = workbook["BarcodeDB"] if "BarcodeDB" in workbook.sheetnames else workbook.active
+        values = iter(sheet.iter_rows())
+        header_cells = next(values, None)
+        if header_cells is None:
+            return tuple(DB_HEADERS), []
+        headers = _normalize_dynamic_headers(tuple(cell.value for cell in header_cells))
+        rows: list[dict[str, str]] = []
+        for row_number, source_row in enumerate(values, start=2):
+            row = {
+                header: _db_cell_text(source_row[index], row_number, header)
+                if index < len(source_row) else ""
+                for index, header in enumerate(headers)
+            }
+            if any(row.values()):
+                rows.append(row)
+        return headers, rows
+    finally:
+        workbook.close()
 
 
 def _load_active_db_state(

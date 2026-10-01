@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import io
 import math
 import os
@@ -11,11 +13,13 @@ import json
 import subprocess
 import sys
 import tempfile
+import threading
 import tkinter as tk
 import winreg
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from queue import Empty, Queue
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from uuid import uuid4
 
@@ -38,6 +42,7 @@ from .print_progress import (
     NewPrintJobRequired,
     PrintProgress,
 )
+from .portable_project import PROJECT_EXTENSION, export_portable_project, import_portable_project
 from .runtime_paths import executable_dir, runtime_base_dir
 from .sanitizer import sanitize_barcode, sanitize_slcs_text
 from .templates import mm_to_dots, print_orientation_command
@@ -153,7 +158,6 @@ LABEL_FILE_EXTENSION = ".gblabel"
 LABEL_FILE_TYPES = [
     ("채움랩 라벨 파일", f"*{LABEL_FILE_EXTENSION}"),
     ("라벨 템플릿 JSON", "*.json"),
-    ("모든 파일", "*.*"),
 ]
 IMAGE_FILE_TYPES = [
     ("Photoshop/사진 파일", "*.psd *.png *.jpg *.jpeg *.bmp *.gif *.tif *.tiff *.webp"),
@@ -270,12 +274,14 @@ def _ask_unknown_resolution(parent: tk.Misc, item_index: int) -> str | None:
     return result["value"]
 
 
-def _recover_unknown_items_for_explicit_print(progress: PrintProgress) -> int:
-    """Retry stale uncertain items after the user explicitly presses Print."""
-    unknown_indexes = list(progress.unknown_indexes)
-    for item_index in unknown_indexes:
-        progress.resolve_unknown(item_index, was_printed=False)
-    return len(unknown_indexes)
+def _resolve_unknown_items_for_explicit_print(progress: PrintProgress, parent: tk.Misc) -> bool:
+    """Ask about uncertain physical output before allowing another send."""
+    for item_index in list(progress.unknown_indexes):
+        choice = _ask_unknown_resolution(parent, item_index)
+        if choice is None:
+            return False
+        progress.resolve_unknown(item_index, was_printed=(choice == "sent"))
+    return True
 
 
 def pyinstaller_bundle_dir() -> Path | None:
@@ -596,9 +602,18 @@ def _normalize_element(element: dict[str, object]) -> dict[str, object]:
         "align": align,
         "reverse": bool(element.get("reverse", False)),
         "rotation": _element_rotation(element),
+        "locked": bool(element.get("locked", False)),
     }
+    if element.get("group_id"):
+        normalized["group_id"] = str(element["group_id"])
     if element_type in TEXT_ELEMENT_TYPES:
         normalized["fit_text_to_box"] = bool(element.get("fit_text_to_box", True))
+        normalized["required"] = bool(element.get("required", False))
+    if element_type in TEXT_ELEMENT_TYPES | {"barcode", "qr"} and element.get("review_source"):
+        normalized["review_source"] = str(element["review_source"])
+        normalized["review_confirmed"] = bool(element.get("review_confirmed", False))
+        if element.get("review_image_path"):
+            normalized["review_image_path"] = str(element["review_image_path"])
     arrange = str(element.get("arrange") or ("behind" if element_type == "table" else "normal"))
     normalized["arrange"] = arrange if arrange in ARRANGE_MODES else ("behind" if element_type == "table" else "normal")
     if element_type in {"barcode", "qr"}:
@@ -1966,6 +1981,7 @@ def _design_template_elements_from_image(
             table_elements.append(table)
 
     decoded_barcodes, original_barcode_boxes = _decoded_barcode_elements_from_image(image, label)
+    _mark_review_candidates(decoded_barcodes, "code_read")
     analysis_barcode_boxes = tuple(_scale_pixel_box(box, image.size, analysis.size) for box in original_barcode_boxes)
     probable_barcodes, probable_boxes = _probable_1d_barcode_elements_from_analysis(
         analysis,
@@ -1976,6 +1992,7 @@ def _design_template_elements_from_image(
     original_probable_boxes = tuple(_scale_pixel_box(box, analysis.size, image.size) for box in probable_boxes)
     original_barcode_boxes = (*original_barcode_boxes, *original_probable_boxes)
     if table_elements and table_text_elements and not decoded_barcodes and not probable_barcodes:
+        _mark_review_candidates(table_text_elements, "ocr_estimate")
         return [*table_elements, *table_text_elements][:max_elements]
     ocr_text_elements = _ocr_tsv_text_elements_from_image(
         image,
@@ -1984,6 +2001,8 @@ def _design_template_elements_from_image(
         exclude_pixel_boxes=original_barcode_boxes,
         max_elements=min(50, max_elements),
     )
+    _mark_review_candidates(ocr_text_elements, "ocr_estimate")
+    _mark_review_candidates(table_text_elements, "ocr_estimate")
     should_run_line_fallback = not ocr_text_elements or len(ocr_text_elements) < len([*decoded_barcodes, *probable_barcodes])
     if should_run_line_fallback:
         fallback_text_elements = _text_elements_from_analysis(
@@ -1993,6 +2012,7 @@ def _design_template_elements_from_image(
             max_elements=min(40, max_elements),
             base_dir=base_dir,
         )
+        _mark_review_candidates(fallback_text_elements, "ocr_fallback")
         _append_non_overlapping_elements(ocr_text_elements, fallback_text_elements, pad_mm=0.35)
     barcode_row_text_elements = _barcode_row_text_elements_from_image(
         image,
@@ -2001,14 +2021,24 @@ def _design_template_elements_from_image(
         base_dir=base_dir,
         max_elements=min(20, max_elements),
     )
+    _mark_review_candidates(barcode_row_text_elements, "ocr_estimate")
     _append_non_overlapping_elements(ocr_text_elements, barcode_row_text_elements, pad_mm=0.35)
     text_elements = list(table_text_elements)
     _append_non_overlapping_elements(text_elements, ocr_text_elements, pad_mm=0.5)
     _apply_inferred_barcode_values(probable_barcodes, text_elements)
+    for candidate in probable_barcodes:
+        source = "placeholder" if str(candidate.get("text", "")) == BARCODE_FALLBACK_VALUE else "text_inference"
+        _mark_review_candidates([candidate], source)
     _fit_text_elements_around_barcodes(text_elements, [*decoded_barcodes, *probable_barcodes])
     shape_limit = 0 if table_elements else max(0, min(60, max_elements - len(decoded_barcodes) - len(probable_barcodes) - len(text_elements)))
     shapes = _editable_shape_elements_from_image(analysis, label, max_elements=shape_limit, exclude_pixel_boxes=analysis_barcode_boxes)
     return [*table_elements, *shapes, *text_elements, *decoded_barcodes, *probable_barcodes][:max_elements]
+
+
+def _mark_review_candidates(elements: list[dict[str, object]], source: str) -> None:
+    for element in elements:
+        element["review_source"] = source
+        element["review_confirmed"] = False
 
 
 def _editable_shape_elements_from_image(
@@ -2203,13 +2233,22 @@ class LabelDesignerApp(tk.Tk):
         self.db_path = base_dir / "barcode_db.xlsx"
         self.data_source_path: Path | None = None
         self.scale = DESIGNER_MAX_SCALE
+        self.zoom_factor = 1.0
         self._redraw_after_id: str | None = None
         self._refreshing_data_panel = False
         self.template = self._load_initial_template()
         self.elements: list[dict[str, object]] = list(self.template["elements"])  # type: ignore[arg-type]
         self._saved_payload_signature = self._current_payload_signature()
+        self._history: list[dict[str, object]] = [self._history_snapshot()]
+        self._history_index = 0
+        self._history_restoring = False
+        self._history_suspended = 0
+        self._recovery_write_failed = False
+        self._active_background_job: dict[str, object] | None = None
+        self._data_context_version = 0
         self.selected_id: str | None = None
-        self.drag_state: dict[str, float | str] | None = None
+        self.selected_ids: set[str] = set()
+        self.drag_state: dict[str, object] | None = None
         self.canvas_images: list[ImageTk.PhotoImage] = []
         self.db_rows: list[dict[str, str]] = []
         self.data_source_headers: tuple[str, ...] = ()
@@ -2218,6 +2257,7 @@ class LabelDesignerApp(tk.Tk):
         self.selected_data_indexes: set[int] = set()
         if self.elements:
             self.selected_id = str(self.elements[0]["id"])
+            self.selected_ids = {self.selected_id}
 
         status_text = f"라벨 파일을 불러왔습니다: {self.template_path.name}" if initial_template_path else "템플릿을 불러왔습니다."
         if self._initial_template_error:
@@ -2225,6 +2265,7 @@ class LabelDesignerApp(tk.Tk):
         elif self._initial_template_notice:
             status_text = "기존 기본 템플릿 디자인을 복구 파일로 보존했습니다."
         self.status_var = tk.StringVar(value=status_text)
+        self.zoom_display_var = tk.StringVar(value="화면 맞춤")
         self.sample_var = tk.StringVar()
         self.data_search_var = tk.StringVar()
         self.data_search_hint_var = tk.StringVar(value="품목명, 바코드, 상품코드, 판매가 등 DB 전체 검색")
@@ -2258,6 +2299,8 @@ class LabelDesignerApp(tk.Tk):
         self.sample_combo: ttk.Combobox | None = None
         self.db_sample_combo: ttk.Combobox | None = None
         self.data_source_button: ttk.Button | None = None
+        self.disconnect_button: ttk.Button | None = None
+        self.reload_button: ttk.Button | None = None
         self.db_row_tree: ttk.Treeview | None = None
         self.data_tree: ttk.Treeview | None = None
         self.queue_tree: ttk.Treeview | None = None
@@ -2266,6 +2309,12 @@ class LabelDesignerApp(tk.Tk):
         self.data_source_window: tk.Toplevel | None = None
         self.template_window: tk.Toplevel | None = None
         self.template_path_var = tk.StringVar(value=str(self.template_path))
+        self.document_state_var = tk.StringVar(value="")
+        self.tools_panel_text_var = tk.StringVar(value="도구 숨기기")
+        self.data_panel_text_var = tk.StringVar(value="속성 숨기기")
+        self.tools_panel_visible = True
+        self.data_panel_visible = True
+        self.snap_to_grid_var = tk.BooleanVar(value=False)
         self.field_label: ttk.Label | None = None
         self.field_combo: ttk.Combobox | None = None
         self.field_option_to_key: dict[str, str] = {"연결 안 함": ""}
@@ -2298,8 +2347,15 @@ class LabelDesignerApp(tk.Tk):
         self.refresh_sample_options()
         self.load_selected_properties()
         self.bind("<Delete>", self.on_delete_key)
+        self.bind_all("<Control-z>", self._on_undo_shortcut)
+        self.bind_all("<Control-y>", self._on_redo_shortcut)
+        self.bind_all("<Control-Shift-Z>", self._on_redo_shortcut)
+        self.bind_all("<Control-d>", lambda _event: self._run_menu_command(self.duplicate_selected))
         self.protocol("WM_DELETE_WINDOW", self.request_close)
         self.redraw()
+        self.after(400, self._offer_recovery)
+        if initial_template_path is None and not print_on_open and not self.elements:
+            self.after(700, self._offer_start_dialog)
         if self._initial_template_error:
             self.after(350, self._show_initial_template_error)
         elif self._initial_template_notice:
@@ -2310,7 +2366,9 @@ class LabelDesignerApp(tk.Tk):
 
     def _window_title(self) -> str:
         if self.template_path:
-            return f"채움랩 라벨 디자이너 - {self.template_path.name}"
+            name = "새 라벨" if self._is_default_template_path() else self.template_path.name
+            marker = " *" if self._has_unsaved_changes() else ""
+            return f"채움랩 라벨 디자이너 - {name}{marker}"
         return "채움랩 라벨 디자이너"
 
     def _show_initial_template_error(self) -> None:
@@ -2588,11 +2646,9 @@ class LabelDesignerApp(tk.Tk):
             ttk.Label(header, text="채움랩", style="Brand.TLabel").grid(row=0, column=0, rowspan=2, sticky="w")
         tk.Frame(header, width=1, bg=COLORS.border).grid(row=0, column=1, rowspan=2, sticky="ns", padx=(18, 18))
         ttk.Label(header, text="라벨 디자이너", style="HeaderTitle.TLabel").grid(row=0, column=2, sticky="sw")
-        ttk.Label(
-            header,
-            text="라벨 크기를 정하고 개체를 배치한 뒤 바로 인쇄합니다.",
-            style="HeaderSub.TLabel",
-        ).grid(row=1, column=2, sticky="nw", pady=(2, 0))
+        ttk.Label(header, textvariable=self.document_state_var, style="HeaderSub.TLabel").grid(
+            row=1, column=2, sticky="nw", pady=(2, 0)
+        )
         header_output_button = ttk.Button(
             header,
             text="인쇄파일 생성",
@@ -2600,12 +2656,16 @@ class LabelDesignerApp(tk.Tk):
             style="Primary.TButton",
         )
         header_output_button.grid(row=0, column=3, rowspan=2, sticky="e", padx=(18, 0))
+        manager_button = ttk.Button(header, text="반복 출력 화면", command=self.open_output_workspace, style="Secondary.TButton")
+        manager_button.grid(
+            row=0, column=4, rowspan=2, sticky="e", padx=(8, 0)
+        )
 
         header_compact: bool | None = None
 
         def layout_header(event: tk.Event) -> None:
             nonlocal header_compact
-            compact = event.width < 760
+            compact = event.width < 1000
             if compact == header_compact:
                 return
             header_compact = compact
@@ -2613,21 +2673,29 @@ class LabelDesignerApp(tk.Tk):
                 header_output_button.grid_configure(
                     row=2,
                     column=0,
-                    columnspan=4,
+                    columnspan=3,
                     rowspan=1,
                     sticky="ew",
                     padx=0,
                     pady=(10, 0),
                 )
+                manager_button.grid_configure(
+                    row=2, column=3, columnspan=2, rowspan=1,
+                    sticky="ew", padx=(8, 0), pady=(10, 0),
+                )
                 return
-                header_output_button.grid_configure(
-                    row=0,
-                    column=3,
-                    columnspan=1,
-                    rowspan=2,
-                    sticky="e",
-                    padx=(18, 0),
+            header_output_button.grid_configure(
+                row=0,
+                column=3,
+                columnspan=1,
+                rowspan=2,
+                sticky="e",
+                padx=(18, 0),
                 pady=0,
+            )
+            manager_button.grid_configure(
+                row=0, column=4, columnspan=1, rowspan=2,
+                sticky="e", padx=(8, 0), pady=0,
             )
 
         header.bind("<Configure>", layout_header)
@@ -2638,6 +2706,7 @@ class LabelDesignerApp(tk.Tk):
         body.columnconfigure(1, weight=1)
         body.columnconfigure(2, minsize=300)
         body.rowconfigure(1, weight=1)
+        self._workbench_body = body
 
         ribbon_card = self._surface_card(body)
         ribbon_card.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 12))
@@ -2648,6 +2717,7 @@ class LabelDesignerApp(tk.Tk):
         self._build_canvas_toolbar(ribbon)
 
         tools_card = self._surface_card(body)
+        self._tools_card = tools_card
         tools_card.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
         tools_card.columnconfigure(0, weight=1)
         tools_card.rowconfigure(0, weight=1)
@@ -2680,8 +2750,8 @@ class LabelDesignerApp(tk.Tk):
             if compact == workbench_compact:
                 return
             workbench_compact = compact
-            body.columnconfigure(0, minsize=290 if compact else 330)
-            body.columnconfigure(2, minsize=280 if compact else 300)
+            body.columnconfigure(0, minsize=(290 if compact else 330) if self.tools_panel_visible else 0)
+            body.columnconfigure(2, minsize=(280 if compact else 300) if self.data_panel_visible else 0)
 
         body.bind("<Configure>", layout_workbench)
 
@@ -2719,6 +2789,14 @@ class LabelDesignerApp(tk.Tk):
             bd=0,
         )
         self.canvas.grid(row=0, column=0, sticky="nsew")
+        canvas_vertical_scroll = ttk.Scrollbar(center, orient="vertical", command=self.canvas.yview)
+        canvas_vertical_scroll.grid(row=0, column=1, sticky="ns")
+        canvas_horizontal_scroll = ttk.Scrollbar(center, orient="horizontal", command=self.canvas.xview)
+        canvas_horizontal_scroll.grid(row=1, column=0, sticky="ew")
+        self.canvas.configure(
+            xscrollcommand=canvas_horizontal_scroll.set,
+            yscrollcommand=canvas_vertical_scroll.set,
+        )
         self.canvas.bind("<ButtonPress-1>", self.on_canvas_press)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
@@ -2726,8 +2804,12 @@ class LabelDesignerApp(tk.Tk):
         self.canvas.bind("<Delete>", lambda _event: self.delete_selected())
         self.canvas.bind("<BackSpace>", lambda _event: self.delete_selected())
         self.canvas.bind("<Configure>", self.on_canvas_configure)
+        for keysym, dx, dy in (("Left", -1, 0), ("Right", 1, 0), ("Up", 0, -1), ("Down", 0, 1)):
+            self.canvas.bind(f"<{keysym}>", lambda _event, dx=dx, dy=dy: self._nudge_key(dx, dy))
+            self.canvas.bind(f"<Shift-{keysym}>", lambda _event, dx=dx, dy=dy: self._nudge_key(dx * 0.1, dy * 0.1))
 
         properties_card = self._surface_card(body)
+        self._properties_card = properties_card
         properties_card.grid(row=1, column=2, sticky="nsew", padx=(12, 0))
         properties_card.columnconfigure(0, weight=1)
         properties_card.rowconfigure(0, weight=1)
@@ -2763,14 +2845,32 @@ class LabelDesignerApp(tk.Tk):
         properties_inner.bind("<Configure>", sync_properties_scrollregion)
         properties_canvas.bind("<Configure>", sync_properties_width)
         properties_inner.columnconfigure(0, weight=1)
-        self._build_property_panel(properties_inner)
+        view_row = ttk.Frame(properties_inner, style="SidePanel.TFrame")
+        view_row.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        view_row.columnconfigure(0, weight=1)
+        view_row.columnconfigure(1, weight=1)
+        ttk.Button(view_row, text="개체 속성", command=lambda: self.show_property_view("object"), style="Secondary.TButton").grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        ttk.Button(view_row, text="상품 데이터", command=lambda: self.show_property_view("data"), style="Secondary.TButton").grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        self._property_data_frame = ttk.Frame(properties_inner, style="SidePanel.TFrame")
+        self._property_data_frame.grid(row=1, column=0, sticky="nsew")
+        self._build_property_panel(self._property_data_frame)
+        self._property_object_frame = ttk.Frame(properties_inner, style="SidePanel.TFrame")
+        self._property_object_frame.grid(row=1, column=0, sticky="nsew")
+        self._build_inline_property_panel(self._property_object_frame)
+        self.show_property_view("object")
         properties_canvas.bind("<MouseWheel>", scroll_properties, add="+")
         for widget in self._walk_widgets(properties_inner):
             widget.bind("<MouseWheel>", scroll_properties, add="+")
 
         footer = ttk.Frame(self, style="StatusBar.TFrame", padding=(SPACING.page_padding, 8, SPACING.page_padding, 8))
         footer.pack(fill="x")
-        ttk.Label(footer, textvariable=self.status_var, style="FooterStatus.TLabel").pack(side="left")
+        ttk.Label(footer, textvariable=self.status_var, style="FooterStatus.TLabel").pack(side="left", fill="x", expand=True)
+        ttk.Button(footer, textvariable=self.data_panel_text_var, command=lambda: self.toggle_side_panel("data"), style="Ribbon.TButton").pack(side="right")
+        ttk.Button(footer, textvariable=self.tools_panel_text_var, command=lambda: self.toggle_side_panel("tools"), style="Ribbon.TButton").pack(side="right", padx=(0, 6))
+        ttk.Button(footer, text="+", command=lambda: self.change_zoom(1), style="Ribbon.TButton", width=3).pack(side="right", padx=(0, 4))
+        ttk.Label(footer, textvariable=self.zoom_display_var, style="FooterStatus.TLabel").pack(side="right", padx=(0, 4))
+        ttk.Button(footer, text="−", command=lambda: self.change_zoom(-1), style="Ribbon.TButton", width=3).pack(side="right", padx=(0, 4))
+        ttk.Button(footer, text="화면 맞춤", command=self.fit_zoom, style="Ribbon.TButton").pack(side="right", padx=(0, 10))
 
     def _build_tool_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -2784,7 +2884,7 @@ class LabelDesignerApp(tk.Tk):
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 6))
         tools = [
             ("텍스트", lambda: self.add_element("text"), 1),
-            ("여러 줄 텍스트", lambda: self.add_element("multiline_text"), 1),
+            ("여러 줄", lambda: self.add_element("multiline_text"), 1),
             ("1D 바코드", lambda: self.add_element("barcode"), 1),
             ("2D 코드", lambda: self.add_barcode_element("qr"), 1),
             ("그림", self.add_image_element, 1),
@@ -2833,9 +2933,31 @@ class LabelDesignerApp(tk.Tk):
         ttk.Button(
             parent,
             text="도안 적용",
-            command=self.apply_design_template,
+            command=self.start_apply_design_template,
             style="Tool.TButton",
         ).grid(row=row + 3, column=0, columnspan=2, sticky="ew", pady=2)
+        ttk.Button(
+            parent,
+            text="인식 값 검토",
+            command=self.open_ocr_review_dialog,
+            style="Tool.TButton",
+        ).grid(row=row + 4, column=0, columnspan=2, sticky="ew", pady=2)
+        ttk.Separator(parent, orient="horizontal").grid(row=row + 5, column=0, columnspan=2, sticky="ew", pady=(10, 8))
+        ttk.Label(parent, text="정밀 편집", style="PropertyGroupTitle.TLabel").grid(row=row + 6, column=0, columnspan=2, sticky="w")
+        for offset, (label, action) in enumerate((
+            ("복제", self.duplicate_selected), ("그룹", self.group_selected),
+            ("그룹 해제", self.ungroup_selected), ("잠금/해제", self.toggle_lock_selected),
+            ("왼쪽 맞춤", self.align_selected_left), ("가로 간격 맞춤", self.distribute_selected_horizontally),
+        )):
+            ttk.Button(parent, text=label, command=action, style="Tool.TButton").grid(
+                row=row + 7 + offset // 2, column=offset % 2, sticky="ew", padx=(0 if offset % 2 == 0 else 4, 4 if offset % 2 == 0 else 0), pady=2
+            )
+        ttk.Checkbutton(parent, text="이동할 때 1mm 격자 맞춤", variable=self.snap_to_grid_var).grid(
+            row=row + 10, column=0, columnspan=2, sticky="w", pady=(8, 0)
+        )
+        ttk.Label(parent, text="Ctrl+클릭 다중 선택 · 방향키 1mm · Shift+방향키 0.1mm", style="Status.TLabel", wraplength=270).grid(
+            row=row + 11, column=0, columnspan=2, sticky="w", pady=(4, 0)
+        )
 
     def _build_canvas_toolbar(self, parent: ttk.Frame) -> None:
         toolbar = ttk.Frame(parent, style="Toolbar.TFrame", padding=(0, 0, 0, 6))
@@ -2850,19 +2972,33 @@ class LabelDesignerApp(tk.Tk):
             action_row.columnconfigure(column, weight=weight, uniform="toolbar_groups")
 
         data_group = self._ribbon_group(action_row, 0, "데이터")
-        ttk.Button(data_group, text="DB 연결", command=self.connect_data_source, style="Ribbon.TButton", width=0).grid(row=0, column=0, padx=(0, 6), sticky="ew")
-        self.data_source_button = ttk.Button(data_group, text="데이터 소스", command=self.open_data_source_window, style="Ribbon.TButton", state="disabled", width=0)
-        self.data_source_button.grid(row=0, column=1, padx=(0, 6), sticky="ew")
-        ttk.Button(data_group, text="DB 해제", command=self.disconnect_data_source, style="Ribbon.TButton", width=0).grid(row=0, column=2, sticky="ew")
+        ttk.Button(data_group, text="상품 엑셀 연결", command=self.connect_data_source_async, style="Ribbon.TButton", width=0).grid(row=0, column=0, padx=(0, 6), sticky="ew")
+        self.data_source_button = ttk.Button(data_group, text="상품 선택", command=self.open_data_source_window, style="Ribbon.TButton", state="disabled", width=0)
+        self.data_source_button.grid(row=0, column=1, sticky="ew")
         data_group.columnconfigure(0, weight=1)
-        data_group.columnconfigure(1, weight=2)
-        data_group.columnconfigure(2, weight=1)
+        data_group.columnconfigure(1, weight=1)
 
         device_group = self._ribbon_group(action_row, 1, "장비")
         ttk.Button(device_group, text="프린터 설정", command=self.open_printer_settings, style="Ribbon.TButton", width=0).grid(row=0, column=0, sticky="ew")
 
         template_group = self._ribbon_group(action_row, 2, "파일")
-        ttk.Button(template_group, text="파일", command=self.open_template_window, style="Ribbon.TButton", width=0).grid(row=0, column=0, sticky="ew")
+        for column, (label, action) in enumerate((
+            ("새 라벨", self.new_label), ("열기", self.open_template), ("저장", self.save_template),
+        )):
+            ttk.Button(template_group, text=label, command=action, style="Ribbon.TButton", width=0).grid(
+                row=0, column=column, padx=(0 if column == 0 else 4, 0), sticky="ew"
+            )
+        transfer_button = ttk.Menubutton(template_group, text="편집·이동", width=0)
+        transfer_menu = tk.Menu(transfer_button, tearoff=0)
+        transfer_menu.add_command(label="실행취소  Ctrl+Z", command=self.undo)
+        transfer_menu.add_command(label="다시실행  Ctrl+Y", command=self.redo)
+        transfer_menu.add_separator()
+        transfer_menu.add_command(label="이동용 프로젝트 내보내기", command=self.export_project)
+        transfer_menu.add_command(label="이동용 프로젝트 가져오기", command=self.import_project)
+        transfer_menu.add_separator()
+        transfer_menu.add_command(label="BarTender 도안 전환 안내", command=self.show_bartender_migration_help)
+        transfer_button.configure(menu=transfer_menu)
+        transfer_button.grid(row=0, column=3, padx=(4, 0), sticky="ew")
 
         output_group = self._ribbon_group(action_row, 3, "출력")
         output_menu_button = ttk.Menubutton(output_group, text="출력 메뉴", width=0)
@@ -2880,7 +3016,7 @@ class LabelDesignerApp(tk.Tk):
 
         def layout_ribbon_groups(event: tk.Event) -> None:
             nonlocal ribbon_column_count
-            column_count = 1 if event.width < 680 else 2 if event.width < 900 else 4
+            column_count = 1 if event.width < 680 else 2 if event.width < 1200 else 4
             if column_count == ribbon_column_count:
                 return
             ribbon_column_count = column_count
@@ -2906,13 +3042,13 @@ class LabelDesignerApp(tk.Tk):
         size_row.grid(row=1, column=0, sticky="ew", pady=(2, 0))
         size_row.columnconfigure(8, weight=1)
         ttk.Label(size_row, text="라벨").grid(row=0, column=0, padx=(0, 10), sticky="w")
-        ttk.Label(size_row, text="가로").grid(row=0, column=1, sticky="e")
+        ttk.Label(size_row, text="가로(mm)").grid(row=0, column=1, sticky="e")
         ttk.Spinbox(size_row, textvariable=self.width_var, from_=20, to=120, width=8, command=self.update_label_size).grid(row=0, column=2, padx=(5, 12), sticky="w")
-        ttk.Label(size_row, text="세로").grid(row=0, column=3, sticky="e")
+        ttk.Label(size_row, text="세로(mm)").grid(row=0, column=3, sticky="e")
         ttk.Spinbox(size_row, textvariable=self.height_var, from_=15, to=120, width=8, command=self.update_label_size).grid(row=0, column=4, padx=(5, 12), sticky="w")
         size_apply_button = ttk.Button(size_row, text="크기 적용", command=self.update_label_size, style="Ribbon.TButton")
         center_button = ttk.Button(size_row, text="가운데 정렬", command=self.center_selected, style="Ribbon.TButton")
-        reset_button = ttk.Button(size_row, text="기본 템플릿", command=self.reset_template, style="Ribbon.TButton")
+        reset_button = ttk.Button(size_row, text="빈 라벨로 초기화", command=self.reset_template, style="Danger.TButton")
         size_apply_button.grid(row=0, column=5, padx=(0, 6), sticky="ew")
         center_button.grid(row=0, column=6, padx=(0, 6), sticky="ew")
         reset_button.grid(row=0, column=7, sticky="ew")
@@ -3054,10 +3190,10 @@ class LabelDesignerApp(tk.Tk):
 
     def _build_property_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        ttk.Label(parent, text="DB 작업", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(parent, text="상품 데이터", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             parent,
-            text="데이터 연결과 개체 매핑을 관리합니다.",
+            text="상품 엑셀 연결 상태와 선택 개체의 열을 확인합니다.",
             style="SidePanelBody.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(4, 12))
 
@@ -3065,7 +3201,7 @@ class LabelDesignerApp(tk.Tk):
         connection_group.grid(row=2, column=0, sticky="ew", pady=(0, 14))
         connection_group.columnconfigure(0, weight=1)
         connection_group.columnconfigure(1, weight=1)
-        ttk.Label(connection_group, text="연결 상태", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        ttk.Label(connection_group, text="상품 엑셀 상태", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
         tk.Label(
             connection_group,
             textvariable=self.data_source_label_var,
@@ -3076,10 +3212,10 @@ class LabelDesignerApp(tk.Tk):
             anchor="w",
             wraplength=270,
         ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
-        ttk.Button(connection_group, text="DB 연결", command=self.connect_data_source, style="Secondary.TButton").grid(row=2, column=0, sticky="ew", padx=(0, 4))
-        ttk.Button(connection_group, text="DB 해제", command=self.disconnect_data_source, style="Secondary.TButton").grid(row=2, column=1, sticky="ew", padx=(4, 0))
-        ttk.Button(connection_group, text="데이터 소스 열기", command=self.open_data_source_window, style="Primary.TButton").grid(row=3, column=0, columnspan=2, sticky="ew", pady=(6, 0))
-        ttk.Button(connection_group, text="새로고침", command=self.reload_db, style="Tool.TButton").grid(row=4, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        self.disconnect_button = ttk.Button(connection_group, text="연결 해제", command=self.disconnect_data_source, style="Secondary.TButton")
+        self.disconnect_button.grid(row=2, column=0, sticky="ew", padx=(0, 4))
+        self.reload_button = ttk.Button(connection_group, text="엑셀 새로고침", command=self.reload_db, style="Tool.TButton")
+        self.reload_button.grid(row=2, column=1, sticky="ew", padx=(4, 0))
 
         mapping_group = ttk.Frame(parent, style="PropertyGroup.TFrame")
         mapping_group.grid(row=3, column=0, sticky="ew", pady=(0, 14))
@@ -3112,6 +3248,70 @@ class LabelDesignerApp(tk.Tk):
         self.db_preview_tree.grid(row=0, column=0, sticky="nsew")
         preview_scroll.grid(row=0, column=1, sticky="ns")
         self.property_widgets = {}
+
+    def show_property_view(self, view: str) -> None:
+        data_frame = self.__dict__.get("_property_data_frame")
+        object_frame = self.__dict__.get("_property_object_frame")
+        if data_frame is None or object_frame is None:
+            return
+        if view == "data":
+            object_frame.grid_remove()
+            data_frame.grid()
+        else:
+            data_frame.grid_remove()
+            object_frame.grid()
+
+    def _build_inline_property_panel(self, parent: ttk.Frame) -> None:
+        parent.columnconfigure(0, weight=1)
+        parent.columnconfigure(1, weight=1)
+        ttk.Label(parent, text="선택한 개체", style="SidePanelTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(parent, text="캔버스에서 개체를 선택한 뒤 값을 바꾸세요.", style="SidePanelBody.TLabel", wraplength=260).grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(4, 12)
+        )
+        type_combo = self._property_combo(parent, 1, "종류", self.type_var, list(ELEMENT_TYPES.values()), state="readonly")
+        text_entry = self._property_entry(parent, 2, "텍스트 / 바코드 값", self.text_var)
+        geometry = ttk.Frame(parent, style="SidePanel.TFrame")
+        geometry.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        for column in range(2):
+            geometry.columnconfigure(column, weight=1)
+        position_entries = [
+            self._small_property(geometry, row, column, label, variable)
+            for row, column, label, variable in (
+                (0, 0, "가로 위치(mm)", self.x_var), (0, 1, "세로 위치(mm)", self.y_var),
+                (2, 0, "너비(mm)", self.w_var), (2, 1, "높이(mm)", self.h_var),
+            )
+        ]
+        font_entry = self._property_entry(parent, 4, "글자 크기", self.font_var)
+        align_combo = self._property_combo(parent, 5, "정렬", self.align_var, list(ALIGNMENTS.values()), state="readonly")
+        buttons = ttk.Frame(parent, style="SidePanel.TFrame")
+        buttons.grid(row=12, column=0, columnspan=2, sticky="ew", pady=(14, 0))
+        buttons.columnconfigure(0, weight=1)
+        ttk.Button(buttons, text="속성 적용", command=self.apply_properties, style="Primary.TButton").grid(row=0, column=0, sticky="ew")
+        ttk.Button(buttons, text="자세히 편집", command=self.open_element_editor, style="Secondary.TButton").grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        self.property_widgets = {"always": [type_combo, *position_entries], "text": [text_entry, font_entry, align_combo]}
+
+    def toggle_side_panel(self, side: str) -> None:
+        if side == "tools":
+            self.tools_panel_visible = not self.tools_panel_visible
+            card = self._tools_card
+            column = 0
+            visible = self.tools_panel_visible
+            self.tools_panel_text_var.set("도구 숨기기" if visible else "도구 보이기")
+        else:
+            self.data_panel_visible = not self.data_panel_visible
+            card = self._properties_card
+            column = 2
+            visible = self.data_panel_visible
+            self.data_panel_text_var.set("속성 숨기기" if visible else "속성 보이기")
+        if visible:
+            card.grid()
+        else:
+            card.grid_remove()
+        compact = self._workbench_body.winfo_width() < 1160
+        minsize = (290 if compact else 330) if side == "tools" else (280 if compact else 300)
+        self._workbench_body.columnconfigure(column, minsize=minsize if visible else 0)
+        self.update_idletasks()
+        self.redraw()
 
     def _property_entry(self, parent: ttk.Frame, row: int, label: str, variable: tk.StringVar) -> ttk.Entry:
         ttk.Label(parent, text=label).grid(row=row * 2, column=0, sticky="w", pady=(5, 3))
@@ -3162,8 +3362,133 @@ class LabelDesignerApp(tk.Tk):
     def _current_payload_signature(self) -> str:
         return _template_signature(self.template.get("label", {}), self.elements)
 
+    def _history_snapshot(self) -> dict[str, object]:
+        return {
+            "label": copy.deepcopy(self.template["label"]),
+            "elements": copy.deepcopy(self.elements),
+            "selected_id": self.selected_id if hasattr(self, "selected_id") else None,
+            "selected_ids": sorted(self.__dict__.get("selected_ids", set())),
+        }
+
+    def _reset_history(self) -> None:
+        self._history = [self._history_snapshot()]
+        self._history_index = 0
+
+    def _record_history(self) -> None:
+        if not hasattr(self, "_history") or self._history_restoring or self._history_suspended or self.drag_state:
+            return
+        snapshot = self._history_snapshot()
+        current = self._history[self._history_index]
+        if _template_signature(snapshot["label"], snapshot["elements"]) == _template_signature(current["label"], current["elements"]):
+            return
+        del self._history[self._history_index + 1:]
+        self._history.append(snapshot)
+        if len(self._history) > 51:
+            self._history.pop(0)
+        self._history_index = len(self._history) - 1
+        self._save_recovery()
+
+    def _restore_history(self, index: int) -> None:
+        if index < 0 or index >= len(self._history):
+            return
+        self._history_restoring = True
+        try:
+            self._history_index = index
+            snapshot = self._history[index]
+            self.template["label"] = copy.deepcopy(snapshot["label"])
+            self.elements = copy.deepcopy(snapshot["elements"])  # type: ignore[assignment]
+            self.selected_id = snapshot["selected_id"]  # type: ignore[assignment]
+            self.selected_ids = set(snapshot.get("selected_ids", []))  # type: ignore[arg-type]
+            self._load_values_to_controls()
+            self.load_selected_properties()
+            self.redraw()
+        finally:
+            self._history_restoring = False
+        self._save_recovery()
+
+    def undo(self) -> None:
+        self._record_history()
+        if self._history_index > 0:
+            self._restore_history(self._history_index - 1)
+            self.status_var.set("실행취소했습니다.")
+
+    def redo(self) -> None:
+        if self._history_index + 1 < len(self._history):
+            self._restore_history(self._history_index + 1)
+            self.status_var.set("다시실행했습니다.")
+
+    def _on_undo_shortcut(self, event: tk.Event) -> str | None:
+        if str(event.widget.winfo_class()) in {"Entry", "TEntry", "TSpinbox", "TCombobox", "Spinbox", "Text"}:
+            return None
+        self.undo()
+        return "break"
+
+    def _on_redo_shortcut(self, event: tk.Event) -> str | None:
+        if str(event.widget.winfo_class()) in {"Entry", "TEntry", "TSpinbox", "TCombobox", "Spinbox", "Text"}:
+            return None
+        self.redo()
+        return "break"
+
+    def _recovery_path(self, template_path: Path | None = None) -> Path:
+        identity = hashlib.sha256(str((template_path or self.template_path).resolve()).encode("utf-8")).hexdigest()[:16]
+        return self.base_dir / "out" / f".designer_recovery_{identity}.json"
+
+    def _clear_recovery(self, template_path: Path | None = None) -> None:
+        if "base_dir" not in self.__dict__ or "template_path" not in self.__dict__:
+            return
+        self._recovery_path(template_path).unlink(missing_ok=True)
+
+    def _save_recovery(self) -> None:
+        if not self._has_unsaved_changes():
+            self._clear_recovery()
+            return
+        try:
+            _atomic_write_json(
+                self._recovery_path(),
+                {"version": 1, "template_path": str(self.template_path.resolve()), "snapshot": self._history_snapshot()},
+            )
+        except OSError as exc:
+            if not self._recovery_write_failed:
+                self._recovery_write_failed = True
+                messagebox.showwarning("자동 복구 저장 실패", f"자동 복구 파일을 저장하지 못했습니다. 직접 저장하세요.\n{exc}", parent=self)
+
+    def _offer_recovery(self) -> None:
+        if "base_dir" not in self.__dict__ or "template_path" not in self.__dict__:
+            return
+        path = self._recovery_path()
+        if not path.exists():
+            return
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if payload.get("template_path") != str(self.template_path.resolve()):
+                return
+            snapshot = payload["snapshot"]
+            recovered = normalize_template({"label": snapshot["label"], "elements": snapshot["elements"]})
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            messagebox.showwarning("자동 복구 파일 오류", f"복구 파일을 읽을 수 없습니다. 기존 라벨은 유지됩니다.\n{exc}", parent=self)
+            return
+        if _template_signature(snapshot["label"], snapshot["elements"]) == self._saved_payload_signature:
+            self._clear_recovery()
+            return
+        if not messagebox.askyesno(
+            "저장 전 작업 복구",
+            "이 라벨의 저장 전 작업이 남아 있습니다. 화면에 복구할까요?\n기존 저장 파일은 덮어쓰지 않습니다.",
+            parent=self,
+        ):
+            self._clear_recovery()
+            return
+        self.template = recovered
+        self.elements = list(recovered["elements"])  # type: ignore[arg-type]
+        selected_id = snapshot.get("selected_id")
+        self.selected_id = selected_id if any(str(element.get("id")) == selected_id for element in self.elements) else None
+        self._reset_history()
+        self._load_values_to_controls()
+        self.load_selected_properties()
+        self.redraw()
+        self.status_var.set("저장 전 작업을 화면에 복구했습니다. 확인 후 직접 저장하세요.")
+
     def _has_unsaved_changes(self) -> bool:
-        saved = getattr(self, "_saved_payload_signature", None)
+        saved = self.__dict__.get("_saved_payload_signature")
         return saved is not None and self._current_payload_signature() != saved
 
     def _confirm_save_changes(self, action: str) -> bool:
@@ -3182,6 +3507,7 @@ class LabelDesignerApp(tk.Tk):
 
     def request_close(self) -> None:
         if self._confirm_save_changes("프로그램을 종료하기 전에"):
+            self._clear_recovery()
             self.destroy()
 
     def _load_db_rows(self) -> list[dict[str, str]]:
@@ -3191,7 +3517,7 @@ class LabelDesignerApp(tk.Tk):
 
     def _data_source_display_name(self) -> str:
         if self.data_source_path is None:
-            return "DB 연결 전"
+            return "상품 엑셀 미연결 · 상단에서 연결하세요"
         try:
             name = str(self.data_source_path.relative_to(self.base_dir))
         except ValueError:
@@ -3363,28 +3689,144 @@ class LabelDesignerApp(tk.Tk):
         source = filedialog.askopenfilename(
             parent=self,
             initialdir=self.base_dir,
-            title="DB 연결",
-            filetypes=[("Excel 통합 문서", "*.xlsx *.xlsm"), ("모든 파일", "*.*")],
+            title="상품 엑셀 연결",
+            filetypes=[("Excel 통합 문서", "*.xlsx *.xlsm")],
+        )
+        if not source:
+            return
+        self.connect_data_source_path(Path(source))
+
+    def _start_background_job(
+        self,
+        title: str,
+        work: Callable[[], object],
+        apply_result: Callable[[object], None],
+    ) -> None:
+        if self.__dict__.get("_active_background_job") is not None:
+            messagebox.showinfo("작업 진행 중", "현재 작업이 끝난 뒤 다시 시도하세요.", parent=self)
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        dialog.transient(self)
+        dialog.resizable(False, False)
+        ttk.Label(dialog, text=f"{title} 중입니다. 창을 계속 사용할 수 있습니다.", padding=(18, 16, 18, 8)).pack()
+        progress = ttk.Progressbar(dialog, mode="indeterminate", length=320)
+        progress.pack(padx=18, pady=(0, 10))
+        progress.start(12)
+        result_queue: Queue[tuple[bool, object]] = Queue(maxsize=1)
+        job: dict[str, object] = {"cancelled": False, "title": title}
+        self._active_background_job = job
+
+        def cancel() -> None:
+            job["cancelled"] = True
+            self.status_var.set(f"{title} 취소 요청 · 완료된 결과는 적용하지 않습니다.")
+            dialog.destroy()
+
+        ttk.Button(dialog, text="결과 적용 취소", command=cancel, style="Secondary.TButton").pack(pady=(0, 16))
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+
+        def worker() -> None:
+            try:
+                result_queue.put((True, work()))
+            except Exception as exc:
+                result_queue.put((False, exc))
+
+        threading.Thread(target=worker, name="designer-background-job", daemon=True).start()
+
+        def poll() -> None:
+            try:
+                success, result = result_queue.get_nowait()
+            except Empty:
+                if self.winfo_exists():
+                    self.after(80, poll)
+                return
+            self._active_background_job = None
+            if dialog.winfo_exists():
+                dialog.destroy()
+            if job["cancelled"]:
+                self.status_var.set(f"{title} 결과 적용을 취소했습니다.")
+                return
+            if not success:
+                messagebox.showerror(f"{title} 실패", str(result), parent=self)
+                self.status_var.set(f"{title} 실패 · 기존 작업은 유지합니다.")
+                return
+            try:
+                apply_result(result)
+            except Exception as exc:
+                messagebox.showerror(f"{title} 실패", str(exc), parent=self)
+
+        self.after(80, poll)
+
+    def connect_data_source_async(self) -> None:
+        source = filedialog.askopenfilename(
+            parent=self,
+            initialdir=self.base_dir,
+            title="상품 엑셀 연결",
+            filetypes=[("Excel 통합 문서", "*.xlsx *.xlsm")],
         )
         if not source:
             return
         candidate = Path(source)
+        document_path = self.__dict__.get("template_path")
+        document_signature = (
+            self._current_payload_signature()
+            if "template" in self.__dict__ and "elements" in self.__dict__
+            else None
+        )
+        data_source_path = self.__dict__.get("data_source_path")
+        data_rows = self.__dict__.get("db_rows")
+        selected_indexes = frozenset(self.__dict__.get("selected_data_indexes", set()))
+        context_version = self.__dict__.get("_data_context_version", 0)
+
+        def read_excel() -> object:
+            if not candidate.is_file():
+                raise FileNotFoundError(f"상품 엑셀을 찾을 수 없습니다: {candidate.name}")
+            return load_db_source(candidate)
+
+        def apply_rows(result: object) -> None:
+            current_signature = (
+                self._current_payload_signature()
+                if "template" in self.__dict__ and "elements" in self.__dict__
+                else None
+            )
+            if (
+                self.__dict__.get("template_path") != document_path
+                or current_signature != document_signature
+                or self.__dict__.get("data_source_path") != data_source_path
+                or self.__dict__.get("db_rows") is not data_rows
+                or frozenset(self.__dict__.get("selected_data_indexes", set())) != selected_indexes
+                or self.__dict__.get("_data_context_version", 0) != context_version
+            ):
+                self.status_var.set("상품 엑셀 읽기 완료 · 그 사이 라벨이나 출력 선택이 바뀌어 결과를 적용하지 않았습니다.")
+                return
+            rows, headers = result  # type: ignore[misc]
+            self.data_source_path = candidate
+            self._data_context_version = context_version + 1
+            width, height = self._apply_loaded_db_rows(rows, headers)
+            self.status_var.set(f"상품 엑셀 연결 완료: {candidate.name} · 라벨 {width:g}×{height:g}mm")
+
+        self._start_background_job("상품 엑셀 읽기", read_excel, apply_rows)
+
+    def connect_data_source_path(self, candidate: Path) -> bool:
         try:
             rows, headers = load_db_source(candidate)
         except Exception as exc:
-            messagebox.showerror("DB 연결 실패", str(exc))
-            self.status_var.set("DB 연결 실패 · 기존 데이터소스를 유지합니다.")
-            return
+            messagebox.showerror("상품 엑셀 연결 실패", str(exc))
+            self.status_var.set("상품 엑셀 연결 실패 · 기존 데이터는 유지합니다.")
+            return False
         self.data_source_path = candidate
+        self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
         width, height = self._apply_loaded_db_rows(rows, headers)
         self.status_var.set(
-            f"DB 연결 완료: {self._data_source_display_name()} · 템플릿 {width:g}×{height:g}mm"
+            f"상품 엑셀 연결 완료: {self._data_source_display_name()} · 라벨 {width:g}×{height:g}mm"
         )
+        return True
 
     def disconnect_data_source(self) -> None:
         if getattr(self, "data_source_window", None) is not None:
             self.close_data_source_window()
         self.data_source_path = None
+        self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
         self.db_rows = []
         self.data_source_headers = ()
         self.visible_data_indexes = []
@@ -3491,6 +3933,10 @@ class LabelDesignerApp(tk.Tk):
         data_source_button = self.__dict__.get("data_source_button")
         if data_source_button is not None:
             data_source_button.configure(state="normal" if connected else "disabled")
+        for name in ("disconnect_button", "reload_button"):
+            button = self.__dict__.get(name)
+            if button is not None:
+                button.configure(state="normal" if connected else "disabled")
         primary_print_text_var = self.__dict__.get("primary_print_text_var")
         if primary_print_text_var is not None:
             primary_print_text_var.set("선택 인쇄" if connected else "인쇄")
@@ -3510,7 +3956,7 @@ class LabelDesignerApp(tk.Tk):
                         value = str(self.preview_row.get(field, ""))
                         db_preview_tree.insert("", "end", iid=f"db-{index}", values=(label, value))
                 else:
-                    db_preview_tree.insert("", "end", iid="db-empty", values=("연결 전", "DB를 연결하세요"))
+                    db_preview_tree.insert("", "end", iid="db-empty", values=("연결 전", "상단에서 상품 엑셀을 연결하세요"))
             db_row_tree = self.__dict__.get("db_row_tree")
             if db_row_tree is not None:
                 db_row_tree.delete(*db_row_tree.get_children())
@@ -3646,17 +4092,26 @@ class LabelDesignerApp(tk.Tk):
         self.height_var.set(_format_mm_value(label["height_mm"]))  # type: ignore[index]
 
     def redraw(self) -> None:
+        self._record_history()
+        self._update_document_state()
         self.canvas.delete("all")
         self.canvas_images.clear()
         label = self.template["label"]  # type: ignore[index]
         width_mm = float(label["width_mm"])  # type: ignore[index]
         height_mm = float(label["height_mm"])  # type: ignore[index]
-        self.scale, origin_x, origin_y, width, height = _calculate_canvas_label_layout(
+        fit_scale, origin_x, origin_y, width, height = _calculate_canvas_label_layout(
             self.canvas.winfo_width(),
             self.canvas.winfo_height(),
             width_mm,
             height_mm,
         )
+        zoom_factor = float(self.__dict__.get("zoom_factor", 1.0))
+        self.scale = fit_scale * zoom_factor
+        if zoom_factor != 1.0:
+            width = width_mm * self.scale
+            height = height_mm * self.scale
+            origin_x = max(RULER_SIZE + 16, (self.canvas.winfo_width() - width) / 2)
+            origin_y = max(RULER_SIZE + 16, (self.canvas.winfo_height() - height) / 2)
         self.origin_x = origin_x
         self.origin_y = origin_y
         self.label_width_px = width
@@ -3685,6 +4140,25 @@ class LabelDesignerApp(tk.Tk):
 
         for element in self._drawing_elements():
             self.draw_element(element)
+        if callable(getattr(self.canvas, "configure", None)):
+            self.canvas.configure(scrollregion=(
+                0, 0,
+                max(self.canvas.winfo_width(), origin_x + width + LABEL_SHADOW_OFFSET + 20),
+                max(self.canvas.winfo_height(), origin_y + height + LABEL_SHADOW_OFFSET + 20),
+            ))
+
+    def change_zoom(self, direction: int) -> None:
+        levels = (0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0)
+        current = float(self.__dict__.get("zoom_factor", 1.0))
+        index = min(range(len(levels)), key=lambda item: abs(levels[item] - current))
+        self.zoom_factor = levels[max(0, min(len(levels) - 1, index + direction))]
+        self.zoom_display_var.set(f"{round(self.zoom_factor * 100)}% · 맞춤 기준")
+        self.redraw()
+
+    def fit_zoom(self) -> None:
+        self.zoom_factor = 1.0
+        self.zoom_display_var.set("화면 맞춤")
+        self.redraw()
 
     def _drawing_elements(self) -> list[dict[str, object]]:
         behind = [element for element in self.elements if str(element.get("arrange", "normal")) == "behind"]
@@ -3787,7 +4261,7 @@ class LabelDesignerApp(tk.Tk):
         x1, y1, x2, y2 = self.element_bbox(element)
         element_id = str(element["id"])
         element_type = str(element["type"])
-        selected = element_id == self.selected_id
+        selected = element_id in self._selected_ids()
         outline = SELECT_COLOR if selected else ELEMENT_GUIDE_COLOR
         line_width = 2 if selected else 1
         stroke_width = _stroke_width_px(element, self.scale)
@@ -3846,7 +4320,8 @@ class LabelDesignerApp(tk.Tk):
 
         if selected:
             self.canvas.create_rectangle(x1 - 4, y1 - 4, x2 + 4, y2 + 4, outline=SELECT_COLOR, width=2)
-            self._draw_resize_handles(x1, y1, x2, y2, tag)
+            if element_id == self.selected_id and not element.get("locked"):
+                self._draw_resize_handles(x1, y1, x2, y2, tag)
 
     def _draw_resize_handles(self, x1: float, y1: float, x2: float, y2: float, tag: str) -> None:
         for _handle, hx, hy in self._resize_handle_points(x1, y1, x2, y2):
@@ -4305,6 +4780,38 @@ class LabelDesignerApp(tk.Tk):
         guide["analysis_applied"] = False
         return [guide]
 
+    def start_apply_design_template(self) -> None:
+        reference = self._selected_or_latest_design_reference()
+        if reference is None:
+            messagebox.showwarning("도안 적용", "먼저 도안 템플릿으로 PSD/사진 파일을 불러오세요.")
+            return
+        path = self._element_image_path(reference)
+        if path is None:
+            messagebox.showerror("도안 적용", "참고 도안 이미지 파일을 찾을 수 없습니다.", parent=self)
+            return
+        label = copy.deepcopy(self.template["label"])
+        reference_id = str(reference["id"])
+        signature = self._current_payload_signature()
+
+        def analyze() -> object:
+            image = _open_design_image(path)
+            return _design_template_elements_from_image(image, label, base_dir=self.base_dir)
+
+        def apply_generated(result: object) -> None:
+            if self._current_payload_signature() != signature:
+                self.status_var.set("도안 분석 중 라벨이 변경되어 결과를 적용하지 않았습니다. 다시 시도하세요.")
+                return
+            current_reference = next(
+                (element for element in self.elements if str(element.get("id")) == reference_id),
+                None,
+            )
+            if current_reference is None:
+                self.status_var.set("참고 도안이 삭제되어 분석 결과를 적용하지 않았습니다.")
+                return
+            self._apply_generated_design_template(current_reference, result)  # type: ignore[arg-type]
+
+        self._start_background_job("도안 분석", analyze, apply_generated)
+
     def apply_design_template(self) -> None:
         reference = self._selected_or_latest_design_reference()
         if reference is None:
@@ -4315,9 +4822,20 @@ class LabelDesignerApp(tk.Tk):
         except Exception as exc:
             messagebox.showerror("도안 적용", f"도안을 분석할 수 없습니다.\n{exc}")
             return
+        self._apply_generated_design_template(reference, generated)
+
+    def _apply_generated_design_template(
+        self,
+        reference: dict[str, object],
+        generated: list[dict[str, object]],
+    ) -> None:
         if not generated:
             messagebox.showinfo("도안 적용", "생성할 수 있는 선, 텍스트, 바코드 후보를 찾지 못했습니다.")
             return
+        review_image_path = str(reference.get("image_path", ""))
+        for candidate in generated:
+            if candidate.get("review_source"):
+                candidate["review_image_path"] = review_image_path
         reference_id = str(reference.get("id", ""))
         self.elements = [element for element in self.elements if str(element.get("id")) != reference_id]
         self.elements.extend(generated)
@@ -4340,6 +4858,121 @@ class LabelDesignerApp(tk.Tk):
         if counts["text"] and _resolve_tesseract_executable(self.base_dir) is None:
             status += " (OCR 엔진 없음: 텍스트 후보는 직접 수정)"
         self.status_var.set(status)
+        if any(candidate.get("review_source") for candidate in generated):
+            self.after(100, self.open_ocr_review_dialog)
+
+    def open_ocr_review_dialog(self) -> None:
+        candidates = [
+            element for element in self.elements
+            if element.get("review_source") and str(element.get("type")) in TEXT_ELEMENT_TYPES | {"barcode", "qr"}
+        ]
+        if not candidates:
+            messagebox.showinfo("인식 값 검토", "검토할 도안 인식 값이 없습니다.", parent=self)
+            return
+
+        dialog = tk.Toplevel(self)
+        dialog.title("도안 인식 값 검토")
+        dialog.transient(self)
+        set_initial_window_size(dialog, preferred_width=1020, preferred_height=650, minimum_width=760, minimum_height=500)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
+        ttk.Label(
+            dialog,
+            text="원본과 추정 값을 비교해 각 항목을 확인하세요. 미확인 값은 출력할 수 없습니다.",
+            style="Title.TLabel",
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(16, 10))
+        body = ttk.Frame(dialog, padding=(18, 0, 18, 12))
+        body.grid(row=1, column=0, sticky="nsew")
+        body.columnconfigure(0, weight=1)
+        body.columnconfigure(1, weight=1)
+        body.rowconfigure(1, weight=1)
+        ttk.Label(body, text="원본 도안", style="PanelTitle.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 6))
+        ttk.Label(body, text="추정 결과 · 미확인 표시", style="PanelTitle.TLabel").grid(row=0, column=1, sticky="w", padx=(14, 0), pady=(0, 6))
+        image_frame = ttk.Frame(body)
+        image_frame.grid(row=1, column=0, sticky="nsew")
+        image_frame.columnconfigure(0, weight=1)
+        image_frame.rowconfigure(0, weight=1)
+        image_label = ttk.Label(image_frame, text="원본 이미지를 찾을 수 없습니다.", anchor="center")
+        image_label.grid(row=0, column=0, sticky="nsew")
+        raw_image_path = next((str(item.get("review_image_path", "")) for item in candidates if item.get("review_image_path")), "")
+        if raw_image_path:
+            image_path = Path(raw_image_path)
+            if not image_path.is_absolute():
+                image_path = self.base_dir / image_path
+            if image_path.is_file():
+                try:
+                    original = _open_design_image(image_path)
+                    preview = ImageOps.contain(original.convert("RGB"), (460, 500), Image.Resampling.LANCZOS)
+                    dialog._review_image = ImageTk.PhotoImage(preview)  # type: ignore[attr-defined]
+                    image_label.configure(image=dialog._review_image, text="")  # type: ignore[attr-defined]
+                except (OSError, ValueError):
+                    pass
+
+        result_frame = ttk.Frame(body)
+        result_frame.grid(row=1, column=1, sticky="nsew", padx=(14, 0))
+        result_frame.columnconfigure(0, weight=1)
+        result_frame.rowconfigure(0, weight=1)
+        tree = ttk.Treeview(result_frame, columns=("source", "value", "state"), show="headings", selectmode="browse")
+        for key, title, width in (("source", "근거", 112), ("value", "인식 값", 220), ("state", "상태", 70)):
+            tree.heading(key, text=title)
+            tree.column(key, width=width, minwidth=60, stretch=key == "value")
+        tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar = ttk.Scrollbar(result_frame, orient="vertical", command=tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        tree.configure(yscrollcommand=scrollbar.set)
+        source_labels = {
+            "code_read": "코드 판독", "text_inference": "문자에서 추정", "placeholder": "임시 값",
+            "ocr_estimate": "문자 인식", "ocr_fallback": "영역 추정",
+        }
+        by_id = {str(element["id"]): element for element in candidates}
+        for element in candidates:
+            key = str(element["id"])
+            tree.insert("", "end", iid=key, values=(
+                source_labels.get(str(element.get("review_source")), "추정"),
+                str(element.get("text", "")),
+                "확인" if element.get("review_confirmed") else "미확인",
+            ))
+        value_var = tk.StringVar()
+        ttk.Label(result_frame, text="선택한 값 수정").grid(row=1, column=0, sticky="w", pady=(12, 4))
+        value_entry = ttk.Entry(result_frame, textvariable=value_var)
+        value_entry.grid(row=2, column=0, sticky="ew")
+
+        def select_candidate(_event: tk.Event | None = None) -> None:
+            selection = tree.selection()
+            if selection:
+                value_var.set(str(by_id[selection[0]].get("text", "")))
+
+        tree.bind("<<TreeviewSelect>>", select_candidate)
+
+        def confirm_candidate() -> None:
+            selection = tree.selection()
+            if not selection:
+                return
+            element = by_id[selection[0]]
+            value = value_var.get().strip()
+            if not value or (str(element.get("review_source")) == "placeholder" and value == BARCODE_FALLBACK_VALUE):
+                messagebox.showwarning("인식 값 검토", "임시 값 대신 원본에서 확인한 값을 입력하세요.", parent=dialog)
+                return
+            element["text"] = value
+            element["review_confirmed"] = True
+            tree.set(selection[0], "value", value)
+            tree.set(selection[0], "state", "확인")
+            self.redraw()
+            remaining = [item for item in candidates if not item.get("review_confirmed")]
+            if remaining:
+                tree.selection_set(str(remaining[0]["id"]))
+                tree.see(str(remaining[0]["id"]))
+            else:
+                self.status_var.set("도안 인식 값을 모두 검토했습니다. 원본과 첫 장 출력을 대조하세요.")
+
+        controls = ttk.Frame(dialog, padding=(18, 0, 18, 16))
+        controls.grid(row=2, column=0, sticky="ew")
+        controls.columnconfigure(0, weight=1)
+        ttk.Button(controls, text="선택 값 확인", command=confirm_candidate, style="Primary.TButton").grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(controls, text="나중에 검토", command=dialog.destroy, style="Secondary.TButton").grid(row=0, column=2)
+        if candidates:
+            tree.selection_set(str(candidates[0]["id"]))
+            select_candidate()
 
     def _selected_or_latest_design_reference(self) -> dict[str, object] | None:
         selected = self.selected_element()
@@ -4408,22 +5041,23 @@ class LabelDesignerApp(tk.Tk):
 
     def on_canvas_press(self, event: tk.Event) -> None:
         self.canvas.focus_set()
+        pointer_x, pointer_y = self._canvas_point(event)
         selected = self.selected_element()
-        resize_handle = self.resize_handle_at(event.x, event.y, selected)
+        resize_handle = self.resize_handle_at(pointer_x, pointer_y, selected) if selected is not None and not selected.get("locked") else None
         if selected is not None and resize_handle is not None:
             self.drag_state = {
                 "mode": "resize",
                 "handle": resize_handle,
                 "id": str(selected["id"]),
-                "start_x": float(event.x),
-                "start_y": float(event.y),
+                "start_x": pointer_x,
+                "start_y": pointer_y,
                 "element_x": float(selected.get("x", 0)),
                 "element_y": float(selected.get("y", 0)),
                 "element_w": float(selected.get("width", 1)),
                 "element_h": float(selected.get("height", 1)),
             }
             return
-        table_divider = self.table_divider_at(event.x, event.y, selected)
+        table_divider = self.table_divider_at(pointer_x, pointer_y, selected) if selected is not None and not selected.get("locked") else None
         if selected is not None and table_divider is not None:
             axis, index = table_divider
             self.drag_state = {
@@ -4431,25 +5065,54 @@ class LabelDesignerApp(tk.Tk):
                 "axis": axis,
                 "index": float(index),
                 "id": str(selected["id"]),
-                "start_x": float(event.x),
-                "start_y": float(event.y),
+                "start_x": pointer_x,
+                "start_y": pointer_y,
             }
             return
 
-        element = self.find_element_at(event.x, event.y)
+        element = self.find_element_at(pointer_x, pointer_y)
         if element is None:
             self.selected_id = None
+            self.selected_ids = set()
+            self.drag_state = None
             self.clear_property_panel()
             self.redraw()
             return
-        self.selected_id = str(element["id"])
+        element_id = str(element["id"])
+        if int(getattr(event, "state", 0)) & 0x0004:
+            selected_ids = self._selected_ids()
+            if element_id in selected_ids:
+                selected_ids.remove(element_id)
+            else:
+                selected_ids.add(element_id)
+            self.selected_ids = selected_ids
+            self.selected_id = element_id if element_id in selected_ids else next(iter(selected_ids), None)
+            self.drag_state = None
+            self.load_selected_properties()
+            self.redraw()
+            return
+        group_id = str(element.get("group_id", ""))
+        if group_id:
+            self.selected_ids = {str(item["id"]) for item in self.elements if str(item.get("group_id", "")) == group_id}
+        elif element_id not in self._selected_ids():
+            self.selected_ids = {element_id}
+        self.selected_id = element_id
+        if element.get("locked"):
+            self.drag_state = None
+            self.load_selected_properties()
+            self.redraw()
+            return
         self.drag_state = {
             "mode": "move",
             "id": self.selected_id,
-            "start_x": float(event.x),
-            "start_y": float(event.y),
+            "start_x": pointer_x,
+            "start_y": pointer_y,
             "element_x": float(element.get("x", 0)),
             "element_y": float(element.get("y", 0)),
+            "positions": {
+                str(item["id"]): (float(item.get("x", 0)), float(item.get("y", 0)))
+                for item in self._selected_elements() if not item.get("locked")
+            },
         }
         self.load_selected_properties()
         self.redraw()
@@ -4460,16 +5123,17 @@ class LabelDesignerApp(tk.Tk):
         element = self.selected_element()
         if element is None:
             return
-        dx = (float(event.x) - float(self.drag_state["start_x"])) / self.scale
-        dy = (float(event.y) - float(self.drag_state["start_y"])) / self.scale
+        pointer_x, pointer_y = self._canvas_point(event)
+        dx = (pointer_x - float(self.drag_state["start_x"])) / self.scale
+        dy = (pointer_y - float(self.drag_state["start_y"])) / self.scale
         if self.drag_state.get("mode") == "table-divider":
             x1, y1, x2, y2 = self.element_bbox(element)
             axis = str(self.drag_state.get("axis", "col"))
             index = int(float(self.drag_state.get("index", 0)))
             if axis == "col":
-                ratio = (float(event.x) - x1) / max(1.0, x2 - x1)
+                ratio = (pointer_x - x1) / max(1.0, x2 - x1)
             else:
-                ratio = (float(event.y) - y1) / max(1.0, y2 - y1)
+                ratio = (pointer_y - y1) / max(1.0, y2 - y1)
             _set_table_axis_position(element, axis, index, ratio)
             self.load_selected_properties()
             self.redraw()
@@ -4505,16 +5169,27 @@ class LabelDesignerApp(tk.Tk):
             element["width"] = round(new_w, 1)
             element["height"] = round(new_h, 1)
         else:
-            element["x"] = round(max(0, float(self.drag_state["element_x"]) + dx), 1)
-            element["y"] = round(max(0, float(self.drag_state["element_y"]) + dy), 1)
+            positions = self.drag_state.get("positions")
+            if isinstance(positions, dict):
+                for item in self._selected_elements():
+                    start = positions.get(str(item["id"]))
+                    if start is None or item.get("locked"):
+                        continue
+                    item["x"] = self._drag_coordinate(float(start[0]) + dx)
+                    item["y"] = self._drag_coordinate(float(start[1]) + dy)
+            else:
+                element["x"] = self._drag_coordinate(float(self.drag_state["element_x"]) + dx)
+                element["y"] = self._drag_coordinate(float(self.drag_state["element_y"]) + dy)
         self.load_selected_properties()
         self.redraw()
 
     def on_canvas_release(self, _event: tk.Event) -> None:
         self.drag_state = None
+        self._record_history()
 
     def on_canvas_double_click(self, event: tk.Event) -> None:
-        element = self.find_element_at(event.x, event.y)
+        pointer_x, pointer_y = self._canvas_point(event)
+        element = self.find_element_at(pointer_x, pointer_y)
         if element is None:
             element = self.selected_element()
         if element is None:
@@ -4540,6 +5215,9 @@ class LabelDesignerApp(tk.Tk):
         element = element or self.selected_element()
         if element is None:
             messagebox.showwarning("요소 편집", "선택된 요소가 없습니다.")
+            return
+        if element.get("locked"):
+            messagebox.showwarning("요소 편집", "잠긴 개체입니다. 잠금/해제 버튼으로 해제한 뒤 편집하세요.")
             return
 
         editor = tk.Toplevel(self)
@@ -4614,6 +5292,7 @@ class LabelDesignerApp(tk.Tk):
         font_var = tk.StringVar(value=str(element.get("font_size", 10)))
         font_name_var = tk.StringVar(value=str(element.get("font_name") or DEFAULT_FONT_NAME))
         reverse_var = tk.BooleanVar(value=bool(element.get("reverse", False)))
+        required_var = tk.BooleanVar(value=bool(element.get("required", False)))
         table_rows_var = tk.StringVar(value=str(_table_shape(element)[0]))
         table_cols_var = tk.StringVar(value=str(_table_shape(element)[1]))
         stroke_width_var = tk.StringVar(value=f"{_stroke_width_mm(element):g}")
@@ -4673,10 +5352,13 @@ class LabelDesignerApp(tk.Tk):
         numeric.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         for column in range(5):
             numeric.columnconfigure(column, weight=1)
-        for column, (label, variable) in enumerate((("X", x_var), ("Y", y_var), ("W", w_var), ("H", h_var), ("글자", font_var))):
-            ttk.Label(numeric, text=f"{label}(mm)" if label != "글자" else label).grid(row=0, column=column, sticky="w", padx=(0 if column == 0 else 6, 0))
+        for column, (label, variable) in enumerate((("왼쪽 위치(mm)", x_var), ("위쪽 위치(mm)", y_var), ("가로(mm)", w_var), ("세로(mm)", h_var), ("글자크기(pt)", font_var))):
+            ttk.Label(numeric, text=label).grid(row=0, column=column, sticky="w", padx=(0 if column == 0 else 6, 0))
             ttk.Entry(numeric, textvariable=variable, width=7).grid(row=1, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0), pady=(4, 0))
         ttk.Checkbutton(numeric, text="텍스트 반전", variable=reverse_var).grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(numeric, text="연결된 값 필수", variable=required_var).grid(
+            row=4, column=0, columnspan=3, sticky="w", pady=(8, 0)
+        )
         ttk.Label(numeric, text="행").grid(row=2, column=2, sticky="w", padx=(6, 0), pady=(8, 0))
         ttk.Entry(numeric, textvariable=table_rows_var, width=7).grid(row=3, column=2, sticky="ew", padx=(6, 0), pady=(4, 0))
         ttk.Label(numeric, text="열").grid(row=2, column=3, sticky="w", padx=(6, 0), pady=(8, 0))
@@ -4700,9 +5382,9 @@ class LabelDesignerApp(tk.Tk):
             option_widgets.append(entry)
             return entry
 
-        option_entry(1, 0, "X 모듈(0=자동)", module_width_var)
+        option_entry(1, 0, "좁은 막대 폭(dot, 0=자동)", module_width_var)
         option_entry(1, 1, "굵은 비율", wide_ratio_var)
-        option_entry(1, 2, "Quiet", quiet_zone_var)
+        option_entry(1, 2, "바코드 좌우 여백(dot)", quiet_zone_var)
         check_combo = ttk.Combobox(barcode_frame, textvariable=check_digit_var, values=list(BARCODE_CHECK_DIGIT_LABELS.values()), state="readonly", width=8)
         ttk.Label(barcode_frame, text="체크디지트").grid(row=1, column=3, sticky="w", padx=(8, 0), pady=(4, 2))
         check_combo.grid(row=2, column=3, sticky="ew", padx=(8, 0))
@@ -4712,7 +5394,7 @@ class LabelDesignerApp(tk.Tk):
         option_widgets.append(hri_check)
         option_entry(4, 0, "셀 크기(네이티브)", cell_size_var)
         qr_ecc_combo = ttk.Combobox(barcode_frame, textvariable=qr_ecc_var, values=["L", "M", "Q", "H"], state="readonly", width=7)
-        ttk.Label(barcode_frame, text="QR ECC").grid(row=4, column=1, sticky="w", padx=(8, 0), pady=(4, 2))
+        ttk.Label(barcode_frame, text="QR 오류 복원 수준").grid(row=4, column=1, sticky="w", padx=(8, 0), pady=(4, 2))
         qr_ecc_combo.grid(row=5, column=1, sticky="ew", padx=(8, 0))
         option_widgets.append(qr_ecc_combo)
         option_entry(4, 2, "PDF 행", pdf417_rows_var)
@@ -4823,6 +5505,10 @@ class LabelDesignerApp(tk.Tk):
             element["font_size"] = max(6, min(48, int(_float_value(font_var.get(), float(element.get("font_size", 10))))))
             element["font_name"] = font_name_var.get() or DEFAULT_FONT_NAME
             element["reverse"] = bool(reverse_var.get())
+            if element_type in TEXT_ELEMENT_TYPES:
+                element["required"] = bool(required_var.get())
+            else:
+                element.pop("required", None)
             if element_type == "table":
                 _apply_table_shape(
                     element,
@@ -4840,6 +5526,7 @@ class LabelDesignerApp(tk.Tk):
                 element.pop("stroke_width", None)
             self.selected_id = str(element["id"])
             self.redraw()
+            self._save_recovery()
             self.status_var.set("편집 내용을 미리보기에 반영했습니다.")
             applying = False
 
@@ -4893,6 +5580,14 @@ class LabelDesignerApp(tk.Tk):
         sync_code_state()
         sync_data_field_state()
         sync_stroke_state()
+        self._history_suspended += 1
+
+        def record_editor_close(event: tk.Event) -> None:
+            if event.widget is editor:
+                self._history_suspended -= 1
+                self._record_history()
+
+        editor.bind("<Destroy>", record_editor_close, add="+")
 
         buttons = ttk.Frame(editor, style="Surface.TFrame", padding=(18, 10, 18, 14))
         buttons.grid(row=1, column=0, sticky="ew")
@@ -4929,6 +5624,28 @@ class LabelDesignerApp(tk.Tk):
             if str(element.get("id")) == self.selected_id:
                 return element
         return None
+
+    def _selected_ids(self) -> set[str]:
+        selected_id = self.__dict__.get("selected_id")
+        if selected_id is None:
+            return set()
+        ids = set(self.__dict__.get("selected_ids", set()))
+        return ids if selected_id in ids else {str(selected_id)}
+
+    def _selected_elements(self) -> list[dict[str, object]]:
+        ids = self._selected_ids()
+        return [element for element in self.elements if str(element.get("id")) in ids]
+
+    def _canvas_point(self, event: tk.Event) -> tuple[float, float]:
+        canvas = self.__dict__.get("canvas")
+        if canvas is not None and callable(getattr(canvas, "canvasx", None)):
+            return float(canvas.canvasx(event.x)), float(canvas.canvasy(event.y))
+        return float(event.x), float(event.y)
+
+    def _drag_coordinate(self, value: float) -> float:
+        snap_var = self.__dict__.get("snap_to_grid_var")
+        snap = bool(snap_var.get()) if snap_var is not None else False
+        return round(max(0.0, value), 0 if snap else 1)
 
     def load_selected_properties(self) -> None:
         element = self.selected_element()
@@ -5015,6 +5732,9 @@ class LabelDesignerApp(tk.Tk):
         if element is None:
             messagebox.showwarning("속성 적용", "선택된 요소가 없습니다.")
             return
+        if element.get("locked"):
+            messagebox.showwarning("속성 적용", "잠긴 개체입니다. 잠금을 해제한 뒤 편집하세요.")
+            return
         reverse_align = {label: key for key, label in ALIGNMENTS.items()}
         reverse_arrange = {label: key for key, label in ARRANGE_MODES.items()}
         element_type = _element_type_from_label(self.type_var.get(), str(element.get("type", "text")))
@@ -5058,11 +5778,127 @@ class LabelDesignerApp(tk.Tk):
         self.status_var.set("속성을 적용했습니다.")
 
     def delete_selected(self) -> None:
-        if self.selected_id is None:
+        selected = self._selected_ids()
+        if not selected:
             return
-        self.elements = [element for element in self.elements if str(element.get("id")) != self.selected_id]
+        unlocked = {str(element["id"]) for element in self._selected_elements() if not element.get("locked")}
+        if not unlocked:
+            self.status_var.set("잠긴 개체는 삭제할 수 없습니다. 잠금을 먼저 해제하세요.")
+            return
+        self.elements = [element for element in self.elements if str(element.get("id")) not in unlocked]
         self.selected_id = None
+        self.selected_ids = set()
         self.clear_property_panel()
+        self.redraw()
+
+    def duplicate_selected(self) -> None:
+        selected = self._selected_elements()
+        if not selected:
+            return
+        label = self.template["label"]
+        label_width = float(label["width_mm"])  # type: ignore[index]
+        label_height = float(label["height_mm"])  # type: ignore[index]
+        source_group_ids = {str(element.get("group_id", "")) for element in selected}
+        new_group_id = uuid4().hex if len(source_group_ids) == 1 and "" not in source_group_ids else ""
+        copies: list[dict[str, object]] = []
+        for element in selected:
+            duplicate = copy.deepcopy(element)
+            duplicate["id"] = uuid4().hex
+            duplicate["locked"] = False
+            duplicate["x"] = round(min(label_width - float(duplicate.get("width", 1)), float(element.get("x", 0)) + 2), 1)
+            duplicate["y"] = round(min(label_height - float(duplicate.get("height", 1)), float(element.get("y", 0)) + 2), 1)
+            if new_group_id:
+                duplicate["group_id"] = new_group_id
+            else:
+                duplicate.pop("group_id", None)
+            copies.append(duplicate)
+        self.elements.extend(copies)
+        self.selected_ids = {str(element["id"]) for element in copies}
+        self.selected_id = str(copies[-1]["id"])
+        self.load_selected_properties()
+        self.redraw()
+        self.status_var.set(f"개체 {len(copies)}개를 복제했습니다.")
+
+    def group_selected(self) -> None:
+        selected = self._selected_elements()
+        if len(selected) < 2:
+            self.status_var.set("그룹으로 묶을 개체를 Ctrl+클릭으로 2개 이상 선택하세요.")
+            return
+        group_id = uuid4().hex
+        for element in selected:
+            element["group_id"] = group_id
+        self.redraw()
+        self.status_var.set(f"개체 {len(selected)}개를 그룹으로 묶었습니다.")
+
+    def ungroup_selected(self) -> None:
+        selected = self._selected_elements()
+        for element in selected:
+            element.pop("group_id", None)
+        if selected:
+            self.redraw()
+            self.status_var.set("선택한 개체의 그룹을 해제했습니다.")
+
+    def toggle_lock_selected(self) -> None:
+        selected = self._selected_elements()
+        if not selected:
+            return
+        lock = any(not element.get("locked") for element in selected)
+        for element in selected:
+            element["locked"] = lock
+        self.redraw()
+        self.status_var.set(f"개체 {len(selected)}개를 {'잠갔습니다' if lock else '잠금 해제했습니다'}.")
+
+    def _nudge_key(self, dx: float, dy: float) -> str:
+        self.nudge_selected(dx, dy)
+        return "break"
+
+    def nudge_selected(self, dx: float, dy: float) -> None:
+        label = self.template["label"]
+        label_width = float(label["width_mm"])  # type: ignore[index]
+        label_height = float(label["height_mm"])  # type: ignore[index]
+        moved = 0
+        for element in self._selected_elements():
+            if element.get("locked"):
+                continue
+            max_x = max(0.0, label_width - float(element.get("width", 1)))
+            max_y = max(0.0, label_height - float(element.get("height", 1)))
+            element["x"] = round(max(0.0, min(max_x, float(element.get("x", 0)) + dx)), 1)
+            element["y"] = round(max(0.0, min(max_y, float(element.get("y", 0)) + dy)), 1)
+            moved += 1
+        if moved:
+            self.load_selected_properties()
+            self.redraw()
+
+    def align_selected_left(self) -> None:
+        selected = [element for element in self._selected_elements() if not element.get("locked")]
+        if len(selected) < 2:
+            return
+        left = min(float(element.get("x", 0)) for element in selected)
+        for element in selected:
+            element["x"] = left
+        self.load_selected_properties()
+        self.redraw()
+
+    def distribute_selected_horizontally(self) -> None:
+        selected = sorted(
+            (element for element in self._selected_elements() if not element.get("locked")),
+            key=lambda element: float(element.get("x", 0)),
+        )
+        if len(selected) < 3:
+            self.status_var.set("가로 간격 맞춤은 개체 3개 이상을 선택하세요.")
+            return
+        left_edge = float(selected[0].get("x", 0)) + float(selected[0].get("width", 1))
+        right_edge = float(selected[-1].get("x", 0))
+        interior_width = sum(float(element.get("width", 1)) for element in selected[1:-1])
+        gap = (right_edge - left_edge - interior_width) / (len(selected) - 1)
+        if gap < 0:
+            self.status_var.set("개체가 겹쳐 간격을 맞출 수 없습니다. 먼저 라벨 안에 개체를 배치하세요.")
+            return
+        cursor = left_edge + gap
+        for element in selected[1:-1]:
+            element["x"] = round(cursor, 1)
+            cursor += float(element.get("width", 1)) + gap
+        self.load_selected_properties()
         self.redraw()
 
     def reorder_selected(self, direction: int) -> None:
@@ -5101,8 +5937,188 @@ class LabelDesignerApp(tk.Tk):
         self.template = default_template_from_config(self.config_path)
         self.elements = list(self.template["elements"])  # type: ignore[arg-type]
         self.selected_id = None
+        self.selected_ids = set()
         self._load_values_to_controls()
         self.redraw()
+
+    def new_label(self) -> None:
+        if not self._confirm_save_changes("새 라벨을 만들기 전에"):
+            return
+        previous_path = self.template_path
+        was_dirty = self._has_unsaved_changes()
+        self.template_path = self.template_dir / "default_label.json"
+        self.template = default_template_from_config(self.config_path)
+        self.elements = []
+        self.selected_id = None
+        self.selected_ids = set()
+        self.selected_data_indexes = set()
+        self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
+        self._saved_payload_signature = self._current_payload_signature()
+        self._reset_history()
+        self._load_values_to_controls()
+        self.load_selected_properties()
+        if "db_rows" in self.__dict__ and "data_tree" in self.__dict__:
+            self.refresh_data_panel()
+        self.redraw()
+        if was_dirty:
+            self._clear_recovery(previous_path)
+        self.title(self._window_title())
+        self.template_path_var.set(str(self.template_path))
+        self.status_var.set(
+            "새 빈 라벨입니다. 출력할 상품을 다시 선택하세요."
+            if self.__dict__.get("data_source_path") is not None
+            else "새 빈 라벨입니다. 상품 엑셀을 연결하거나 개체를 추가하세요."
+        )
+        self._update_document_state()
+
+    def start_with_example(self) -> None:
+        template_path = self.base_dir / "templates" / "sample_excel_product.gblabel"
+        db_path = self.base_dir / "barcode_db.xlsx"
+        try:
+            template = load_template_file(template_path)
+            rows, headers = load_db_source(db_path)
+        except Exception as exc:
+            messagebox.showerror("예제 시작 실패", f"예제 라벨이나 상품 엑셀을 읽지 못했습니다.\n{exc}", parent=self)
+            return
+        if not self._confirm_save_changes("예제를 열기 전에"):
+            return
+        previous_path = self.template_path
+        was_dirty = self._has_unsaved_changes()
+        self.template_path = self.template_dir / "default_label.json"
+        self.template = template
+        self.elements = list(template["elements"])  # type: ignore[arg-type]
+        self.selected_id = None
+        self.selected_ids = set()
+        self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
+        self._reset_history()
+        self._load_values_to_controls()
+        self.data_source_path = db_path
+        self._apply_loaded_db_rows(rows, headers)
+        self.title(self._window_title())
+        self.template_path_var.set("예제 라벨 · 저장 전")
+        if was_dirty:
+            self._clear_recovery(previous_path)
+        self._save_recovery()
+        self.status_var.set("예제 라벨과 상품 엑셀을 연결했습니다. 출력할 상품을 선택한 뒤 인쇄파일로 먼저 확인하세요.")
+        self._update_document_state()
+        self.open_data_source_window()
+
+    def _offer_start_dialog(self) -> None:
+        if self.elements or self._has_unsaved_changes() or self._initial_template_error:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("라벨 작업 시작")
+        dialog.transient(self)
+        dialog.resizable(False, False)
+        frame = ttk.Frame(dialog, padding=(24, 22, 24, 22))
+        frame.grid(row=0, column=0, sticky="nsew")
+        frame.columnconfigure(0, weight=1)
+        ttk.Label(frame, text="어떤 작업을 시작할까요?", style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            frame,
+            text="상품 엑셀 연결 → 라벨 배치 → 상품 선택 → 인쇄파일 확인 순서로 진행합니다.",
+            style="Hint.TLabel", wraplength=450,
+        ).grid(row=1, column=0, sticky="w", pady=(8, 18))
+
+        def choose(action: Callable[[], None]) -> None:
+            dialog.destroy()
+            action()
+
+        ttk.Button(frame, text="예제로 시작 · 상품 엑셀 포함", command=lambda: choose(self.start_with_example), style="Primary.TButton").grid(row=2, column=0, sticky="ew", pady=4)
+        ttk.Button(frame, text="최근 라벨 열기", command=lambda: choose(self.open_recent_template), style="Secondary.TButton").grid(row=3, column=0, sticky="ew", pady=4)
+        ttk.Button(frame, text="새 빈 라벨", command=lambda: choose(self.new_label), style="Secondary.TButton").grid(row=4, column=0, sticky="ew", pady=4)
+        ttk.Button(frame, text="반복 출력 화면", command=lambda: choose(self.open_output_workspace), style="Secondary.TButton").grid(row=5, column=0, sticky="ew", pady=(12, 4))
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.grab_set()
+
+    def open_recent_template(self) -> None:
+        recent = self._recent_template_paths()
+        if not recent:
+            messagebox.showinfo("최근 라벨", "최근 작업한 라벨이 없습니다. 파일을 선택하세요.", parent=self)
+            self.open_template()
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("최근 라벨")
+        dialog.transient(self)
+        set_initial_window_size(dialog, preferred_width=600, preferred_height=360, minimum_width=440, minimum_height=280)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
+        ttk.Label(dialog, text="최근 라벨", style="Title.TLabel").grid(row=0, column=0, sticky="w", padx=18, pady=(16, 8))
+        listbox = tk.Listbox(dialog, font=TYPOGRAPHY.body, activestyle="dotbox")
+        listbox.grid(row=1, column=0, sticky="nsew", padx=18)
+        for path in recent:
+            listbox.insert("end", f"{path.name}  ·  {path.parent}")
+        listbox.selection_set(0)
+
+        def open_selected(_event: tk.Event | None = None) -> None:
+            selection = listbox.curselection()
+            if not selection or not self._confirm_save_changes("최근 라벨을 열기 전에"):
+                return
+            try:
+                self.open_template_path(recent[selection[0]])
+            except Exception as exc:
+                messagebox.showerror("최근 라벨 열기 실패", str(exc), parent=dialog)
+                return
+            dialog.destroy()
+
+        actions = ttk.Frame(dialog, padding=(18, 10, 18, 16))
+        actions.grid(row=2, column=0, sticky="ew")
+        actions.columnconfigure(0, weight=1)
+        ttk.Button(actions, text="다른 파일 열기", command=lambda: (dialog.destroy(), self.open_template()), style="Secondary.TButton").grid(row=0, column=0, sticky="w")
+        ttk.Button(actions, text="열기", command=open_selected, style="Primary.TButton").grid(row=0, column=1, sticky="e")
+        listbox.bind("<Double-Button-1>", open_selected)
+        listbox.bind("<Return>", open_selected)
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+
+    def open_output_workspace(self) -> None:
+        manager_exe = self.install_dir / "라벨출력관리.exe"
+        if manager_exe.is_file():
+            command = [str(manager_exe), "--base-dir", str(self.base_dir)]
+        elif not getattr(sys, "frozen", False):
+            command = [sys.executable, "-m", "barcode_label_automation.label_manager_app", "--base-dir", str(self.base_dir)]
+        else:
+            messagebox.showerror("반복 출력 화면", "라벨출력관리.exe를 찾을 수 없습니다. 고객 배포 폴더 전체를 확인하세요.", parent=self)
+            return
+        try:
+            subprocess.Popen(command, cwd=str(self.base_dir))
+        except OSError as exc:
+            messagebox.showerror("반복 출력 화면", f"출력 화면을 열지 못했습니다.\n{exc}", parent=self)
+            return
+        self.status_var.set("반복 출력 화면을 열었습니다. 상품을 선택해 매수를 확인한 뒤 출력하세요.")
+
+    def _recent_template_paths(self) -> list[Path]:
+        path = self.base_dir / "out" / "designer_recent_files.json"
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        if not isinstance(payload, dict) or not isinstance(payload.get("paths"), list):
+            return []
+        return [candidate for raw in payload["paths"] if isinstance(raw, str)
+                and (candidate := Path(raw)).is_file() and candidate.suffix.lower() == LABEL_FILE_EXTENSION][:8]
+
+    def _remember_template(self) -> None:
+        if "base_dir" not in self.__dict__ or "template_path" not in self.__dict__:
+            return
+        if self._is_default_template_path() or self.template_path.name.startswith("sample_"):
+            return
+        path = self.template_path.resolve()
+        recent = [other for other in self._recent_template_paths() if other.resolve() != path]
+        try:
+            _atomic_write_json(self.base_dir / "out" / "designer_recent_files.json", {
+                "paths": [str(item) for item in [path, *recent][:8]],
+            })
+        except OSError:
+            self.status_var.set("라벨은 저장했지만 최근 파일 목록을 갱신하지 못했습니다.")
+
+    def _update_document_state(self) -> None:
+        state_var = self.__dict__.get("document_state_var")
+        if state_var is None:
+            return
+        name = "새 라벨" if self._is_default_template_path() else self.template_path.name
+        state = "미저장 변경 있음" if self._has_unsaved_changes() else "저장됨"
+        state_var.set(f"{name} · {state}")
+        self.title(self._window_title())
 
     def open_template_window(self) -> None:
         if self.template_window is not None and self.template_window.winfo_exists():
@@ -5150,6 +6166,7 @@ class LabelDesignerApp(tk.Tk):
             ("저장", self.save_template, "Primary.TButton"),
             ("다른 이름으로 저장", self.save_template_as, "Secondary.TButton"),
             ("기존 파일 불러오기", self.open_template, "Secondary.TButton"),
+            ("최근 라벨", self.open_recent_template, "Secondary.TButton"),
         )
         for index, (text, action, style) in enumerate(actions):
             ttk.Button(frame, text=text, command=lambda action=action: run_action(action), style=style).grid(
@@ -5186,6 +6203,68 @@ class LabelDesignerApp(tk.Tk):
         self.update_label_size()
         return {"version": 1, "label": self.template["label"], "elements": self.elements}
 
+    def export_project(self) -> None:
+        target = filedialog.asksaveasfilename(
+            parent=self,
+            initialdir=self.template_dir,
+            defaultextension=PROJECT_EXTENSION,
+            filetypes=[("채움랩 이동용 프로젝트", f"*{PROJECT_EXTENSION}")],
+        )
+        if not target:
+            return
+        try:
+            export_portable_project(
+                self.template_payload(),
+                self.base_dir,
+                Path(target),
+                data_source_path=self.data_source_path,
+                data_source_headers=self.data_source_headers,
+            )
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("프로젝트 내보내기 실패", str(exc), parent=self)
+            return
+        self.status_var.set(f"이동용 프로젝트 저장 완료: {Path(target).name}")
+        messagebox.showinfo(
+            "PC 이동 준비 완료",
+            "라벨과 이미지를 한 파일로 저장했습니다. 상품 엑셀 원본과 프린터 설정은 포함하지 않습니다. "
+            "새 PC에서 엑셀·프린터를 다시 연결하고 첫 장을 확인하세요.",
+            parent=self,
+        )
+
+    def import_project(self) -> None:
+        source = filedialog.askopenfilename(
+            parent=self,
+            initialdir=self.template_dir,
+            filetypes=[("채움랩 이동용 프로젝트", f"*{PROJECT_EXTENSION}")],
+        )
+        if not source or not self._confirm_save_changes("프로젝트를 가져오기 전에"):
+            return
+        try:
+            label_path, profile = import_portable_project(Path(source), self.base_dir)
+            self.open_template_path(label_path)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("프로젝트 가져오기 실패", str(exc), parent=self)
+            return
+        source_name = str(profile.get("file_name", "")).strip()
+        fonts = ", ".join(str(name) for name in profile.get("fonts", []))
+        notice = "라벨과 이미지를 가져왔습니다. 상품 엑셀과 프린터를 다시 연결한 뒤 첫 장을 확인하세요."
+        if source_name:
+            notice += f"\n\n이전에 연결한 엑셀: {source_name}"
+        if fonts:
+            notice += f"\n사용한 글꼴: {fonts}"
+        self.status_var.set("프로젝트 가져오기 완료 · 상품 엑셀 재연결 필요")
+        messagebox.showinfo("프로젝트 가져오기", notice, parent=self)
+
+    def show_bartender_migration_help(self) -> None:
+        messagebox.showinfo(
+            "BarTender 도안 전환",
+            ".btw 파일은 직접 열 수 없습니다. BarTender에서 라벨을 PNG로 내보낸 뒤 "
+            "채움랩의 '도안 불러오기'와 '도안 적용'을 사용하세요. "
+            "추정 텍스트·바코드를 확인하고 엑셀 열, 라벨 크기, 프린터 설정을 다시 연결한 뒤 "
+            "원본과 첫 장 실물을 비교하세요.",
+            parent=self,
+        )
+
     def _is_default_template_path(self) -> bool:
         return self.template_path.resolve() == (self.template_dir / "default_label.json").resolve()
 
@@ -5200,6 +6279,9 @@ class LabelDesignerApp(tk.Tk):
             messagebox.showerror("템플릿 저장 실패", str(exc))
             return False
         self._saved_payload_signature = _template_signature(payload.get("label", {}), payload.get("elements", []))
+        self._clear_recovery()
+        self._remember_template()
+        self._update_document_state()
         self.status_var.set(f"템플릿 저장 완료: {self.template_path}")
         if hasattr(self, "template_path_var"):
             self.template_path_var.set(str(self.template_path))
@@ -5233,6 +6315,7 @@ class LabelDesignerApp(tk.Tk):
         if hasattr(self, "template_path_var"):
             self.template_path_var.set(str(self.template_path))
         if self.save_template():
+            self._clear_recovery(previous_path)
             return True
 
         self.template_path = previous_path
@@ -5256,6 +6339,8 @@ class LabelDesignerApp(tk.Tk):
 
     def open_template_path(self, source: Path) -> None:
         source_path = source.resolve()
+        if source_path.suffix.lower() == ".btw":
+            raise ValueError(".btw 파일은 직접 열 수 없습니다. BarTender에서 PNG로 내보낸 뒤 도안 불러오기에서 다시 작성하세요.")
         default_path = (self.template_dir / "default_label.json").resolve()
         if source_path == default_path:
             template, recovery_path = ensure_blank_default_template(source_path, self.config_path)
@@ -5263,17 +6348,37 @@ class LabelDesignerApp(tk.Tk):
             template = load_template_file(source_path)
             recovery_path = None
         elements = list(template["elements"])  # type: ignore[arg-type]
+        previous_path = self.__dict__.get("template_path")
+        was_dirty = self._has_unsaved_changes()
         self.template_path = source_path
         self.template = template
         self.elements = elements
         self._saved_payload_signature = self._current_payload_signature()
         self.selected_id = None
+        self.selected_ids = set()
+        self.selected_data_indexes = set()
+        self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
+        if (source_path.parent / "project_profile.json").is_file():
+            self.disconnect_data_source()
+        self._reset_history()
+        self._remember_template()
         self.title(self._window_title())
         if hasattr(self, "template_path_var"):
             self.template_path_var.set(str(self.template_path))
         self._load_values_to_controls()
+        self.load_selected_properties()
+        if "db_rows" in self.__dict__ and "data_tree" in self.__dict__:
+            self.refresh_data_panel()
         self.redraw()
-        self.status_var.set(f"라벨 파일을 불러왔습니다: {self.template_path}")
+        if was_dirty:
+            self._clear_recovery(previous_path)
+        self._offer_recovery()
+        self.status_var.set(
+            f"라벨 파일을 불러왔습니다: {self.template_path} · 출력할 상품을 다시 선택하세요."
+            if self.__dict__.get("data_source_path") is not None
+            else f"라벨 파일을 불러왔습니다: {self.template_path}"
+        )
+        self._update_document_state()
         if recovery_path is not None:
             messagebox.showinfo(
                 "기본 템플릿 복구",
@@ -5309,10 +6414,38 @@ class LabelDesignerApp(tk.Tk):
         if not printable_elements:
             raise ValueError("출력 가능한 개체가 없습니다. 텍스트, 바코드, 도형 또는 그림을 먼저 추가하세요.")
 
+        label = self.template["label"]
+        label_width = float(label["width_mm"])  # type: ignore[index]
+        label_height = float(label["height_mm"])  # type: ignore[index]
         has_renderable_content = False
-        for element in printable_elements:
+        for element_index, element in enumerate(printable_elements, start=1):
             element_type = str(element.get("type", "text"))
+            if element.get("review_source") and not element.get("review_confirmed"):
+                raise ValueError(f"{element_index}번 도안 인식 값이 미확인입니다. '인식 값 검토'에서 원본과 비교해 확인하세요.")
+            x_mm = float(element.get("x", 0))
+            y_mm = float(element.get("y", 0))
+            width_mm = float(element.get("width", 1))
+            height_mm = float(element.get("height", 1))
+            if (x_mm < -0.01 or y_mm < -0.01 or width_mm <= 0 or height_mm <= 0
+                    or x_mm + width_mm > label_width + 0.01
+                    or y_mm + height_mm > label_height + 0.01):
+                raise ValueError(
+                    f"{element_index}번 개체가 라벨 {label_width:g}×{label_height:g}mm 경계를 벗어납니다. "
+                    "위치와 크기를 조정한 뒤 출력하세요."
+                )
             if element_type in TEXT_ELEMENT_TYPES:
+                field = str(element.get("field", "")).strip()
+                referenced_fields = {match.group(1).strip() for match in TEMPLATE_FIELD_RE.finditer(str(element.get("text", "")))}
+                if field:
+                    referenced_fields.add(field)
+                required_fields = referenced_fields if bool(element.get("required", False)) else referenced_fields & {"item_name"}
+                for required_field in sorted(required_fields):
+                    if not str(row.get(required_field, "")).strip():
+                        display_name = FIELD_LABELS.get(required_field, required_field)
+                        raise ValueError(
+                            f"{row_number}번째 출력 대상의 필수 값 '{display_name}'이 비어 있습니다. "
+                            f"{element_index}번 개체의 DB 연결과 원본 행을 확인하세요."
+                        )
                 text = render_element_text(element, row)
                 if text.strip():
                     _load_font(10, str(element.get("font_name") or DEFAULT_FONT_NAME))
@@ -5335,6 +6468,43 @@ class LabelDesignerApp(tk.Tk):
         if not has_renderable_content:
             raise ValueError(f"{row_number}번째 출력 대상에 실제로 인쇄할 내용이 없습니다.")
 
+    def _output_preflight_warnings(self, rows: list[dict[str, str]], dpi: int) -> list[str]:
+        warnings: list[str] = []
+        for row_number, row in enumerate(rows, start=1):
+            for element_index, element in enumerate(self._drawing_elements(), start=1):
+                if not bool(element.get("printable", True)):
+                    continue
+                element_type = str(element.get("type", "text"))
+                width = max(1, mm_to_dots(float(element.get("width", 1)), dpi))
+                height = max(1, mm_to_dots(float(element.get("height", 1)), dpi))
+                source_width, source_height = _rotation_source_size(width, height, _element_rotation(element))
+                if element_type in TEXT_ELEMENT_TYPES:
+                    text = render_element_text(element, row)
+                    if not text.strip():
+                        continue
+                    requested = _text_requested_font_size(element, source_height)
+                    font = _fit_font_to_box(
+                        text, source_width - 4, source_height - 4, requested,
+                        str(element.get("font_name") or DEFAULT_FONT_NAME),
+                    )
+                    if getattr(font, "size", requested) < max(8, int(requested * 0.7)):
+                        warnings.append(f"{row_number}행 · {element_index}번 텍스트: 글자가 크게 축소됩니다.")
+                elif element_type == "qr" or (element_type == "barcode" and _barcode_type(element) == "qr"):
+                    value = sanitize_barcode(_designer_code_value(element, row))
+                    options = _barcode_options(element)
+                    qr = qrcode.QRCode(
+                        version=None,
+                        error_correction=QR_ERROR_CORRECTION.get(str(options.get("qr_ecc", "M")).upper(), ERROR_CORRECT_M),
+                        box_size=1,
+                        border=4,
+                    )
+                    qr.add_data(value)
+                    qr.make(fit=True)
+                    module_count = len(qr.get_matrix())
+                    if min(source_width, source_height) // module_count < 2:
+                        warnings.append(f"{row_number}행 · {element_index}번 QR: 한 칸이 2도트 미만입니다. 크기를 늘리고 실물 스캔을 확인하세요.")
+        return warnings
+
     def run_output_test(
         self,
         send_to_printer: bool,
@@ -5342,6 +6512,11 @@ class LabelDesignerApp(tk.Tk):
         selected_only: bool = False,
         print_quantity: int | None = None,
     ) -> None:
+        active_job = self.__dict__.get("_active_background_job")
+        if active_job is not None:
+            title = str(active_job.get("title", "백그라운드 작업"))
+            messagebox.showwarning("작업 진행 중", f"{title} 완료 후 출력 대상을 다시 확인하세요.", parent=self)
+            return
         source_rows = self.selected_data_rows(only_selected=selected_only)
         if selected_only and not source_rows:
             messagebox.showwarning("선택 인쇄", "데이터 소스에서 선택한 출력 대상이 없습니다.")
@@ -5371,6 +6546,21 @@ class LabelDesignerApp(tk.Tk):
                 return
             self._write_output_test_config(config_path, out_dir, barcode_type)
             config = load_config(config_path)
+            dpi = int(getattr(getattr(config, "label", None), "dpi", 203))
+            warnings = self._output_preflight_warnings(source_rows, dpi)
+            if warnings:
+                displayed = warnings[:8]
+                remaining = len(warnings) - len(displayed)
+                warning_text = "\n".join(f"• {warning}" for warning in displayed)
+                if remaining:
+                    warning_text += f"\n• 그 외 {remaining}건"
+                if not messagebox.askyesno(
+                    "출력 전 확인",
+                    f"다음 항목을 확인하세요.\n\n{warning_text}\n\n계속하시겠습니까?",
+                    parent=self,
+                ):
+                    self.status_var.set("출력 전 경고를 확인하고 작업을 취소했습니다. 프린터로 전송하지 않았습니다.")
+                    return
             prepared_jobs: list[bytes] = []
             prepared_label_counts: list[int] = []
             for source_row in source_rows:
@@ -5405,14 +6595,13 @@ class LabelDesignerApp(tk.Tk):
                         reset=True,
                     )
 
-                recovered_unknown_count = _recover_unknown_items_for_explicit_print(progress)
-                if recovered_unknown_count:
-                    self.status_var.set(
-                        f"이전 미확인 인쇄 {recovered_unknown_count}건을 재시도 대기로 복구했습니다."
-                    )
+                had_unknown_items = bool(progress.unknown_indexes)
+                if had_unknown_items and not _resolve_unknown_items_for_explicit_print(progress, self):
+                    self.status_var.set("미확인 출력 상태 확인을 취소했습니다. 프린터로 전송하지 않았습니다.")
+                    return
 
                 # A completed job must not suppress a later, explicit print request.
-                if progress.sent_indexes and not progress.pending_indexes:
+                if not had_unknown_items and progress.sent_indexes and not progress.pending_indexes:
                     progress = PrintProgress.open_for_job(
                         progress_path,
                         prepared_jobs,
@@ -5464,11 +6653,11 @@ class LabelDesignerApp(tk.Tk):
                 out_dir=out_dir,
                 send_to_printer=True,
             )
-            self.status_var.set(f"프린터 전송 실패 · 완료 {sent_count}건 / 재시도 가능 {remaining_count}건")
+            self.status_var.set(f"프린터 전송 실패 · 전송 {sent_count}건 / 재시도 가능 {remaining_count}건 · 실제 출력 확인 필요")
             messagebox.showerror(
                 "인쇄 오류",
                 (
-                    f"전송 완료 {sent_count}건 / 재시도 가능 {remaining_count}건입니다.\n"
+                    f"전송 {sent_count}건 / 재시도 가능 {remaining_count}건입니다. 실제 라벨 출력 여부를 확인하세요.\n"
                     "프린터와 연결 상태를 확인한 뒤 인쇄 버튼을 다시 누르세요.\n\n"
                     f"오류: {send_error}\n로그: {log_path}"
                 ),
@@ -5493,15 +6682,15 @@ class LabelDesignerApp(tk.Tk):
                 f"로그: {log_path}",
             )
             return
-        mode_text = "인쇄 완료" if send_to_printer else "인쇄 파일 생성 완료"
+        mode_text = "프린터 전송 완료 · 실제 출력 확인 필요" if send_to_printer else "인쇄 파일 생성 완료"
         completed_count = sent_count if send_to_printer else len(output_files)
         if send_to_printer and completed_count == 0:
-            mode_text = "인쇄 완료 · 이 작업은 이미 전송되어 추가 전송하지 않았습니다."
+            mode_text = "이미 전송한 작업 · 이번에는 추가 전송하지 않았습니다"
         self.status_var.set(f"{mode_text} {completed_count}건 / 출력 폴더: {out_dir}")
         if send_to_printer:
             messagebox.showinfo(
-                "인쇄 완료",
-                f"{sent_label_count}장의 인쇄 명령을 프린터로 전송했습니다.\n실제 라벨은 프린터에서 확인하세요.",
+                "프린터 전송 완료 · 출력 확인 필요",
+                f"{sent_label_count}장의 인쇄 명령을 프린터로 전송했습니다.\n실제 라벨 출력 여부는 프린터에서 확인하세요.",
             )
         else:
             messagebox.showinfo("인쇄 파일 생성", f"인쇄 파일 생성 완료: {len(output_files)}건")
