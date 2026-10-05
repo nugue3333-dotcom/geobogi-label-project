@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>채움LAB · 한눈에 사용안내</title>
+  <style>
+    :root {
+      --text: #122033;
+      --navy: #0f2742;
+      --blue: #2563eb;
+      --green: #1f7a5a;
+      --amber: #b86b18;
+      --surface: #f6f8fb;
+      --lightblue: #eef4ff;
+      --border: #dbe4ef;
+      --white: #fff;
+      --muted: #475569;
+      --radius: 6px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--surface);
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+      font-size: 1rem;
+      line-height: 1.65;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+    button, input, a { -webkit-tap-highlight-color: transparent; }
+    button { font: inherit; }
+    a { color: var(--navy); }
+    button, summary, input[type="checkbox"] { cursor: pointer; }
+    button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible,
+    [tabindex="0"]:focus-visible {
+      outline: 3px solid var(--blue);
+      outline-offset: 4px;
+    }
+    [hidden] { display: none !important; }
+    .skip-link {
+      position: absolute;
+      left: 16px;
+      top: -90px;
+      padding: 10px 16px;
+      background: var(--navy);
+      color: var(--white);
+      z-index: 5;
+    }
+    .skip-link:focus { top: 12px; }
+    .site-header { background: var(--white); border-bottom: 1px solid var(--border); }
+    .header-inner {
+      max-width: 1184px;
+      margin: auto;
+      padding: 22px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .brand { color: var(--navy); font-size: 1.35rem; font-weight: 800; letter-spacing: -.025em; }
+    .brand span { margin-left: 12px; font-size: .875rem; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+    .print-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 15px;
+      background: var(--white);
+      color: var(--navy);
+      font-size: .9375rem;
+      font-weight: 700;
+      line-height: 1.5;
+      text-align: center;
+    }
+    .button:hover { border-color: var(--blue); background: var(--lightblue); }
+    .button svg { width: 19px; height: 19px; flex: none; }
+    main { max-width: 1184px; padding: 36px 32px 24px; margin: auto; }
+    .hero { margin-bottom: 28px; }
+    h1 { margin: 0 0 12px; font-size: clamp(1.9rem, 3.5vw, 2.55rem); letter-spacing: -.055em; line-height: 1.3; color: var(--navy); }
+    .hero p { margin: 0; color: var(--muted); font-size: 1.0625rem; }
+    .print-purpose { font-size: .8125rem !important; margin-top: 7px !important; }
+    .guide-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--border); }
+    .guide-nav a {
+      display: flex;
+      min-height: 60px;
+      justify-content: center;
+      align-items: center;
+      padding: 14px 12px;
+      border-bottom: 3px solid transparent;
+      text-decoration: none;
+      text-align: center;
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+    .guide-nav a:hover { background: var(--white); color: var(--navy); }
+    .guide-nav a[aria-selected="true"] { border-bottom-color: var(--blue); color: var(--navy); background: var(--lightblue); }
+    .guide-panel { margin-top: 24px; border: 1px solid var(--border); border-radius: 8px; padding: 30px 32px; background: var(--white); }
+    .panel-header { margin-bottom: 26px; }
+    .panel-header h2 { margin: 0 0 8px; font-size: 1.65rem; font-weight: 800; line-height: 1.4; letter-spacing: -.04em; color: var(--navy); }
+    .panel-header p { margin: 0; color: var(--muted); }
+    .panel-order { color: var(--blue); margin-right: 10px; font-variant-numeric: tabular-nums; }
+    h3 { margin: 0 0 8px; color: var(--navy); font-size: 1.0625rem; line-height: 1.5; }
+    p { margin: 0 0 10px; }
+    p:last-child { margin-bottom: 0; }
+    strong { font-weight: 750; }
+    code { font-family: inherit; color: var(--navy); font-size: .96em; font-weight: 700; overflow-wrap: anywhere; }
+    .muted { color: var(--muted); }
+    .small { font-size: .875rem; }
+    .setup-layout { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: 36px; }
+    .spec-figure { margin: 0; }
+    .spec-drawing { width: 100%; height: auto; display: block; background: var(--lightblue); border-radius: var(--radius); }
+    .spec-keys { margin: 15px 0 20px; display: grid; grid-template-columns: minmax(80px, .75fr) minmax(0, 1.8fr); gap: 8px 12px; font-size: .9375rem; }
+    .spec-keys dt { font-weight: 700; color: var(--navy); }
+    .spec-keys dd { margin: 0; color: var(--muted); }
+    .data-example { width: 100%; border-collapse: collapse; margin: 16px 0 8px; font-size: .9375rem; }
+    .data-example caption { text-align: left; padding-bottom: 9px; font-weight: 700; color: var(--navy); }
+    .data-example th, .data-example td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; }
+    .data-example th { background: var(--surface); font-weight: 700; }
+    .barcode-example { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .setup-steps { list-style: none; margin: 0; padding: 0; counter-reset: setup; }
+    .setup-steps li { counter-increment: setup; position: relative; padding: 0 0 19px 38px; margin-bottom: 19px; border-bottom: 1px solid var(--border); }
+    .setup-steps li:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
+    .setup-steps li::before { content: counter(setup, decimal-leading-zero); position: absolute; left: 0; top: 1px; font-size: .875rem; font-weight: 800; color: var(--blue); }
+    .setup-steps p { font-size: .9375rem; margin-bottom: 7px; }
+    .note { margin-top: 24px; padding: 16px 18px; border-left: 4px solid var(--blue); background: var(--lightblue); }
+    .note h3 { margin-bottom: 5px; }
+    .note p { font-size: .9375rem; }
+    .note-amber { border-left-color: var(--amber); background: var(--surface); }
+    .note-green { border-left-color: var(--green); background: var(--surface); }
+    .daily-panels { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 28px; padding: 0; margin: 0; }
+    .daily-panel { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .daily-drawing { width: 100%; height: 170px; display: block; background: var(--lightblue); }
+    .daily-copy { padding: 18px 20px 20px; }
+    .daily-copy h3 { display: flex; align-items: baseline; gap: 10px; }
+    .daily-copy h3 span { color: var(--blue); font-size: .875rem; font-weight: 800; flex: none; }
+    .daily-copy p { font-size: .9375rem; margin-bottom: 6px; }
+    .illustration-note { color: var(--muted); font-size: .8125rem; margin-top: 14px; }
+    .check-summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .check-summary output { color: var(--navy); font-size: 1.125rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .check-summary p { font-size: .875rem; color: var(--muted); margin-top: 4px; }
+    .check-grid { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; margin: 0; }
+    .check-grid li { background: var(--surface); border-left: 4px solid var(--amber); border-radius: 4px; }
+    .check-grid label { display: flex; gap: 12px; padding: 18px 18px 20px 16px; cursor: pointer; min-height: 142px; }
+    .check-grid label:hover { background: var(--lightblue); }
+    .check-grid input { margin: 4px 0 0; flex: none; width: 22px; height: 22px; accent-color: var(--blue); }
+    .check-text { min-width: 0; }
+    .check-text strong { display: block; font-size: 1rem; line-height: 1.6; color: var(--navy); }
+    .check-text small { display: block; margin-top: 8px; font-size: .875rem; line-height: 1.65; color: var(--muted); }
+    .check-grid li.is-checked { border-left-color: var(--green); }
+    .manual-note { font-size: .875rem; color: var(--muted); margin-top: 16px; }
+    .timeline-list { list-style: none; margin: 0; padding: 0; position: relative; }
+    .timeline-list::before { content: ""; position: absolute; top: 16px; bottom: 35px; left: 15px; width: 2px; background: var(--border); }
+    .timeline-list li { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 18px; position: relative; padding-bottom: 19px; }
+    .timeline-list li:last-child { padding-bottom: 0; }
+    .timeline-number { display: flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 4px; background: var(--navy); color: var(--white); font-weight: 800; font-size: .875rem; }
+    .timeline-list h3 { margin-bottom: 3px; }
+    .timeline-list p { font-size: .9375rem; }
+    .helper { margin-top: 22px; border-top: 1px solid var(--border); padding-top: 16px; }
+    .helper summary { font-weight: 750; color: var(--navy); min-height: 36px; }
+    .help-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; padding-top: 12px; }
+    .help-grid h3 { font-size: .9375rem; }
+    .help-grid p { font-size: .875rem; }
+    .optional-tools { margin-top: 17px; font-size: .8125rem; color: var(--muted); padding-top: 14px; border-top: 1px solid var(--border); }
+    .optional-tools strong { color: var(--navy); }
+    .site-footer { max-width: 1184px; padding: 0 32px 30px; margin: auto; color: var(--muted); font-size: .8125rem; }
+    .print-heading, .print-footer { display: none; }
+    @media (max-width: 850px) {
+      .setup-layout { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+      .setup-visual { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+      .data-example { margin-top: 0; }
+      .help-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    }
+    @media (max-width: 560px) {
+      .header-inner { padding: 18px 20px; }
+      .brand span { display: block; margin: 2px 0 0; }
+      .print-controls { width: 100%; }
+      .header-inner .button { width: 100%; }
+      main { padding: 28px 16px 20px; }
+      .hero { margin-bottom: 24px; }
+      .hero p { font-size: 1rem; }
+      .guide-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+      .guide-nav a { min-height: 54px; font-size: .9375rem; padding: 12px 8px; }
+      .guide-panel { margin-top: 18px; padding: 24px 20px; }
+      .panel-header { margin-bottom: 22px; }
+      .panel-header h2 { font-size: 1.4rem; }
+      .panel-header p { font-size: .9375rem; }
+      .setup-visual { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+      .spec-drawing { max-width: 360px; margin: auto; }
+      .setup-steps li { padding-left: 32px; }
+      .daily-panels, .check-grid { grid-template-columns: minmax(0, 1fr); }
+      .daily-drawing { height: auto; aspect-ratio: 2 / 1; }
+      .daily-copy { padding: 17px 16px 18px; }
+      .check-grid label { min-height: 0; padding-right: 15px; }
+      .check-summary { align-items: flex-start; }
+      .check-summary .button { width: 100%; }
+      .timeline-list li { column-gap: 13px; }
+      .note { padding: 14px 14px; }
+      .site-footer { padding: 0 20px 25px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @page { size: A4; margin: 12mm; }
+    @media print {
+      html { font-size: 10pt; scroll-behavior: auto; }
+      body { margin: 0; background: var(--white); font-size: 10pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .site-header, .hero, .guide-nav, .site-footer, .skip-link, .js-control { display: none !important; }
+      main { max-width: none; margin: 0; padding: 0; }
+      .guide-panel { display: block; margin: 0; padding: 0; border: 0; border-radius: 0; break-before: page; page-break-before: always; }
+      .guide-panel:first-of-type { break-before: auto; page-break-before: auto; }
+      body.has-tabs:not(.print-all) .guide-panel:not(.is-active) { display: none !important; }
+      body.has-tabs:not(.print-all) .guide-panel.is-active { break-before: auto; page-break-before: auto; }
+      body.print-all .guide-panel[hidden] { display: block !important; }
+      .print-heading { display: block; color: var(--navy); font-weight: 800; font-size: 10pt; padding-bottom: 7pt; margin-bottom: 13pt; border-bottom: 1pt solid var(--border); }
+      .print-footer { display: block; margin-top: 13pt; padding-top: 6pt; border-top: .5pt solid var(--border); color: var(--muted); font-size: 7.5pt; }
+      .panel-header { margin-bottom: 15pt; }
+      .panel-header h2 { font-size: 19pt; margin-bottom: 5pt; }
+      .panel-header p { font-size: 10pt; }
+      h3 { font-size: 11pt; margin-bottom: 4pt; }
+      .setup-layout { grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: 22pt; }
+      .setup-visual { display: block; }
+      .spec-drawing { width: 100%; max-width: none; }
+      .spec-keys { margin: 10pt 0 14pt; gap: 6pt 8pt; font-size: 9pt; grid-template-columns: minmax(50pt, .75fr) minmax(0, 1.8fr); }
+      .data-example { font-size: 9pt; margin-top: 13pt; }
+      .data-example th, .data-example td { padding: 6pt 7pt; }
+      .small { font-size: 8.5pt; }
+      .setup-steps li { padding: 0 0 13pt 25pt; margin-bottom: 13pt; break-inside: avoid; }
+      .setup-steps li::before { font-size: 9pt; }
+      .setup-steps p { font-size: 9.5pt; margin-bottom: 5pt; }
+      .note { margin-top: 16pt; padding: 10pt 12pt; break-inside: avoid; }
+      .note p { font-size: 9.5pt; }
+      .daily-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15pt; }
+      .daily-panel { break-inside: avoid; }
+      .daily-drawing { height: 97pt; aspect-ratio: auto; }
+      .daily-copy { padding: 11pt 12pt 13pt; }
+      .daily-copy h3 { font-size: 10.5pt; gap: 7pt; }
+      .daily-copy h3 span { font-size: 9pt; }
+      .daily-copy p { font-size: 9.5pt; margin-bottom: 4pt; }
+      .illustration-note { font-size: 8pt; margin-top: 9pt; }
+      .check-summary { margin-bottom: 12pt; padding-bottom: 10pt; }
+      .check-summary output { font-size: 11pt; }
+      .check-summary p { font-size: 9pt; }
+      .check-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12pt; }
+      .check-grid li { break-inside: avoid; }
+      .check-grid label { padding: 13pt 12pt; gap: 8pt; min-height: 94pt; }
+      .check-grid input { width: 13pt; height: 13pt; margin-top: 3pt; }
+      .check-text strong { font-size: 10pt; line-height: 1.5; }
+      .check-text small { font-size: 9pt; line-height: 1.5; margin-top: 5pt; }
+      .manual-note { font-size: 9pt; margin-top: 11pt; }
+      .timeline-list::before { left: 10.5pt; top: 11pt; bottom: 24pt; }
+      .timeline-list li { grid-template-columns: 22pt minmax(0, 1fr); gap: 12pt; padding-bottom: 12pt; break-inside: avoid; }
+      .timeline-number { width: 22pt; height: 22pt; font-size: 9pt; }
+      .timeline-list h3 { font-size: 10.5pt; margin-bottom: 2pt; }
+      .timeline-list p { font-size: 9.5pt; }
+      .helper { margin-top: 14pt; padding-top: 10pt; break-inside: avoid; }
+      .helper summary { list-style: none; font-size: 10pt; min-height: 0; }
+      .helper summary::-webkit-details-marker { display: none; }
+      .helper > :not(summary) { display: block !important; }
+      .helper .help-grid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13pt; padding-top: 8pt; }
+      .help-grid h3 { font-size: 9.5pt; }
+      .help-grid p { font-size: 8.5pt; }
+      .optional-tools { font-size: 8pt; margin-top: 10pt; padding-top: 8pt; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#guide-content">안내 본문으로 이동</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">채움LAB<span>라벨 출력 패키지</span></div>
+      <div class="print-controls">
+        <button id="print-guide" class="button js-control" type="button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+            <path d="M7 9V3h10v6M7 17H4V9h16v8h-3M7 14h10v7H7z"/><path d="M17 11h1"/>
+          </svg>
+          현재 안내 인쇄 / PDF
+        </button>
+        <button id="print-all-guides" class="button js-control" type="button" hidden>전체 4쪽 인쇄 / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main id="guide-content">
+    <div class="hero">
+      <h1>라벨 출력, 처음부터 한눈에</h1>
+      <p>연결과 데이터 확인부터 한 장 테스트까지, 작업 순서대로 확인합니다.</p>
+      <p class="print-purpose">상단 인쇄 버튼은 현재 안내 또는 네 가지 안내 전체를 인쇄하거나 PDF로 저장합니다.</p>
+    </div>
+    <nav class="guide-nav" aria-label="사용안내 바로가기">
+      <a id="tab-setup" href="#setup" data-tab="setup">처음 설정</a>
+      <a id="tab-daily" href="#daily" data-tab="daily">매일 사용</a>
+      <a id="tab-check" href="#check" data-tab="check">인쇄 전 확인</a>
+      <a id="tab-timeline" href="#timeline" data-tab="timeline">설치·출력 순서</a>
+    </nav>
+
+    <section id="setup" class="guide-panel" aria-labelledby="setup-heading" data-panel>
+      <div class="print-heading">채움LAB · 한눈에 사용안내</div>
+      <div class="panel-header">
+        <h2 id="setup-heading"><span class="panel-order">01</span>실물 규격부터 맞춥니다</h2>
+        <p>프린터 연결, 상품 엑셀, 도안을 차례로 확인합니다.</p>
+      </div>
+      <div class="setup-layout">
+        <div class="setup-visual">
+          <figure class="spec-figure">
+            <h3>설정의 기준은 실제 라벨지</h3>
+            <svg class="spec-drawing" viewBox="0 0 360 240" role="img" aria-labelledby="spec-title spec-desc">
+              <title id="spec-title">라벨 폭과 높이, 프린터 해상도를 확인하는 그림</title>
+              <desc id="spec-desc">사각형 라벨에 가로와 세로 치수선을 표시했습니다. 실제 라벨지의 폭과 높이는 밀리미터, 해상도는 프린터의 DPI를 입력합니다. 그림의 바코드는 설명용입니다.</desc>
+              <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M79 60h196v125H79z" fill="#fff" stroke="#0f2742" stroke-width="2"/>
+                <path d="M98 80h101M98 91h77" stroke="#dbe4ef" stroke-width="6"/>
+                <g stroke="#0f2742">
+                  <path d="M111 111v39M127 111v39M145 111v39M170 111v39M187 111v39M202 111v39M222 111v39M242 111v39" stroke-width="3"/>
+                  <path d="M118 111v39M138 111v39M153 111v39M179 111v39M212 111v39M231 111v39" stroke-width="6"/>
+                </g>
+                <path d="M135 165h89" stroke="#dbe4ef" stroke-width="4"/>
+                <path d="M79 203v11M275 203v11M80 208h194M89 203l-9 5 9 5M265 203l9 5-9 5" stroke="#2563eb" stroke-width="1.8"/>
+                <path d="M291 60h11M291 185h11M296 61v123M291 70l5-9 5 9M291 175l5 9 5-9" stroke="#2563eb" stroke-width="1.8"/>
+                <rect x="125" y="21" width="105" height="22" rx="4" fill="#0f2742" stroke="#0f2742"/>
+                <path d="M136 28v8M144 28v8M152 28v8M160 28v8M168 28v8M176 28v8M184 28v8M192 28v8M200 28v8M208 28v8M216 28v8" stroke="#fff" stroke-width="1.5"/>
+                <path d="M178 44v8M173 48l5 5 5-5" stroke="#0f2742" stroke-width="1.8"/>
+              </g>
+            </svg>
+            <figcaption>
+              <dl class="spec-keys">
+                <dt>폭·높이</dt><dd>실제 라벨지 크기, 단위는 mm</dd>
+                <dt>DPI</dt><dd>사용하는 프린터의 해상도</dd>
+                <dt>용지·간격</dt><dd>갭·블랙마크·연속 용지와 실제 간격</dd>
+              </dl>
+            </figcaption>
+          </figure>
+          <div>
+            <table class="data-example">
+              <caption>상품 엑셀 첫 행 예시</caption>
+              <thead><tr><th scope="col">바코드</th><th scope="col">품명</th></tr></thead>
+              <tbody><tr><td class="barcode-example">00123456</td><td>예시 상품</td></tr></tbody>
+            </table>
+            <p class="small muted">첫 행은 열 이름입니다. <strong>바코드</strong> 열이 있어야 하며, 앞자리 0이 있는 값은 Excel에서 <strong>문자</strong>로 저장합니다.</p>
+          </div>
+        </div>
+        <ol class="setup-steps">
+          <li>
+            <h3><code>프린터설정.exe</code>에서 연결·규격 저장</h3>
+            <p>LAN은 IP·포트, USB/Windows 드라이버 연결은 Windows 프린터 이름을 확인합니다.</p>
+            <p>실제 라벨 폭·높이(mm), DPI, 용지 유형·간격을 입력하고 <strong>설정 점검</strong> 후 저장합니다. 저장 후 <code>라벨출력관리.exe</code>를 다시 엽니다.</p>
+          </li>
+          <li>
+            <h3><code>라벨출력관리.exe</code>에서 상품 엑셀 연결</h3>
+            <p><strong>DB 파일 &gt; DB 연결</strong>에서 사용할 상품 엑셀을 선택합니다. 불러온 바코드와 상품 값을 원본 엑셀과 대조합니다.</p>
+          </li>
+          <li>
+            <h3><code>라벨디자이너.exe</code>에서 도안 확인</h3>
+            <p><strong>예제로 시작</strong> 또는 <strong>새 라벨</strong>로 도안을 만들고 <strong>.gblabel</strong>로 저장합니다.</p>
+            <p>사진·도안을 불러왔다면 <strong>인식 값 검토</strong>에서 원본과 글자·바코드를 비교하고 수정·확정합니다.</p>
+          </li>
+          <li>
+            <h3>파일 확인 후 한 항목·1매로 첫 출력</h3>
+            <p>출력할 항목 하나를 체크하고 생성된 인쇄파일을 확인합니다. 실제 인쇄 시 <strong>인쇄 매수 선택</strong>에서 대상과 <strong>1매</strong>를 확인합니다.</p>
+            <p>나온 라벨의 내용·위치와 바코드 스캔 결과까지 확인합니다.</p>
+          </li>
+        </ol>
+      </div>
+      <aside class="note" aria-label="파일 생성과 출력의 차이">
+        <h3>인쇄파일 생성과 실제 출력은 별도 단계입니다</h3>
+        <p><strong>인쇄파일 생성</strong>은 프린터로 보내지 않습니다. <strong>전송 완료</strong> 표시 후에도 실제 라벨 배출과 바코드 판독을 확인합니다.</p>
+      </aside>
+      <div class="print-footer">2026-10-01 사용안내·현재 인쇄 계약 기준, 설명용 예시</div>
+    </section>
+
+    <section id="daily" class="guide-panel" aria-labelledby="daily-heading" data-panel>
+      <div class="print-heading">채움LAB · 한눈에 사용안내</div>
+      <div class="panel-header">
+        <h2 id="daily-heading"><span class="panel-order">02</span>매일 사용하는 네 장면</h2>
+        <p><code>라벨출력관리.exe</code>에서 조회, 선택, 매수 확인, 실물 확인 순서로 진행합니다.</p>
+      </div>
+      <ol class="daily-panels">
+        <li class="daily-panel">
+          <svg class="daily-drawing" viewBox="0 0 400 170" role="img" aria-labelledby="scan-title scan-desc">
+            <title id="scan-title">조회 입력칸에 커서를 둔 뒤 스캔</title>
+            <desc id="scan-desc">모니터의 입력칸에 커서가 있고 스캐너가 바코드를 읽는 설명 그림입니다. DB 상품조회 입력칸에 커서를 둡니다.</desc>
+            <g stroke-linecap="round" stroke-linejoin="round">
+              <rect x="35" y="31" width="212" height="106" rx="5" fill="#fff" stroke="#0f2742" stroke-width="2"/>
+              <path d="M35 50h212" fill="none" stroke="#dbe4ef" stroke-width="2"/>
+              <rect x="52" y="65" width="179" height="32" rx="4" fill="#eef4ff" stroke="#2563eb" stroke-width="2"/>
+              <path d="M65 73v16" stroke="#0f2742" stroke-width="2"/>
+              <path d="M57 113h84M149 113h52M107 138v12h66v-12M87 151h105" fill="none" stroke="#dbe4ef" stroke-width="3"/>
+              <path d="M302 62l37 9-10 31-11-2-6 27-17-4 9-33-11-5z" fill="#0f2742" stroke="#0f2742" stroke-width="2"/>
+              <path d="M302 69l26 6" stroke="#fff" stroke-width="3"/>
+              <rect x="290" y="21" width="66" height="28" rx="3" fill="#fff" stroke="#dbe4ef" stroke-width="1.5"/>
+              <path d="M301 28v14M313 28v14M334 28v14M344 28v14" stroke="#0f2742" stroke-width="2"/>
+              <path d="M306 28v14M323 28v14M338 28v14" stroke="#0f2742" stroke-width="4"/>
+              <path d="M316 62l-13-11M324 65l19-13" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+              <path d="M276 83h-17M266 77l-7 6 7 6" fill="none" stroke="#2563eb" stroke-width="2"/>
+            </g>
+          </svg>
+          <div class="daily-copy">
+            <h3><span>01</span>입력칸을 선택하고 스캔</h3>
+            <p>상단 <strong>DB 상품조회</strong> 입력칸에 커서를 둡니다. 스캔 후 Enter가 입력되면 같은 바코드를 찾습니다.</p>
+            <p class="muted">찾을 수 없다는 안내가 나오면 연결한 DB와 바코드 값을 확인합니다.</p>
+          </div>
+        </li>
+        <li class="daily-panel">
+          <svg class="daily-drawing" viewBox="0 0 400 170" role="img" aria-labelledby="rows-title rows-desc">
+            <title id="rows-title">중복 조회 결과에서 원하는 행 선택</title>
+            <desc id="rows-desc">세 개의 상품 행 중 하나만 체크되어 있는 설명 그림입니다. 같은 바코드가 여러 건이면 원하는 행을 직접 체크하고 확인합니다.</desc>
+            <g stroke-linecap="round" stroke-linejoin="round">
+              <rect x="70" y="20" width="260" height="132" rx="5" fill="#fff" stroke="#0f2742" stroke-width="2"/>
+              <path d="M70 48h260" stroke="#dbe4ef" stroke-width="1.5"/>
+              <path d="M88 34h101" stroke="#dbe4ef" stroke-width="5"/>
+              <rect x="80" y="85" width="240" height="29" rx="3" fill="#eef4ff"/>
+              <rect x="91" y="60" width="15" height="15" rx="2" fill="#fff" stroke="#dbe4ef" stroke-width="1.5"/>
+              <rect x="91" y="92" width="15" height="15" rx="2" fill="#2563eb" stroke="#2563eb" stroke-width="1.5"/>
+              <path d="M94 99l3 3 6-7" fill="none" stroke="#fff" stroke-width="1.8"/>
+              <rect x="91" y="123" width="15" height="15" rx="2" fill="#fff" stroke="#dbe4ef" stroke-width="1.5"/>
+              <path d="M123 67h75M217 67h75M123 99h75M217 99h75M123 131h75M217 131h75" stroke="#dbe4ef" stroke-width="5"/>
+              <path d="M342 108l-5-14-7 24 10-5 7 11 6-4-7-11z" fill="#0f2742" stroke="#fff" stroke-width="2"/>
+            </g>
+          </svg>
+          <div class="daily-copy">
+            <h3><span>02</span>중복 결과에서 필요한 행 선택</h3>
+            <p>같은 바코드가 여러 건이면 <strong>중복 DB 항목 선택</strong> 창에서 원하는 행을 체크하고 확인합니다.</p>
+            <p class="muted">확인한 행만 인쇄 데이터에 체크됩니다. 이전에 체크했던 다른 행은 선택에서 제외됩니다.</p>
+          </div>
+        </li>
+        <li class="daily-panel">
+          <svg class="daily-drawing" viewBox="0 0 400 170" role="img" aria-labelledby="copies-title copies-desc">
+            <title id="copies-title">선택한 항목의 인쇄 매수 확인</title>
+            <desc id="copies-desc">인쇄 대상 한 행과 매수 입력 영역을 표현한 설명 그림입니다. 실제 첫 테스트는 항목 하나를 선택하고 인쇄 매수 선택에서 1매를 확인합니다.</desc>
+            <g stroke-linecap="round" stroke-linejoin="round">
+              <rect x="77" y="19" width="247" height="135" rx="5" fill="#fff" stroke="#0f2742" stroke-width="2"/>
+              <path d="M77 49h247" stroke="#dbe4ef" stroke-width="1.5"/>
+              <path d="M94 34h119M95 67h93" stroke="#dbe4ef" stroke-width="5"/>
+              <rect x="94" y="80" width="135" height="29" rx="3" fill="#eef4ff"/>
+              <rect x="102" y="88" width="13" height="13" rx="2" fill="#2563eb"/>
+              <path d="M105 94l3 3 5-6" fill="none" stroke="#fff" stroke-width="1.7"/>
+              <path d="M125 95h90" stroke="#dbe4ef" stroke-width="5"/>
+              <rect x="243" y="80" width="62" height="29" rx="3" fill="#fff" stroke="#2563eb" stroke-width="2"/>
+              <path d="M269 89l4-3v16M268 103h10" fill="none" stroke="#0f2742" stroke-width="2"/>
+              <rect x="171" y="123" width="59" height="19" rx="4" fill="#fff" stroke="#dbe4ef"/>
+              <rect x="239" y="123" width="66" height="19" rx="4" fill="#2563eb"/>
+              <path d="M268 132l3 3 6-6" fill="none" stroke="#fff" stroke-width="1.8"/>
+            </g>
+          </svg>
+          <div class="daily-copy">
+            <h3><span>03</span>인쇄 대상·매수를 확인</h3>
+            <p>항목을 체크하고 <strong>출력 &gt; 인쇄</strong>를 누릅니다. <strong>인쇄 매수 선택</strong>에서 대상과 매수를 확인합니다.</p>
+            <p class="muted">선택한 각 항목에 같은 매수가 적용됩니다. 취소하면 프린터로 보내지 않습니다.</p>
+          </div>
+        </li>
+        <li class="daily-panel">
+          <svg class="daily-drawing" viewBox="0 0 400 170" role="img" aria-labelledby="physical-title physical-desc">
+            <title id="physical-title">실제로 나온 라벨과 바코드 스캔 확인</title>
+            <desc id="physical-desc">프린터에서 나온 라벨을 스캐너로 확인하는 설명 그림입니다. 전송 완료 표시만으로 실제 출력 성공을 판단하지 않습니다.</desc>
+            <g stroke-linecap="round" stroke-linejoin="round">
+              <path d="M80 52V30h123v22" fill="#fff" stroke="#0f2742" stroke-width="2"/>
+              <rect x="55" y="51" width="173" height="72" rx="7" fill="#0f2742"/>
+              <path d="M78 94h127" stroke="#fff" stroke-width="4"/>
+              <circle cx="202" cy="68" r="4" fill="#1f7a5a" stroke="#fff" stroke-width="1"/>
+              <path d="M89 97h105v56H89z" fill="#fff" stroke="#dbe4ef" stroke-width="1.5"/>
+              <path d="M104 110h72" stroke="#dbe4ef" stroke-width="4"/>
+              <path d="M105 120v17M116 120v17M137 120v17M153 120v17M173 120v17" stroke="#0f2742" stroke-width="2"/>
+              <path d="M123 120v17M145 120v17M162 120v17" stroke="#0f2742" stroke-width="5"/>
+              <path d="M287 68l35 10-10 28-10-2-5 25-16-4 8-29-9-5z" fill="#0f2742"/>
+              <path d="M288 76l24 6" stroke="#fff" stroke-width="3"/>
+              <path d="M282 91l-58 21M288 96l-63 41" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <circle cx="326" cy="40" r="16" fill="#fff" stroke="#1f7a5a" stroke-width="2"/>
+              <path d="M319 40l5 5 9-11" fill="none" stroke="#1f7a5a" stroke-width="2"/>
+            </g>
+          </svg>
+          <div class="daily-copy">
+            <h3><span>04</span>실물 라벨과 스캔 결과 확인</h3>
+            <p>라벨이 실제로 나왔는지, 내용과 위치가 맞는지 확인하고 바코드를 다시 스캔합니다.</p>
+            <p class="muted"><strong>전송 완료</strong>는 명령을 보냈다는 뜻입니다. 실제 출력·판독 확인이 필요합니다.</p>
+          </div>
+        </li>
+      </ol>
+      <p class="illustration-note">화면과 동작을 단순화한 설명 그림입니다. 그림 속 바코드는 스캔용이 아닙니다.</p>
+      <aside class="note note-amber" aria-label="인쇄 대상 선택 규칙">
+        <h3>선택한 행만 인쇄됩니다</h3>
+        <p>선택한 행이 없으면 인쇄가 차단됩니다. 전체를 출력하려면 <strong>전체 선택</strong> 후 <strong>인쇄 매수 선택</strong>에서 대상과 매수를 확인합니다. 첫 테스트는 <strong>한 항목·1매</strong>로 진행합니다.</p>
+      </aside>
+      <div class="print-footer">2026-10-01 사용안내·현재 인쇄 계약 기준, 설명용 예시</div>
+    </section>
+
+    <section id="check" class="guide-panel" aria-labelledby="check-heading" data-panel>
+      <div class="print-heading">채움LAB · 한눈에 사용안내</div>
+      <div class="panel-header">
+        <h2 id="check-heading"><span class="panel-order">03</span>보내기 전, 여섯 가지 확인</h2>
+        <p>실제 값을 직접 확인한 뒤 표시합니다. 첫 출력은 한 항목·1매로 시험합니다.</p>
+      </div>
+      <div class="check-summary">
+        <div>
+          <output id="check-count" aria-live="polite" aria-atomic="true">수동 확인 항목 6개</output>
+          <p>직접 확인한 항목 수를 표시합니다.</p>
+        </div>
+        <button id="reset-checks" class="button js-control" type="button" hidden>확인 표시 지우기</button>
+      </div>
+      <ul class="check-grid">
+        <li><label><input id="check-connection" type="checkbox"><span class="check-text"><strong>프린터 연결·라벨 규격</strong><small>IP·포트 또는 Windows 프린터 이름, 실제 라벨 폭·높이(mm), DPI, 용지 유형·간격을 확인했습니다.</small></span></label></li>
+        <li><label><input id="check-barcode" type="checkbox"><span class="check-text"><strong>바코드 문자열·앞자리 0</strong><small>바코드 값이 빠지거나 변하지 않았는지 확인했습니다. 앞자리 0이 있는 원본 엑셀 값은 문자로 저장했습니다.</small></span></label></li>
+        <li><label><input id="check-values" type="checkbox"><span class="check-text"><strong>불러온 값·인식 값</strong><small>상품 값은 원본과 대조했습니다. 도안 인식을 사용했다면 인식 값 검토에서 원본과 비교하고 수정·확정했습니다.</small></span></label></li>
+        <li><label><input id="check-rows" type="checkbox"><span class="check-text"><strong>출력할 행 직접 선택</strong><small>원하는 항목만 체크했습니다. 중복 조회 결과는 필요한 행을 직접 선택했습니다. 전체 출력은 전체 선택으로 지정했습니다.</small></span></label></li>
+        <li><label><input id="check-copies" type="checkbox"><span class="check-text"><strong>매수 창의 대상·매수</strong><small>인쇄 매수 선택에서 대상과 매수를 확인했습니다. 선택한 각 항목에 같은 매수가 적용됩니다. 첫 테스트는 한 항목·1매입니다.</small></span></label></li>
+        <li><label><input id="check-file" type="checkbox"><span class="check-text"><strong>생성된 인쇄파일 확인</strong><small>생성 결과와 도안 내용을 미리 확인했습니다. 인쇄파일 생성만으로는 프린터에 전송되지 않습니다.</small></span></label></li>
+      </ul>
+      <p class="manual-note">표시는 수동 확인 기록입니다. 장비 상태나 출력 성공을 자동으로 판정하지 않습니다. 화면 안내의 체크 표시는 다시 열면 초기화됩니다. PDF의 체크칸은 인쇄 후 직접 표시합니다.</p>
+      <aside class="note note-green" aria-label="실물 확인">
+        <h3>마지막 확인은 실제 나온 라벨입니다</h3>
+        <p>라벨 내용·위치와 바코드 판독을 확인한 뒤 반복 출력합니다. <strong>인쇄 매수 선택</strong>을 취소하면 명령은 전송되지 않습니다.</p>
+      </aside>
+      <div class="print-footer">2026-10-01 사용안내·현재 인쇄 계약 기준, 설명용 예시</div>
+    </section>
+
+    <section id="timeline" class="guide-panel" aria-labelledby="timeline-heading" data-panel>
+      <div class="print-heading">채움LAB · 한눈에 사용안내</div>
+      <div class="panel-header">
+        <h2 id="timeline-heading"><span class="panel-order">04</span>설치에서 반복 출력까지</h2>
+        <p>파일 준비, 설정, 데이터, 도안, 파일 확인, 실물 출력 순서입니다.</p>
+      </div>
+      <ol class="timeline-list">
+        <li><span class="timeline-number" aria-hidden="true">1</span><div><h3>패키지 폴더 전체를 보관</h3><p>압축을 푼 폴더 전체를 한 위치에 둡니다. 실행 파일과 <code>config.ini</code>, <code>barcode_db.xlsx</code>, <code>print_queue.xlsx</code> 이름을 유지합니다.</p></div></li>
+        <li><span class="timeline-number" aria-hidden="true">2</span><div><h3>프린터 연결·라벨 규격 저장</h3><p><code>프린터설정.exe</code>에서 연결 대상과 실제 mm·DPI·용지를 확인하고 설정 점검 후 저장합니다. 출력 관리 프로그램을 다시 엽니다.</p></div></li>
+        <li><span class="timeline-number" aria-hidden="true">3</span><div><h3>상품 엑셀 연결·원본 확인</h3><p><code>라벨출력관리.exe</code>의 <strong>DB 파일 &gt; DB 연결</strong>을 사용합니다. 첫 행의 <strong>바코드</strong> 열과 앞자리 0, 불러온 값을 확인합니다.</p></div></li>
+        <li><span class="timeline-number" aria-hidden="true">4</span><div><h3>도안 저장·인식 값 확정</h3><p><code>라벨디자이너.exe</code>에서 도안을 확인하고 <strong>.gblabel</strong>로 저장합니다. 도안 인식 값은 원본과 대조한 뒤 수정·확정합니다.</p></div></li>
+        <li><span class="timeline-number" aria-hidden="true">5</span><div><h3>프린터로 보내기 전에 파일 확인</h3><p><strong>인쇄파일 생성</strong>으로 생성 결과와 도안 내용을 확인합니다. 이 단계는 프린터로 전송하지 않습니다.</p></div></li>
+        <li><span class="timeline-number" aria-hidden="true">6</span><div><h3>한 항목·1매로 실제 출력</h3><p>항목 하나를 체크하고 인쇄를 누릅니다. <strong>인쇄 매수 선택</strong>에서 대상과 <strong>1매</strong>를 확인한 뒤 라벨 배출·내용·위치·바코드 스캔을 확인합니다.</p></div></li>
+        <li><span class="timeline-number" aria-hidden="true">7</span><div><h3>확인 후 반복 출력·백업</h3><p>필요한 행과 매수를 지정해 반복 출력합니다. 전송이 중단되었다면 실제 나온 라벨을 먼저 확인하고 재전송 대상을 직접 고릅니다. PC 이전 전에는 <strong>설정 &gt; 고객 데이터 백업</strong>을 실행합니다.</p></div></li>
+      </ol>
+      <details class="helper" open>
+        <summary>문제가 있을 때 확인할 곳</summary>
+        <div class="help-grid">
+          <div><h3>프린터가 반응하지 않음</h3><p>LAN은 IP·포트와 같은 네트워크인지 확인합니다. USB/Windows 드라이버 연결은 설정한 Windows 프린터 이름을 확인합니다.</p></div>
+          <div><h3>내용이 원본과 다름</h3><p>연결 DB, 선택한 행, 바코드 앞자리 0, 인식 확정 값을 확인합니다. 이전 값이 나오면 인쇄 데이터를 저장한 뒤 다시 확인합니다.</p></div>
+          <div><h3>바코드가 읽히지 않음</h3><p>실제 라벨 크기와 DPI가 설정과 맞는지 확인합니다. 실제 나온 바코드의 크기를 확인하고 다시 스캔합니다.</p></div>
+        </div>
+      </details>
+      <p class="optional-tools"><strong>배포 폴더에 포함된 경우만 사용하는 보조 파일:</strong> <code>처음실행_점검.cmd</code>는 최초 점검, <code>01_output_check.cmd</code>는 전송 없는 파일 생성 점검, <code>고객데이터_백업.cmd</code>·<code>고객데이터_복원.cmd</code>는 백업·복원용입니다. 상세 설명은 <code>사용안내.txt</code>, <code>설치_및_사용_메뉴얼.txt</code>를 확인합니다.</p>
+      <div class="print-footer">2026-10-01 사용안내·현재 인쇄 계약 기준, 설명용 예시</div>
+    </section>
+  </main>
+  <footer class="site-footer">2026-10-01 사용안내·현재 인쇄 계약 기준, 설명용 예시</footer>
+  <script>
+    (() => {
+      'use strict';
+      const navigation = document.querySelector('.guide-nav');
+      const tabs = Array.from(navigation.querySelectorAll('[data-tab]'));
+      const panels = Array.from(document.querySelectorAll('[data-panel]'));
+      const printButton = document.getElementById('print-guide');
+      const printAllButton = document.getElementById('print-all-guides');
+      const resetButton = document.getElementById('reset-checks');
+      const count = document.getElementById('check-count');
+      const checks = Array.from(document.querySelectorAll('.check-grid input[type="checkbox"]'));
+      const validIds = new Set(panels.map(panel => panel.id));
+
+      function activateTab(id, focusTab = false) {
+        if (!validIds.has(id)) return;
+        tabs.forEach(tab => {
+          const selected = tab.dataset.tab === id;
+          tab.setAttribute('aria-selected', String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+          if (selected && focusTab) tab.focus();
+        });
+        panels.forEach(panel => {
+          const selected = panel.id === id;
+          panel.hidden = !selected;
+          panel.classList.toggle('is-active', selected);
+        });
+      }
+
+      navigation.setAttribute('role', 'tablist');
+      navigation.setAttribute('aria-label', '안내 방식 선택');
+      tabs.forEach((tab, index) => {
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', tab.dataset.tab);
+        tab.addEventListener('click', event => {
+          event.preventDefault();
+          activateTab(tab.dataset.tab);
+        });
+        tab.addEventListener('keydown', event => {
+          let nextIndex = index;
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % tabs.length;
+          else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + tabs.length) % tabs.length;
+          else if (event.key === 'Home') nextIndex = 0;
+          else if (event.key === 'End') nextIndex = tabs.length - 1;
+          else if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            activateTab(tab.dataset.tab, true);
+            return;
+          } else return;
+          event.preventDefault();
+          activateTab(tabs[nextIndex].dataset.tab, true);
+        });
+      });
+      panels.forEach(panel => {
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', 'tab-' + panel.id);
+        panel.tabIndex = 0;
+      });
+      document.body.classList.add('has-tabs');
+      const initialId = window.location.hash.slice(1);
+      activateTab(validIds.has(initialId) ? initialId : panels[0].id);
+
+      function updateManualCount() {
+        const confirmed = checks.filter(input => input.checked).length;
+        count.textContent = '수동 확인 ' + confirmed + ' / ' + checks.length + '개';
+        checks.forEach(input => input.closest('li').classList.toggle('is-checked', input.checked));
+      }
+      function clearManualChecks() {
+        checks.forEach(input => { input.checked = false; });
+        updateManualCount();
+      }
+      checks.forEach(input => input.addEventListener('change', updateManualCount));
+      resetButton.addEventListener('click', clearManualChecks);
+      clearManualChecks();
+      window.addEventListener('pageshow', event => {
+        if (event.persisted) clearManualChecks();
+      });
+      printButton.addEventListener('click', () => {
+        document.body.classList.remove('print-all');
+        window.print();
+      });
+      printAllButton.addEventListener('click', () => {
+        document.body.classList.add('print-all');
+        window.print();
+      });
+      window.addEventListener('afterprint', () => document.body.classList.remove('print-all'));
+      printButton.hidden = false;
+      printAllButton.hidden = false;
+      resetButton.hidden = false;
+    })();
+  </script>
+</body>
+</html>
