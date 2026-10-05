@@ -84,6 +84,7 @@ $Specs = @(
     [ordered]@{ Spec = "printer_settings.spec"; Exe = "프린터설정.exe" }
 )
 $ExpectedExeNames = @($Specs | ForEach-Object { $_.Exe })
+$CustomerGuideNames = @("한눈에_사용안내.pdf", "README_먼저읽기.txt", "사용안내.txt")
 
 if (-not (Test-Path -LiteralPath $CustomerRoot -PathType Container)) {
     throw "고객용 실행폴더가 없습니다: $CustomerRoot"
@@ -95,6 +96,11 @@ foreach ($item in $Specs) {
     $specPath = Join-Path $ProjectRoot $item.Spec
     if (-not (Test-Path -LiteralPath $specPath -PathType Leaf)) {
         throw "PyInstaller spec 파일이 없습니다: $specPath"
+    }
+}
+foreach ($name in $CustomerGuideNames) {
+    if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $name) -PathType Leaf)) {
+        throw "고객 안내 파일이 없습니다: $name"
     }
 }
 
@@ -170,6 +176,20 @@ try {
             $actualHash = Get-FileSha256 -Path $target
             if ($actualHash -ne $expectedHash) {
                 throw "EXE 동기화 해시 불일치: $target"
+            }
+        }
+    }
+
+    # Synchronize verified source guides before inventory/hash generation.
+    # HTML preview sources stay under docs and are never shipped to customers.
+    foreach ($name in $CustomerGuideNames) {
+        $source = Join-Path $ProjectRoot $name
+        $expectedHash = Get-FileSha256 -Path $source
+        foreach ($targetRoot in @($CustomerRoot, $FinalRoot)) {
+            $target = Join-Path $targetRoot $name
+            Copy-FileWithRetry -Source $source -Destination $target
+            if ((Get-FileSha256 -Path $target) -ne $expectedHash) {
+                throw "고객 안내 동기화 해시 불일치: $target"
             }
         }
     }
