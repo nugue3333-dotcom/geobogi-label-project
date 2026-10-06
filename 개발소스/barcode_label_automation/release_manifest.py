@@ -38,7 +38,10 @@ MANIFEST_FILES = (
     ManifestFile("버전정보.txt"),
     ManifestFile("사용안내.txt"),
     ManifestFile("설치_및_사용_메뉴얼.txt"),
-    ManifestFile("라벨출력패키지_고객용_매뉴얼.docx"),
+    ManifestFile("채움랩_라벨출력패키지_고객용_매뉴얼.docx"),
+    ManifestFile("docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf"),
+    ManifestFile("docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf"),
+    ManifestFile("docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf"),
     ManifestFile("라벨디자이너.exe"),
     ManifestFile("라벨출력관리.exe"),
     ManifestFile("프린터설정.exe"),
@@ -56,6 +59,10 @@ MANIFEST_FILES = (
     ManifestFile("assets/brand/chaeumlab_app_icon.ico"),
     ManifestFile("assets/brand/chaeumlab_app_icon_white.ico"),
     ManifestFile("assets/brand/chaeumlab_label_file_icon_white.ico"),
+    ManifestFile("assets/brand/chaeumlab_project_file_icon_white.ico"),
+    ManifestFile("assets/brand/chaeumlab_designer_icon.ico"),
+    ManifestFile("assets/brand/chaeumlab_manager_icon.ico"),
+    ManifestFile("assets/brand/chaeumlab_settings_icon.ico"),
     ManifestFile("assets/fonts/MONEYGRAPHY-ROUNDED.TTF"),
     ManifestFile("assets/fonts/README.txt"),
     ManifestFile("register_label_filetype.ps1"),
@@ -206,6 +213,7 @@ def write_release_manifest(
     test_result: Any = None,
     python_version: str | None = None,
     pyinstaller_version: str | None = None,
+    build_metadata: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     base = Path(base_dir).resolve()
     base.mkdir(parents=True, exist_ok=True)
@@ -235,6 +243,8 @@ def write_release_manifest(
         python_version=python_version,
         pyinstaller_version=pyinstaller_version,
     )
+    if build_metadata is not None:
+        preliminary_manifest["build"] = dict(build_metadata)
     text_path.write_text(format_manifest_text(preliminary_manifest), encoding="utf-8-sig")
     manifest = build_release_manifest(
         base,
@@ -247,6 +257,8 @@ def write_release_manifest(
         python_version=python_version,
         pyinstaller_version=pyinstaller_version,
     )
+    if build_metadata is not None:
+        manifest["build"] = dict(build_metadata)
     json_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return json_path, text_path
 

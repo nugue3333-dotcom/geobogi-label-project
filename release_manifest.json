@@ -1,0 +1,1450 @@
+{
+  "schema_version": 2,
+  "brand": "채움랩",
+  "package": {
+    "name": "채움랩_라벨출력_고객용_20261006_01",
+    "version": "2026.10.06.01"
+  },
+  "package_name": "채움랩_라벨출력_고객용_20261006_01",
+  "version": "2026.10.06.01",
+  "generated_at": "2026-10-06T10:06:16+09:00",
+  "base_folder": "고객용_실행폴더",
+  "build": {
+    "id": "suite_20261006_01",
+    "python_version": "3.14.6",
+    "pyinstaller_version": "6.21.0",
+    "specs": [
+      {
+        "path": "customer_preflight.spec",
+        "size": 782,
+        "sha256": "5324ea73d4d59437065175854a01ff6a79987875b7566c733fc5a93187bd3f63",
+        "exists": true
+      },
+      {
+        "path": "label_designer.spec",
+        "size": 1867,
+        "sha256": "5fda9bdc98127ba0c8099d0d1a48c9cceca9e8625312282b5f25985040c71f8a",
+        "exists": true
+      },
+      {
+        "path": "label_job_runner.spec",
+        "size": 783,
+        "sha256": "43ea066c38246606ad89d803d6871535ab26e9f700d85f77914fa0061f9a17f0",
+        "exists": true
+      },
+      {
+        "path": "label_manager.spec",
+        "size": 1350,
+        "sha256": "8216fb99900db5acf02015af3cc159c294026170007a1ff720847526613e47fb",
+        "exists": true
+      },
+      {
+        "path": "print_labels.spec",
+        "size": 864,
+        "sha256": "3bf7889cf176c78a1a4979cc83f74c62d11d9d74c93f51556ed4c336dbb5689b",
+        "exists": true
+      },
+      {
+        "path": "printer_settings.spec",
+        "size": 1353,
+        "sha256": "8ea79759b9c718df08ad9ac22a2e25089853ea153b08c63b7134f699c17828e1",
+        "exists": true
+      }
+    ],
+    "test_result": "pytest: 897 passed; responsive GUI: 18 passed; manual PDF24 and DOCX16 pages verified"
+  },
+  "required_files": [
+    "00_install_trusted_location.cmd",
+    "00_고객PC_실행전점검.cmd",
+    "01_output_check.cmd",
+    "02_print_labels.cmd",
+    "03_open_output_folder.cmd",
+    "04_open_last_log.cmd",
+    "README_먼저읽기.txt",
+    "assets/brand/chaeumlab_app_icon.ico",
+    "assets/brand/chaeumlab_app_icon_white.ico",
+    "assets/brand/chaeumlab_designer_icon.ico",
+    "assets/brand/chaeumlab_label_file_icon_white.ico",
+    "assets/brand/chaeumlab_logo_compact.png",
+    "assets/brand/chaeumlab_logo_header.png",
+    "assets/brand/chaeumlab_manager_icon.ico",
+    "assets/brand/chaeumlab_project_file_icon_white.ico",
+    "assets/brand/chaeumlab_settings_icon.ico",
+    "assets/fonts/MONEYGRAPHY-ROUNDED.TTF",
+    "assets/fonts/README.txt",
+    "barcode_db.xlsx",
+    "config.example.ini",
+    "config.ini",
+    "docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf",
+    "docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf",
+    "docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf",
+    "labels.xlsm",
+    "print_queue.xlsx",
+    "register_label_filetype.cmd",
+    "register_label_filetype.ps1",
+    "run_label_job.cmd",
+    "scripts/install_chaeumlab_font.ps1",
+    "scripts/install_tesseract_ocr.ps1",
+    "templates/default_label.json",
+    "tools/ocr/README.txt",
+    "고객데이터_백업.cmd",
+    "고객데이터_복원.cmd",
+    "고객환경점검.exe",
+    "라벨디자이너.exe",
+    "라벨작업실행기.exe",
+    "라벨출력관리.exe",
+    "라벨출력엔진.exe",
+    "버전정보.txt",
+    "사용안내.txt",
+    "설치_및_사용_메뉴얼.txt",
+    "시작하기.cmd",
+    "채움랩_라벨출력패키지_고객용_매뉴얼.docx",
+    "처음실행_점검.cmd",
+    "프린터설정.exe"
+  ],
+  "excluded": {
+    "manifest_control_files": [
+      "release_manifest.json"
+    ],
+    "runtime_generated": true
+  },
+  "summary": {
+    "listed_files": 166,
+    "present_files": 166,
+    "missing_required_files": 0,
+    "forbidden_files": 0,
+    "total_present_bytes": 310032729
+  },
+  "missing_required_files": [],
+  "forbidden_files": [],
+  "files": [
+    {
+      "path": "00_install_trusted_location.cmd",
+      "size": 1035,
+      "size_bytes": 1035,
+      "sha256": "3eecc59105210eac38098b74cccd3386dd56385b795b26f944b02705e31d008d",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "00_고객PC_실행전점검.cmd",
+      "size": 628,
+      "size_bytes": 628,
+      "sha256": "a4f76207e754c183d9c2f555ff69f06d1a3a77ca7d9c0f6a39e93dee9cab22fe",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "01_output_check.cmd",
+      "size": 259,
+      "size_bytes": 259,
+      "sha256": "b495cd2195531bfb9a3aa34095b1e0a91a3cc214f40e98421ce144ad63f30fce",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "02_print_labels.cmd",
+      "size": 258,
+      "size_bytes": 258,
+      "sha256": "48a588b6bbf78d4421ebd0664dc76afb6135b808b6ff1b5a191c78f0ca6c3ace",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "03_open_output_folder.cmd",
+      "size": 269,
+      "size_bytes": 269,
+      "sha256": "e8b862e9dc3e7aa120dcd37b6ce91d5cae3121230b28f3b79e5e0cf326541d6b",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "04_open_last_log.cmd",
+      "size": 267,
+      "size_bytes": 267,
+      "sha256": "2233acc6e47ad2d94b2bb1f654dab88b01bf7809ccf0498ea07aa677f262945d",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_app_icon.ico",
+      "size": 28304,
+      "size_bytes": 28304,
+      "sha256": "9d24f790f9ba3189f057e6fc1b51ad25e8c46e58d758d74f3880a0deef53ea66",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_app_icon.png",
+      "size": 10556,
+      "size_bytes": 10556,
+      "sha256": "f574af0f5c63e87462fe06c46eedf4825c9e7708da6148576134c8d2b437508b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_app_icon_dark.png",
+      "size": 20480,
+      "size_bytes": 20480,
+      "sha256": "b8005a4039c3e53693362c310fc41488a8aa96517536fe2f517212ff317fcf7a",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_app_icon_white.ico",
+      "size": 28304,
+      "size_bytes": 28304,
+      "sha256": "9d24f790f9ba3189f057e6fc1b51ad25e8c46e58d758d74f3880a0deef53ea66",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_app_icon_white.png",
+      "size": 10556,
+      "size_bytes": 10556,
+      "sha256": "f574af0f5c63e87462fe06c46eedf4825c9e7708da6148576134c8d2b437508b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_designer_icon.ico",
+      "size": 33478,
+      "size_bytes": 33478,
+      "sha256": "0b9c60c4e256a33733b66d80cc4f1bb2b6ab327da864a2833f9df4d4c8486e9d",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_designer_icon.png",
+      "size": 69693,
+      "size_bytes": 69693,
+      "sha256": "f844bb8fb7dd5888840821a1d67d18d9e734444183e43d1e7e9eb6bfda6d1383",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_label_file_icon_white.ico",
+      "size": 23497,
+      "size_bytes": 23497,
+      "sha256": "a9c326c059fdc2b037c7ca13feee8dc66835477c36ac9999b017ef6b08c1fd55",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_label_file_icon_white.png",
+      "size": 50303,
+      "size_bytes": 50303,
+      "sha256": "3c748cca64cf816bfea155c9b67cee758ef2e0ee39a221a82a0eed834697e987",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_logo_compact.png",
+      "size": 104166,
+      "size_bytes": 104166,
+      "sha256": "736f403b8f9c2f6876495720b0a5f8d4a244a3a22cffa48e0509606e9389a0ec",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_logo_header.png",
+      "size": 34073,
+      "size_bytes": 34073,
+      "sha256": "6e50f7517cd2611774f5282d4351594db84b022d8e45b99d09a85f22daee436b",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_logo_header_2x.png",
+      "size": 91269,
+      "size_bytes": 91269,
+      "sha256": "50ac7a76e630b7ac8bce35f26acc8ef0883ec4253d8fdc865d1481bf8ce2bc4c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_manager_icon.ico",
+      "size": 34382,
+      "size_bytes": 34382,
+      "sha256": "188a0f862a4289917d5011772cd96568bd44af1c0b83d57440ef96cdaeaf4086",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_manager_icon.png",
+      "size": 69207,
+      "size_bytes": 69207,
+      "sha256": "8f5b630af07e8c24bdb60e6ad6db5ae33cbf93e0944d44f47293f23f25079b7b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_mark.png",
+      "size": 104166,
+      "size_bytes": 104166,
+      "sha256": "736f403b8f9c2f6876495720b0a5f8d4a244a3a22cffa48e0509606e9389a0ec",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_project_file_icon_white.ico",
+      "size": 26391,
+      "size_bytes": 26391,
+      "sha256": "85ff151e81cfe484c3ad1bfa0ff5a7b0be63d1927fc266c8445d3c5ed5bb5bdb",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_project_file_icon_white.png",
+      "size": 53775,
+      "size_bytes": 53775,
+      "sha256": "7ccbd928aede27e3a6cdd9ebf7a97a8b42e8e892eba4ea11cdb322102041f7ba",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_settings_icon.ico",
+      "size": 40629,
+      "size_bytes": 40629,
+      "sha256": "abafb1d5334f0280b922a791c52b6976cc21a30eb9295b42f395d0badb877f5f",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/brand/chaeumlab_settings_icon.png",
+      "size": 71091,
+      "size_bytes": 71091,
+      "sha256": "2b8063e1d0f3baf00f0c2eec6356ba4d840c262f7128422e4ad3738651df3ff7",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/fonts/MONEYGRAPHY-ROUNDED.TTF",
+      "size": 1049748,
+      "size_bytes": 1049748,
+      "sha256": "24e07ffaabe939ac0e6d6da90207077a47de6ebeb1df2b8dfdb8deb8e6d1a93e",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/fonts/README.txt",
+      "size": 457,
+      "size_bytes": 457,
+      "sha256": "e09c4c8de44dc613d0c49f7ea8dd278167706f892b81cfdbc37d4dcb983f1ad4",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "assets/label_designer.ico",
+      "size": 19081,
+      "size_bytes": 19081,
+      "sha256": "7da2e1531ee8bcceb77a48dd7bd9d8c3432a8bfe1ffb1d427b7cfd71c773cfee",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "assets/label_designer_icon.png",
+      "size": 2594,
+      "size_bytes": 2594,
+      "sha256": "4c5781522f3acdde7ce8534efb505da1e4433865aea7f67166590fe9a2a986f0",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "barcode_db.xlsx",
+      "size": 5387,
+      "size_bytes": 5387,
+      "sha256": "3aafc63169983bd8679e4190d294151bce9db4baee95a8bb1589f55eb38fe86c",
+      "required": true,
+      "mutable": true
+    },
+    {
+      "path": "config.example.ini",
+      "size": 1743,
+      "size_bytes": 1743,
+      "sha256": "ebae444e2da3a85a9722f838335687aa5c1173952f9242c38bfe56b99e43ce3a",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "config.ini",
+      "size": 1035,
+      "size_bytes": 1035,
+      "sha256": "1980a5de190ad46d78ae9b6225af64b12637e95471d9fc4dfeb2ed194714aa3b",
+      "required": true,
+      "mutable": true
+    },
+    {
+      "path": "db/barcode_db.xlsx",
+      "size": 9045,
+      "size_bytes": 9045,
+      "sha256": "8c188e4ee7b23ec5c9d18eb53ccccafa3607f52f0e1b8ed89fe1ec0c85359db8",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf",
+      "size": 2000627,
+      "size_bytes": 2000627,
+      "sha256": "9efe13a73f0aba26b52479441dba77145e6fc2d7a82d1672843ba2c0bfa557bf",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf",
+      "size": 2864365,
+      "size_bytes": 2864365,
+      "sha256": "9681155085644a7c814dcc6afc3befed05869254c2dab489ceb606cc0a4fc505",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf",
+      "size": 1435570,
+      "size_bytes": 1435570,
+      "sha256": "2cc2e3a069e894440c659be73199dc3c9c5404957f0e188d52b5d81151e97fad",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "labels.xlsm",
+      "size": 40999,
+      "size_bytes": 40999,
+      "sha256": "8321619dac2b9ba9d26df4f9c9cbf058c50ed65b052e0ce39349d526446e72d3",
+      "required": true,
+      "mutable": true
+    },
+    {
+      "path": "print_queue.xlsx",
+      "size": 5375,
+      "size_bytes": 5375,
+      "sha256": "7af1ecfb2304b345423c0c41da8bf8d805ab806136aea6d8fbd6a1ca6609befd",
+      "required": true,
+      "mutable": true
+    },
+    {
+      "path": "README.md",
+      "size": 7716,
+      "size_bytes": 7716,
+      "sha256": "9f26e65a4112a380d15668b35882bc6a382d61d9e2d00e8f50ba8bee4cfa8bd6",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "README_먼저읽기.txt",
+      "size": 7355,
+      "size_bytes": 7355,
+      "sha256": "a7f142c8966ee8f92d23b820b6fcfd8945a58dd1dabb89cae464a49985784f91",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "register_label_filetype.cmd",
+      "size": 1406,
+      "size_bytes": 1406,
+      "sha256": "5e48bea85ea75d3ea5ca2c217ab1ed98603c49f45462b80be62f1b41633d83b6",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "register_label_filetype.ps1",
+      "size": 1309,
+      "size_bytes": 1309,
+      "sha256": "ece355951b5c6e46e0f9b04e7a4b76c316ea186ab60c9f6866c3fbce440904fe",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "run_label_job.cmd",
+      "size": 1300,
+      "size_bytes": 1300,
+      "sha256": "25d00b52c3d08f37caf704a29820c0e066759dbef17565fd8a02c929940cd242",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "run_label_job.ps1",
+      "size": 13251,
+      "size_bytes": 13251,
+      "sha256": "f14776dc93a509d51e2043942c1e0a94fc490c05c323d48e474f96164df13358",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "sample_direct_open.cllabel",
+      "size": 805,
+      "size_bytes": 805,
+      "sha256": "d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "sample_direct_open.gblabel",
+      "size": 805,
+      "size_bytes": 805,
+      "sha256": "d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "scripts/install_chaeumlab_font.ps1",
+      "size": 3056,
+      "size_bytes": 3056,
+      "sha256": "c4c23a4b770a016b3ea519e28b296d80d6e157bbc9a6b562045bbbc653a080b4",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "scripts/install_tesseract_ocr.ps1",
+      "size": 7269,
+      "size_bytes": 7269,
+      "sha256": "c37bc0fb9e644f5f0ae5c2160b9e887c89c7831be6594b1cd31de644ed15d7c8",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "scripts/verify_korean_encoding.py",
+      "size": 4020,
+      "size_bytes": 4020,
+      "sha256": "53cfbd44041ba25584cc6203d991abb50083c0ef0beb274dfd0400f6643185eb",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "templates/default_label.json",
+      "size": 101,
+      "size_bytes": 101,
+      "sha256": "c5515031d843015a604e87e392ab9df936e30c67afef7195365fb6b54f6896cb",
+      "required": true,
+      "mutable": true
+    },
+    {
+      "path": "templates/sample_direct_open.cllabel",
+      "size": 805,
+      "size_bytes": 805,
+      "sha256": "d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "templates/sample_direct_open.gblabel",
+      "size": 805,
+      "size_bytes": 805,
+      "sha256": "d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "templates/sample_excel_product.cllabel",
+      "size": 760,
+      "size_bytes": 760,
+      "sha256": "26058c00c4ed6478e07eb3601747e3b864d81372e0238ffb1e6ac37e89b371a2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "templates/sample_excel_product.gblabel",
+      "size": 760,
+      "size_bytes": 760,
+      "sha256": "26058c00c4ed6478e07eb3601747e3b864d81372e0238ffb1e6ac37e89b371a2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tesseract.exe",
+      "size": 1585024,
+      "size_bytes": 1585024,
+      "sha256": "babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/doc/AUTHORS",
+      "size": 787,
+      "size_bytes": 787,
+      "sha256": "720862b7253993b348fe15f37ed6e0d4feb0fc8df8324284d75975d54dd29923",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/doc/LICENSE",
+      "size": 11358,
+      "size_bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/doc/README.md",
+      "size": 8485,
+      "size_bytes": 8485,
+      "sha256": "099fb244ec3e34962afc4861a6c8c42d2727c2f834f23071070c6f2d557b164c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libarchive-13.dll",
+      "size": 769154,
+      "size_bytes": 769154,
+      "sha256": "98b9b7e9259f23eab6749ee25cca2c0643f09df6b23c58229fd43bf6249195e9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libb2-1.dll",
+      "size": 34372,
+      "size_bytes": 34372,
+      "sha256": "7fb8418a1172042dab5227fcd466b1bf293737f5b5cf35359e851516227f109c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libbrotlicommon.dll",
+      "size": 143397,
+      "size_bytes": 143397,
+      "sha256": "62f363f6aac0d54ce7b115c0412b19e0fe5480f4e6fc1254f663b0ab6868e46f",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libbrotlidec.dll",
+      "size": 60412,
+      "size_bytes": 60412,
+      "sha256": "7d6c0f954b6f2db1c1c5fd5904886ae055859a02ca31b6dde5f96f6b0259d23f",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libbz2-1.dll",
+      "size": 100964,
+      "size_bytes": 100964,
+      "sha256": "b79cd3a7102e359ef6324e98966a67939e58ec2b651ae2847cae84a4dfa453f7",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libcairo-2.dll",
+      "size": 1213715,
+      "size_bytes": 1213715,
+      "sha256": "c531e50be733f641e39419bf62cb799698b20086afb958d73f56677ea0c3f9da",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libcrypto-3-x64.dll",
+      "size": 5130880,
+      "size_bytes": 5130880,
+      "sha256": "c0674a225d30f1642ca1da45ac040a9c1885d8f23883532b42987bae458edc4d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libdatrie-1.dll",
+      "size": 34386,
+      "size_bytes": 34386,
+      "sha256": "f760aef8a31b7c3670484ca4eabab1ab8e95c14052167e191463f6371c3f0850",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libdeflate.dll",
+      "size": 91035,
+      "size_bytes": 91035,
+      "sha256": "b6ee7b31a23605d8e8b9be5eae782a3ddf7adf2b7ca2c8e0041bdfd4fe4659ee",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libexpat-1.dll",
+      "size": 188909,
+      "size_bytes": 188909,
+      "sha256": "d9ea333175b1e995bbe6a062567f38ff362f1b2f369fa8ebdb0eeed21813bdc6",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libffi-8.dll",
+      "size": 33708,
+      "size_bytes": 33708,
+      "sha256": "f1ed51652b3746c1b4bce497b7041e677e5d80c5ab8198efebb8fc6f75329ae8",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libfontconfig-1.dll",
+      "size": 350185,
+      "size_bytes": 350185,
+      "sha256": "d6c70b7e205f24ff96b29a80849b59c84f8701b311434f64f2bf93bd36bdb163",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libfreetype-6.dll",
+      "size": 776690,
+      "size_bytes": 776690,
+      "sha256": "5297f754dfca04abdb0d21705d5afc3c4122aa25c7afbdd87900313cb780c868",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libfribidi-0.dll",
+      "size": 144627,
+      "size_bytes": 144627,
+      "sha256": "449085380e54089871ccc9f32b715f65a2e53eb9f5125793fed900461d29a420",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libgcc_s_seh-1.dll",
+      "size": 150707,
+      "size_bytes": 150707,
+      "sha256": "b22b954397a52703579d92db64b57812af70f2afcafe2e742a009c1640b9ec1a",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libgif-7.dll",
+      "size": 41367,
+      "size_bytes": 41367,
+      "sha256": "a1a179853ae6fad8eb045b8e9f12c55e6fc99929446b02fa345512354cf5e582",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libgio-2.0-0.dll",
+      "size": 1814226,
+      "size_bytes": 1814226,
+      "sha256": "07bda2471ca0490598d1e6fbdfc8958cd91926d68effc90d9eda0ea2f9279c7c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libglib-2.0-0.dll",
+      "size": 1456928,
+      "size_bytes": 1456928,
+      "sha256": "12b2f4d609a5d3cf714a8c502074409d32f21082a682373f4e1bca36821f08bc",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libgmodule-2.0-0.dll",
+      "size": 26783,
+      "size_bytes": 26783,
+      "sha256": "8cf9bb9be24c88a66ad478214a55357a9d44702636789dfa436ca509457d781c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libgobject-2.0-0.dll",
+      "size": 359001,
+      "size_bytes": 359001,
+      "sha256": "4fcf4fb2d5ef234e717b389f3b637f05ee6ff111b698ef59664394f10622aef6",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libgraphite2.dll",
+      "size": 152538,
+      "size_bytes": 152538,
+      "sha256": "f927efecd958f0e54a24ae297f86cd6aed05e7fc20e5da0882050ab9ec464395",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libharfbuzz-0.dll",
+      "size": 1329363,
+      "size_bytes": 1329363,
+      "sha256": "c1fa05f089041e348c9fcf18ae115942c989ac5259069d0ae83aa63e9a7c66ea",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libiconv-2.dll",
+      "size": 1118202,
+      "size_bytes": 1118202,
+      "sha256": "967189adfbc889fde89aafc867f7a1f02731f8592cf6fd5a4ace1929213e2e13",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libicudt75.dll",
+      "size": 30743046,
+      "size_bytes": 30743046,
+      "sha256": "6a60829e1c13fd73043af6f475f85971a42eb5553e88c92f26b8802bde92c2f4",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libicuin75.dll",
+      "size": 3381215,
+      "size_bytes": 3381215,
+      "sha256": "9fad2353a168134305e67a62fedff21cd43293055b7f4b9c39ff30cc78f30be0",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libicuuc75.dll",
+      "size": 1932464,
+      "size_bytes": 1932464,
+      "sha256": "60e6f91536efd0a8e408b060edb76a2148a7a397399b76ee39e4ed61de0774b0",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libintl-8.dll",
+      "size": 188681,
+      "size_bytes": 188681,
+      "sha256": "42a63cb4c3c28a683d9f6c3510de5ec17849eb18c097fa02cd78aeb800bff202",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libjbig-0.dll",
+      "size": 62083,
+      "size_bytes": 62083,
+      "sha256": "275a827ba6839d47cfdbe059db1b1b403a92ff26e2b76a29362915487868bef2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libjpeg-8.dll",
+      "size": 912746,
+      "size_bytes": 912746,
+      "sha256": "e44514c4e7753635e79bdb668f1e10315c1a93287f8d044ae74594ed57de619d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libleptonica-6.dll",
+      "size": 2721006,
+      "size_bytes": 2721006,
+      "sha256": "26861baff4d25446a03ed1f6064d2eae7435eddf51bb36af4e634c0eb4eb3af0",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libLerc.dll",
+      "size": 761261,
+      "size_bytes": 761261,
+      "sha256": "4ab688c7c5c4afdfee0f519f942759137067a7876a1c1bb825ee575b0a5760b1",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/liblz4.dll",
+      "size": 147105,
+      "size_bytes": 147105,
+      "sha256": "1b64d6429ae4aacf9eb35b8158d98556859a5c5e8ee817e155da343e194dd8e3",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/liblzma-5.dll",
+      "size": 184667,
+      "size_bytes": 184667,
+      "sha256": "3a599d97ea4dd002166ee7ffdc527c129d2cf8b05e9152ca7cae006c4187977e",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libopenjp2-7.dll",
+      "size": 462194,
+      "size_bytes": 462194,
+      "sha256": "5ff762ff6d672a06ee502819daf1494aa3aa3acf408805f0429303e026705011",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpango-1.0-0.dll",
+      "size": 401912,
+      "size_bytes": 401912,
+      "sha256": "834caf40403a447634b0e80ff4ea290f1ee361364cf24ffc8bb55b048f9254a9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpangocairo-1.0-0.dll",
+      "size": 74540,
+      "size_bytes": 74540,
+      "sha256": "ee706c4561af24de6cbe7ad10b46852fc8b0f328534ea2beb5f1147696e87b55",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpangoft2-1.0-0.dll",
+      "size": 102261,
+      "size_bytes": 102261,
+      "sha256": "7c80bc1949255a8bc62fe05ab003b777aa844ac8f6c5da1ebc4c49ee35f3b9b8",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpangowin32-1.0-0.dll",
+      "size": 114044,
+      "size_bytes": 114044,
+      "sha256": "d940a831f2a9be33dd36ff3d8b97488a068b1699fb6b2e874633d4d5564f301c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpcre2-8-0.dll",
+      "size": 399737,
+      "size_bytes": 399737,
+      "sha256": "5ffa31709c275120a745f9f714974db1e86c8fd54f8ca6889617530dffbff95b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpixman-1-0.dll",
+      "size": 714812,
+      "size_bytes": 714812,
+      "sha256": "8f8b8f09ec8fe9945ba76fadf8a04183056afd2c35aa7be1808e1a1301d87757",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libpng16-16.dll",
+      "size": 247380,
+      "size_bytes": 247380,
+      "sha256": "f1b0a9d6cf3b8809c22fa0e27b5b82d9357e5bca43ab0ce8762f55fb303ed23f",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libsharpyuv-0.dll",
+      "size": 57852,
+      "size_bytes": 57852,
+      "sha256": "60bcc87ac64a834e967e9ec9461be37395dbc090c579f3e23497ef69a5d8323e",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libstdc++-6.dll",
+      "size": 2409896,
+      "size_bytes": 2409896,
+      "sha256": "0d9c01ab1771df439c75f144b2d855b4ac400243f006d14d9a043493de628f0d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libtesseract-5.dll",
+      "size": 101471336,
+      "size_bytes": 101471336,
+      "sha256": "279488c41bd341edaa03dcd097faa33604ba330e6254ac97bcaf2229d8d7ac1a",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libthai-0.dll",
+      "size": 69739,
+      "size_bytes": 69739,
+      "sha256": "420e08cedaf9daaabcf8f6c92349d9dadb7b5ad9e4e79d1126bb2a55a7cdbe09",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libtiff-6.dll",
+      "size": 576887,
+      "size_bytes": 576887,
+      "sha256": "e000306d3de299b05ebef443e48c1486d9fa291b0244f6ca6225843b75fdf581",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libwebp-7.dll",
+      "size": 743580,
+      "size_bytes": 743580,
+      "sha256": "687b8859e1f739dad5800fdc293a6ee1fd0dd4b33380ab283681a5a12eb3d4fa",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libwebpmux-3.dll",
+      "size": 78730,
+      "size_bytes": 78730,
+      "sha256": "ad10bacecd37b44c7c2c813da098a8bf6a42a3bf0152f7f33726d216815558f9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libwinpthread-1.dll",
+      "size": 60798,
+      "size_bytes": 60798,
+      "sha256": "bbcbe5eb8e806f3537585d4c9832b4ee15f86617328a566695d7d3728aa370ee",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/libzstd.dll",
+      "size": 1179848,
+      "size_bytes": 1179848,
+      "sha256": "f216ea8efb5b3bb9ad3d938fb9ac07e3b8f78c2c92faab03d2c468d0b6798a5a",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/README.txt",
+      "size": 259,
+      "size_bytes": 259,
+      "sha256": "450546a35d6b33e1ab3644a00d16b29d90bd54f499c3469670ef0f552700b1a2",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/alto",
+      "size": 23,
+      "size_bytes": 23,
+      "sha256": "23a038ff290c7471a1a8aa4b5d23e310b0bf49f718480dad6b619a7d06eca330",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/ambigs.train",
+      "size": 146,
+      "size_bytes": 146,
+      "sha256": "717e534fd4330ed3f9bdb006f0465aa2633cca866786a8f8d469dbd4b01c10c2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/api_config",
+      "size": 26,
+      "size_bytes": 26,
+      "sha256": "2929bc0f1d2ba77f28cfc230f7b835b2b54038c0f9d2e8e4c5ada43803c999fd",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/bigram",
+      "size": 129,
+      "size_bytes": 129,
+      "sha256": "65e6583abc617a34d4091285181f2493d312c296a85629ac3c092d3b93b6e554",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/box.train",
+      "size": 311,
+      "size_bytes": 311,
+      "sha256": "a421355e3488bf3fdfc14a1bdcca08c6f6414ec92c53f0eea22317c868c1a623",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/box.train.stderr",
+      "size": 311,
+      "size_bytes": 311,
+      "sha256": "3e62cd37d2383abf0c6dfa5ba39fd1187fcff6856c4f4f27ea1554cb4c1874d2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/digits",
+      "size": 37,
+      "size_bytes": 37,
+      "sha256": "e757d95bb1e51444860ea10d7f2c8bb8a0c9c4ccc58a0e8c67e8dc2933a56e2e",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/get.images",
+      "size": 24,
+      "size_bytes": 24,
+      "sha256": "28c774c157a2f48d835a1d58f5a35dd70106c136e176572ee43bbf46f3d65c92",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/hocr",
+      "size": 40,
+      "size_bytes": 40,
+      "sha256": "d6a7ec7c5143317a59fce2393054f6b7a8261824b934e7426fdd24febc929ad6",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/inter",
+      "size": 59,
+      "size_bytes": 59,
+      "sha256": "46303bf83668e446f4966d1ebf7418ad9f0c5e08836bc59d98cae3bbfc3aee9d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/kannada",
+      "size": 101,
+      "size_bytes": 101,
+      "sha256": "7d34fec99283142a3a22d157dc5cc8824b93ee923e576e6bfd1b026039c2e8f0",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/linebox",
+      "size": 70,
+      "size_bytes": 70,
+      "sha256": "eb0279527b009a53432a9e1dde85bf42814901393546bc365bb61837f83355c9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/logfile",
+      "size": 25,
+      "size_bytes": 25,
+      "sha256": "5eed5e41e5fbbf0862836c0e4cda7821f8e08441645858ec6821ab41d926e195",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/lstm.train",
+      "size": 282,
+      "size_bytes": 282,
+      "sha256": "3d1f8e5ab4e41467fdd938dc4d266eea081b477f8d74ab6b198dd1d854b5301c",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/lstmbox",
+      "size": 26,
+      "size_bytes": 26,
+      "sha256": "61255d1b7c9df76b673ff43d2d91cda7f4c3c2e7d7f0643a71b212739833017e",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/lstmdebug",
+      "size": 98,
+      "size_bytes": 98,
+      "sha256": "62d40d7a7d80315e10cdca2561d2ddf2981f53dfdbd567513b04d36f3add7f4e",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/makebox",
+      "size": 26,
+      "size_bytes": 26,
+      "sha256": "a8fe20a2bc9ff1e9e8ed06d56845336c978627b8e965600abd63f1f412c18ffe",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/page",
+      "size": 67,
+      "size_bytes": 67,
+      "sha256": "6e4b43f27a77124e66c87fce8de518ff81e918d3cc36fe71a3d01179c1856a07",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/pdf",
+      "size": 22,
+      "size_bytes": 22,
+      "sha256": "54d56e81dfefe289b0d2e4c7bc9bbe662711f5b8255c128b73bcd66efb6bba1a",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/quiet",
+      "size": 21,
+      "size_bytes": 21,
+      "sha256": "8a93fad8251f61b5f17b8628203a0e068c71e0907cd63012ab22afb7b560fce3",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/rebox",
+      "size": 65,
+      "size_bytes": 65,
+      "sha256": "73ca35d7d71084fb88e2eb9a5c53ad91682754b3aecb918dece7591ec22a0b26",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/strokewidth",
+      "size": 377,
+      "size_bytes": 377,
+      "sha256": "ffb140aadd3e26d0d9b3b355d592b50cff8b2c3ce0394b4a6de4fabc1c0942c9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/tsv",
+      "size": 22,
+      "size_bytes": 22,
+      "sha256": "59d079bb75d8b3d7c839a3564580cb559e362c93a9d70f234e421c0c3e767e04",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/txt",
+      "size": 166,
+      "size_bytes": 166,
+      "sha256": "9bcbdbe285fd3a024be563cb237751ceb3435d86610e231f08894023321af5d7",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/unlv",
+      "size": 45,
+      "size_bytes": 45,
+      "sha256": "1b02e7801de71f0757a26ba6d749e9182a0d9971929966bebb67f99db8733f40",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/configs/wordstrbox",
+      "size": 29,
+      "size_bytes": 29,
+      "sha256": "9d1787cdce085ad36dc9d6ba6b2702ac262beaf06a0bb4a0b84355f6458261e5",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/eng.traineddata",
+      "size": 4113088,
+      "size_bytes": 4113088,
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/eng.user-patterns",
+      "size": 33,
+      "size_bytes": 33,
+      "sha256": "1970d87625c9c7c0924f97181a7f349ff4935178e3bdb5bb6305c28a3af9824b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/eng.user-words",
+      "size": 27,
+      "size_bytes": 27,
+      "sha256": "63008cdace728eb209dd926a35afe012469c88c8621a57ed9902034396ca4e2b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/kor.traineddata",
+      "size": 1677415,
+      "size_bytes": 1677415,
+      "sha256": "6b85e11d9bbf07863b97b3523b1b112844c43e713df8b66418a081fd1060b3b2",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/pdf.ttf",
+      "size": 572,
+      "size_bytes": 572,
+      "sha256": "c7845420925a23d88ed830a63957b8af85a66a8daf8d9fc90e843673b2ef1a59",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/tessconfigs/batch",
+      "size": 49,
+      "size_bytes": 49,
+      "sha256": "d91107c3a8c1c311b00c64aee56cbce4d48894c6e5762165f1ec7871c7b7bf4e",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/tessconfigs/batch.nochop",
+      "size": 37,
+      "size_bytes": 37,
+      "sha256": "5acabb534cfd4fd8fe111c854955e1ffa9390619ef43775b1a5fbaf5283f68bb",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/tessconfigs/matdemo",
+      "size": 243,
+      "size_bytes": 243,
+      "sha256": "d098cdf6ffe691ccc9dfa4490603f6ae33cdd313010cedfa50007ebde3ddd2d0",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/tessconfigs/msdemo",
+      "size": 368,
+      "size_bytes": 368,
+      "sha256": "0ed753a05ea60766f4269d81873b6390e937ea2df1758de91c57db7e92429555",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/tessconfigs/nobatch",
+      "size": 1,
+      "size_bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tessdata/tessconfigs/segdemo",
+      "size": 295,
+      "size_bytes": 295,
+      "sha256": "7ec19f77f8c76b4dfb33ec8b13e11d7685ae5c9cf6eca4e7333cce0513ddac56",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/tesseract.exe",
+      "size": 1585024,
+      "size_bytes": 1585024,
+      "sha256": "babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/winpath.exe",
+      "size": 19154,
+      "size_bytes": 19154,
+      "sha256": "5223e97b220215cc3ec12acb8979a6f41f5344737af63a90f47879051567777d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "tools/ocr/zlib1.dll",
+      "size": 120814,
+      "size_bytes": 120814,
+      "sha256": "cb7ab3788d10940df874acd97b1821bbb5ee4a91f3eec11982bb5bf7a3c96443",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "winpath.exe",
+      "size": 19154,
+      "size_bytes": 19154,
+      "sha256": "5223e97b220215cc3ec12acb8979a6f41f5344737af63a90f47879051567777d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "고객데이터_백업.cmd",
+      "size": 601,
+      "size_bytes": 601,
+      "sha256": "8795c11fb861f9b7f957fc946db2a325e91e51c19c85a0d45e5358fdca0d1298",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "고객데이터_복원.cmd",
+      "size": 1093,
+      "size_bytes": 1093,
+      "sha256": "3e03f3910d32e5b8bab7746e69b964a7200524e7dae63904e184ed815489be18",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "고객환경점검.exe",
+      "size": 20298536,
+      "size_bytes": 20298536,
+      "sha256": "763f9991aa7c5f0edc9c6cc73cdf22f67ef2255b773bcac6d9359ad8cb89b0a6",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "라벨디자이너.exe",
+      "size": 24197265,
+      "size_bytes": 24197265,
+      "sha256": "e9fda972f9b8a2f0a936cfac0f0388b22b46bf3552d8d5b53873ce6d08f3eb7d",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "라벨작업실행기.exe",
+      "size": 20266771,
+      "size_bytes": 20266771,
+      "sha256": "def7534325dd35ae6ba93c71fef68d492c0565bb7adf029cad6476406f8fdccb",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "라벨출력관리.exe",
+      "size": 21757811,
+      "size_bytes": 21757811,
+      "sha256": "24dd3897e56ab42bbca437022d4fce2d5e6e4576c7106289fefc674f537342a1",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "라벨출력엔진.exe",
+      "size": 18380889,
+      "size_bytes": 18380889,
+      "sha256": "cefe9e4b817da9e9051b6351e06cdb2bd774a70e0f0d51f38afaa1e42b7ad725",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "배포_파일목록.txt",
+      "size": 21870,
+      "size_bytes": 21870,
+      "sha256": "3baf5aca3ae69678ba20c52233b2393cbdaad58ec3274a2f1691ff7cf7f3723d",
+      "required": false,
+      "mutable": false
+    },
+    {
+      "path": "버전정보.txt",
+      "size": 1084,
+      "size_bytes": 1084,
+      "sha256": "99ced515f0b0efbde7b0a6ea7a245a3a3cfb33606b4bc8e3e82b92ff8f3b2eea",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "사용안내.txt",
+      "size": 15334,
+      "size_bytes": 15334,
+      "sha256": "99e54f7349ff5a33d951aba65c5aa4846bcca8df21d4a4efd0465bb58117e172",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "설치_및_사용_메뉴얼.txt",
+      "size": 20665,
+      "size_bytes": 20665,
+      "sha256": "5246a9943e642d4e90e5603e45d26fb086af777da01d276e42ddd57a505ba6f7",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "시작하기.cmd",
+      "size": 4162,
+      "size_bytes": 4162,
+      "sha256": "362d67b755e46df03b80370ae4570f8a91544290aa893ba683af5b16e77c4107",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "채움랩_라벨출력패키지_고객용_매뉴얼.docx",
+      "size": 507454,
+      "size_bytes": 507454,
+      "sha256": "7a35edbe74f91164160073125b0282c440f33256b03f185f67e1a54dac40dd0d",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "처음실행_점검.cmd",
+      "size": 1622,
+      "size_bytes": 1622,
+      "sha256": "70ef329f12d5f4e620cffa58c6d8cad1111dced6ae204fe2e5a94419fb47744a",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "프린터설정.exe",
+      "size": 21152479,
+      "size_bytes": 21152479,
+      "sha256": "e7cdb4ec58f6bd873841f016362c962d6ff81e5ee85451c05ac0fe1c9424348a",
+      "required": true,
+      "mutable": false
+    },
+    {
+      "path": "한눈에_사용안내.pdf",
+      "size": 144404,
+      "size_bytes": 144404,
+      "sha256": "552dc822dbf34082e4ca4b96150e21fbd7d24d071d4b8a769c449cf9956369c3",
+      "required": false,
+      "mutable": false
+    }
+  ]
+}

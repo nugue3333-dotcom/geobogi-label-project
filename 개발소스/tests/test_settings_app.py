@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from types import SimpleNamespace
 
 from configparser import ConfigParser
 
@@ -327,7 +328,8 @@ def test_settings_ui_hides_model_name_and_keeps_brand_postprocessing_guardrails(
     assert r"\ubaa8\ub378\uba85" not in printer_source
     assert "model_var" not in printer_source
     assert "<<ComboboxSelected>>" in printer_source
-    assert 'button.configure(state="normal" if value in supported else "disabled")' in sync_source
+    assert 'button.pack_forget()' in sync_source
+    assert 'button.configure(state="normal")' in sync_source
 
 
 def test_settings_ui_includes_whole_label_180_degree_orientation_control():
@@ -422,3 +424,88 @@ def test_settings_secondary_action_uses_the_existing_validation_handler():
 
     assert "command=self.validate_current_settings" in source
     assert "_validate_only" not in source
+
+
+def test_settings_suite_menu_has_only_supported_file_tools_help_actions():
+    source = inspect.getsource(SettingsApp._build_menu_surface)
+    positions = [source.index(f'("{name}",') for name in ("파일", "도구", "도움말")]
+    assert positions == sorted(positions)
+    assert '("보기",' not in source
+    assert '"인쇄"' not in source
+    actions = inspect.getsource(SettingsApp._build_buttons)
+    assert actions.count("ttk.Button(") == 4
+    assert all(command in actions for command in ("self.load_from_file", "self.check_connection",
+                                                 "self.validate_current_settings", "self.save_to_file"))
+
+
+def test_settings_saved_state_header_tracks_changes():
+    app = SettingsApp.__new__(SettingsApp)
+    app._base_title = "채움랩 프린터 설정"
+    titles = []
+    states = []
+    app.title = titles.append
+    app.document_state_var = SimpleNamespace(set=states.append)
+    app._set_settings_dirty(True)
+    app._set_settings_dirty(False)
+    assert titles == ["채움랩 프린터 설정 *", "채움랩 프린터 설정"]
+    assert states == ["변경사항 있음 · 저장 필요", "저장됨"]
+    assert not app._settings_dirty
+
+
+def test_dirty_tracking_covers_every_saved_printer_and_barcode_field():
+    app = SettingsApp.__new__(SettingsApp)
+    names = (
+        "brand", "mode", "print_method", "print_orientation", "media_handling", "print_speed",
+        "print_density", "ip", "port", "printer_name", "width", "height", "dpi", "gap", "media_type",
+        "barcode_type", "barcode_auto_layout", "barcode_x", "barcode_y", "barcode_rotation", "one_d_height",
+        "one_d_narrow", "one_d_wide", "one_d_human_readable", "qr_model", "qr_ecc", "qr_cell_size",
+        "datamatrix_cell_size", "pdf417_rows", "pdf417_columns", "pdf417_security", "pdf417_module_width",
+        "pdf417_module_height",
+    )
+    variables = []
+    for name in names:
+        variable = object()
+        setattr(app, f"{name}_var", variable)
+        variables.append(variable)
+    assert app._settings_variables() == tuple(variables)
+
+
+@pytest.mark.parametrize("brand,supported", [("bixolon", {"tear_off", "cutter"}),
+                                             ("tsc", {"tear_off", "cutter", "peeler"}),
+                                             ("sewoo", {"tear_off"})])
+def test_unsupported_manufacturer_postprocessing_is_hidden_and_current_value_safe(brand, supported):
+    from barcode_label_automation.settings_app import BRAND_LABELS, MEDIA_HANDLING_LABELS
+    app = SettingsApp.__new__(SettingsApp)
+    app.brand_var = SimpleNamespace(get=lambda: BRAND_LABELS[brand])
+    handling = {"value": MEDIA_HANDLING_LABELS["peeler"]}
+    app.media_handling_var = SimpleNamespace(get=lambda: handling["value"], set=lambda value: handling.update(value=value))
+    visibility = {}
+    app.media_handling_buttons = {}
+    for value in ("tear_off", "cutter", "peeler"):
+        app.media_handling_buttons[value] = SimpleNamespace(
+            configure=lambda **kwargs: None,
+            pack=lambda _value=value, **kwargs: visibility.update({_value: True}),
+            pack_forget=lambda _value=value: visibility.update({_value: False}),
+        )
+    app._sync_media_handling_state()
+    assert {value for value, shown in visibility.items() if shown} == supported
+    assert handling["value"] == MEDIA_HANDLING_LABELS["peeler" if "peeler" in supported else "tear_off"]
+
+
+def test_settings_help_prefers_new_brand_manual_and_retains_legacy_fallback(monkeypatch, tmp_path):
+    import barcode_label_automation.settings_app as module
+    app = SettingsApp.__new__(SettingsApp)
+    app.base_dir = app.install_dir = tmp_path
+    folder = tmp_path / "고객용_매뉴얼"
+    folder.mkdir()
+    legacy = folder / "채움LAB_프린터설정_고객용_매뉴얼.pdf"
+    current = folder / "채움랩_프린터설정_고객용_매뉴얼.pdf"
+    legacy.write_bytes(b"old")
+    current.write_bytes(b"new")
+    opened = []
+    monkeypatch.setattr(module.os, "startfile", opened.append)
+    app.open_manual()
+    assert opened == [current]
+    current.unlink()
+    app.open_manual()
+    assert opened[-1] == legacy

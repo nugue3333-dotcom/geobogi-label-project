@@ -202,7 +202,7 @@ def test_main_smoke_replaces_generated_starter_template_with_blank(tmp_path):
     assert main(["--base-dir", str(tmp_path), "--smoke-test"]) == 0
 
     template = json.loads(template_path.read_text(encoding="utf-8"))
-    recovery_files = list(template_dir.glob("복구_기본템플릿_*.gblabel"))
+    recovery_files = list(template_dir.glob("복구_기본템플릿_*.cllabel"))
     assert template["label"] == {"width_mm": 64, "height_mm": 32}
     assert template["elements"] == []
     assert len(recovery_files) == 1
@@ -221,7 +221,7 @@ def test_ensure_blank_default_template_preserves_unreadable_default_before_reset
     assert template["elements"] == []
     assert json.loads(template_path.read_text(encoding="utf-8"))["elements"] == []
     assert recovery_path is not None
-    assert recovery_path.suffix == ".gblabel"
+    assert recovery_path.suffix == ".cllabel"
     assert recovery_path.read_text(encoding="utf-8") == "not valid json"
 
 
@@ -275,7 +275,7 @@ def test_normal_launch_resets_default_template_file_to_blank_printer_size(tmp_pa
 
     template = LabelDesignerApp._load_initial_template(app)
     saved_template = json.loads(template_path.read_text(encoding="utf-8"))
-    recovery_files = list(template_dir.glob("복구_기본템플릿_*.gblabel"))
+    recovery_files = list(template_dir.glob("복구_기본템플릿_*.cllabel"))
 
     assert template["label"] == {"width_mm": 76, "height_mm": 28}
     assert template["elements"] == []
@@ -367,8 +367,8 @@ def test_opening_saved_label_file_keeps_saved_label_size(tmp_path):
 
 
 def test_saved_label_file_extension_is_primary_template_format():
-    assert LABEL_FILE_EXTENSION == ".gblabel"
-    assert LABEL_FILE_TYPES[0] == ("채움랩 라벨 파일", "*.gblabel")
+    assert LABEL_FILE_EXTENSION == ".cllabel"
+    assert LABEL_FILE_TYPES[0] == ("채움랩 라벨 도안", "*.cllabel *.gblabel")
 
 
 def test_saved_label_file_loads_like_template(tmp_path):
@@ -411,7 +411,7 @@ def test_save_on_default_template_routes_to_save_as(tmp_path):
     assert calls == [True]
 
 
-def test_save_as_keeps_default_blank_and_writes_gblabel(monkeypatch, tmp_path):
+def test_save_as_keeps_default_blank_and_writes_cllabel(monkeypatch, tmp_path):
     template_dir = tmp_path / "templates"
     template_dir.mkdir()
     default_path = template_dir / "default_label.json"
@@ -431,7 +431,7 @@ def test_save_as_keeps_default_blank_and_writes_gblabel(monkeypatch, tmp_path):
     monkeypatch.setattr("barcode_label_automation.label_designer_app.filedialog.asksaveasfilename", lambda **_kwargs: str(target_without_suffix))
 
     assert app.save_template_as() is True
-    assert app.template_path == target_without_suffix.with_suffix(".gblabel")
+    assert app.template_path == target_without_suffix.with_suffix(".cllabel")
     assert json.loads(app.template_path.read_text(encoding="utf-8")) == payload
     assert json.loads(default_path.read_text(encoding="utf-8"))["elements"] == []
 
@@ -717,7 +717,7 @@ def test_opening_nonempty_default_recovers_design_and_loads_blank(monkeypatch, t
 
     app.open_template_path(default_path)
 
-    recovery_files = list(template_dir.glob("복구_기본템플릿_*.gblabel"))
+    recovery_files = list(template_dir.glob("복구_기본템플릿_*.cllabel"))
     assert app.template_path == default_path.resolve()
     assert app.template["label"] == {"width_mm": 70, "height_mm": 30}
     assert app.elements == []
@@ -1270,7 +1270,7 @@ def test_designer_visible_copy_keeps_db_ui_minimal_until_connection():
     assert "프린터 설정" in source
     assert "상품 DB" in source
     assert '("새 라벨", self.new_label)' in source
-    assert '("저장", self.save_template)' in source
+    assert '("저장", self.save_template, "Ribbon.TButton")' in source
     tool_source = inspect.getsource(LabelDesignerApp._build_tool_panel)
     assert "삭제" not in tool_source
     assert "앞으로" not in tool_source
@@ -1282,9 +1282,9 @@ def test_designer_visible_copy_keeps_db_ui_minimal_until_connection():
 def test_tool_panel_rows_follow_the_dynamic_tool_list():
     source = inspect.getsource(LabelDesignerApp._build_tool_panel)
 
-    assert "for text, command, columnspan in tools" in source
-    assert "columnspan=columnspan" in source
-    assert "if columnspan == 2 or column == 1" in source
+    assert "for row, (label, command) in enumerate(tools, 1)" in source
+    assert 'column=0, sticky="ew"' in source
+    assert "parent.columnconfigure(0, weight=1)" in source
 
 
 def test_designer_style_uses_softened_desktop_surfaces():
@@ -1298,8 +1298,8 @@ def test_designer_style_uses_softened_desktop_surfaces():
         )
     )
 
-    assert "*Menu.font" in source
-    assert "Treeview.Heading" in source
+    assert "configure_suite_style(self)" in source
+    assert "Treeview.Heading" in inspect.getsource(label_designer_app.configure_suite_style)
     assert "COLORS.border_subtle" in source
     assert "GRID_COLOR" in source
     assert "ELEMENT_GUIDE_COLOR" in source
@@ -1320,7 +1320,7 @@ def test_printer_settings_command_prefers_packaged_exe(tmp_path):
 
     command = _printer_settings_command(tmp_path / "runtime", install_dir, frozen=True)
 
-    assert command == [str(settings_exe)]
+    assert command == [str(settings_exe), "--config", str(tmp_path / "runtime" / "config.ini")]
 
 
 def test_printer_settings_command_finds_customer_korean_exe_name(tmp_path):
@@ -1331,7 +1331,7 @@ def test_printer_settings_command_finds_customer_korean_exe_name(tmp_path):
 
     command = _printer_settings_command(tmp_path / "runtime", install_dir, frozen=True)
 
-    assert command == [str(settings_exe)]
+    assert command == [str(settings_exe), "--config", str(tmp_path / "runtime" / "config.ini")]
 
 
 def test_printer_settings_command_uses_settings_module_in_dev(tmp_path):
@@ -1806,15 +1806,12 @@ def test_element_editor_uses_responsive_scrollable_layout() -> None:
 def test_db_toolbar_reflows_in_narrow_window() -> None:
     source = inspect.getsource(LabelDesignerApp._build_canvas_toolbar)
     startup_source = inspect.getsource(LabelDesignerApp.__init__)
-
-    assert 'text="상품 선택"' in source
-    assert '("열기", self.open_template)' in source
-    assert "column_count = 1 if event.width < 680 else 2 if event.width < 1200 else 4" in source
-    assert "if column_count == ribbon_column_count" in source
-    assert "def layout_size_row" in source
-    assert "compact = event.width < 900" in source
-    assert "if compact == size_row_compact" in source
-    assert "size_apply_button.grid_configure(row=1" in source
+    shared = inspect.getsource(label_designer_app.build_command_bar)
+    assert '("열기", self.open_template, "Ribbon.TButton")' in source
+    assert "build_command_bar(parent, commands)" in source
+    assert "button.winfo_reqwidth()" in shared
+    assert "used + requested > width" in shared
+    assert "positions == previous" in shared
     assert "minimum_width=960" in startup_source
 
 
@@ -1866,7 +1863,7 @@ def test_left_tool_panel_is_scrollable() -> None:
     source = inspect.getsource(LabelDesignerApp._build_ui)
 
     assert "tools_canvas = tk.Canvas" in source
-    assert "width=320" in source
+    assert "width=220" in source
     assert "height=180" in source
     assert "tools_scroll = ttk.Scrollbar" in source
     assert 'widget.bind("<MouseWheel>", scroll_tools' in source
@@ -1885,8 +1882,8 @@ def test_right_workspace_is_scrollable_on_small_screens() -> None:
 def test_main_workbench_keeps_a_small_canvas_request_between_side_panels() -> None:
     source = inspect.getsource(LabelDesignerApp._build_ui)
 
-    assert "body.columnconfigure(0, minsize=330)" in source
-    assert "body.columnconfigure(2, minsize=300)" in source
+    assert "body.columnconfigure(0, minsize=220)" in source
+    assert "body.columnconfigure(2, minsize=288)" in source
     assert "if self.tools_panel_visible else 0" in source
     assert "if self.data_panel_visible else 0" in source
     assert "width=240" in source
@@ -1913,7 +1910,7 @@ def test_side_panels_release_canvas_width_when_hidden() -> None:
     app.toggle_side_panel("data")
     app.toggle_side_panel("tools")
 
-    assert column_sizes == [(0, 0), (2, 0), (0, 290)]
+    assert column_sizes == [(0, 0), (2, 0), (0, 210)]
     assert "hide tools" in grid_calls
     assert "hide data" in grid_calls
     assert "show tools" in grid_calls
@@ -1922,12 +1919,11 @@ def test_side_panels_release_canvas_width_when_hidden() -> None:
 def test_tool_buttons_keep_long_labels_full_width() -> None:
     source = inspect.getsource(LabelDesignerApp._build_tool_panel)
 
-    assert "columnspan=columnspan" in source
-    assert 'text="도안 불러오기"' in source
-    assert "command=self.add_label_image_element" in source
-    assert 'text="도안 적용"' in source
-    assert "command=self.start_apply_design_template" in source
-    assert "parent.columnconfigure(1, weight=1)" in source
+    assert 'column=0, sticky="ew"' in source
+    assert '("도안 불러오기", self.add_label_image_element' in source
+    assert '("도안 적용", self.start_apply_design_template' in source
+    assert '("인식 값 전체 확인", self.open_ocr_review_dialog' in source
+    assert "parent.columnconfigure(0, weight=1)" in source
 
 
 def test_template_actions_are_moved_to_a_separate_window() -> None:
@@ -2693,7 +2689,7 @@ def test_designer_unknown_resolution_dialog_has_three_explicit_choices():
 
 
 def test_designer_output_menu_exposes_selected_output_actions():
-    source = inspect.getsource(LabelDesignerApp._build_canvas_toolbar) + inspect.getsource(LabelDesignerApp.refresh_data_panel)
+    source = inspect.getsource(LabelDesignerApp._build_ui) + inspect.getsource(LabelDesignerApp.refresh_data_panel)
 
     assert "선택 항목 인쇄파일" in source
     assert "선택 항목 인쇄" in source
@@ -3978,9 +3974,9 @@ def _bitmap_dimensions(payload: bytes, language: str) -> tuple[int, int]:
 
 
 def test_designer_header_generates_a_file_without_sending_to_printer():
-    source = inspect.getsource(LabelDesignerApp._build_ui)
+    source = inspect.getsource(LabelDesignerApp._build_canvas_toolbar)
 
-    assert 'text="인쇄파일 생성"' in source
+    assert '("인쇄파일 생성",' in source
     assert "run_output_test(send_to_printer=False)" in source
 
 
@@ -3991,5 +3987,5 @@ def test_designer_workbench_uses_a_print_layout_canvas_with_rulers():
     assert "background=DESIGNER_BG" in source
     assert "highlightbackground=WORKBENCH_BORDER" in source
     assert "radius=LABEL_CORNER_RADIUS" in source
-    assert 'text="라벨 디자이너"' in source
+    assert 'text="라벨디자이너"' in source
     assert 'RULER_BG = "#f7fafc"' in module_source

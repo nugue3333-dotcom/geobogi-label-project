@@ -127,6 +127,8 @@ def test_settings_and_manager_actions_stay_visible_at_150_percent(
     try:
         app.wait_window = lambda _window: None  # type: ignore[method-assign]
         app.db_headers = tuple(label_manager_app.DB_HEADERS)  # type: ignore[attr-defined]
+        app.label_rows = [{"barcode": "001234"}]  # type: ignore[attr-defined]
+        app._print_target_rows = lambda selected_only: app.label_rows  # type: ignore[attr-defined]
         _settle(app)
         assert (app.winfo_width(), app.winfo_height()) == EXPECTED_CLIENT_SIZE
         label_manager_app.LabelManagerApp._configure_style(app)
@@ -215,6 +217,8 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
         assert not _widgets_with_text(app, "개체 속성")
         assert not _widgets_with_text(app, "선택 개체 편집")
         assert not _widgets_with_text(app, "정밀 편집")
+        assert not _widgets_with_text(app, "편집·이동")
+        assert _only_widget(app, "인식 값 전체 확인").winfo_ismapped()
         assert _only_widget(app, "상품 DB").winfo_ismapped()
         tools_canvas = next(
             widget for widget in _descendants(app._tools_card)
@@ -287,7 +291,7 @@ def test_recognition_review_all_button_confirms_draft_at_150_percent(
         for element in app.elements:
             element.update(review_source="ocr_estimate", review_confirmed=False)
         app.open_ocr_review_dialog()
-        dialog = _window_with_title(app, "도안 인식 값 검토")
+        dialog = _window_with_title(app, "인식 값 전체 확인")
         _settle(dialog)
         all_button = _only_widget(dialog, "전체 값 확인")
         _assert_visible_inside(dialog, all_button, _only_widget(dialog, "선택 값 수정·확인"), _only_widget(dialog, "닫기"))
@@ -315,11 +319,14 @@ def test_manager_main_workflow_actions_stay_visible_at_150_percent(
     try:
         _settle(app)
         assert (app.winfo_width(), app.winfo_height()) == EXPECTED_CLIENT_SIZE
-        for text in ("DB 파일", "설정", "출력", "열기", "연결", "점검", "인쇄"):
+        for text in ("상품 엑셀 연결", "프린터 설정", "실행 전 점검", "인쇄", "저장", "전체 선택", "선택 해제", "새 행", "선택 삭제", "삭제 실행취소", "라벨디자이너"):
             candidates = _widgets_with_text(app, text)
             assert candidates, f"메뉴를 찾을 수 없습니다: {text}"
             visible = [widget for widget in candidates if widget.winfo_ismapped()]
             assert visible, f"표시된 메뉴가 없습니다: {text}"
-            _assert_visible_inside(app, *visible)
+            toolbar_visible = [widget for widget in visible if widget in app._toolbar_buttons]
+            assert toolbar_visible, f"상단 업무 명령이 없습니다: {text}"
+            _assert_visible_inside(app, *toolbar_visible)
+            _assert_text_not_clipped(*toolbar_visible)
     finally:
         app.destroy()

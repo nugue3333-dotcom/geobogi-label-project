@@ -133,3 +133,36 @@ def test_runtime_base_dir_uses_public_documents_when_user_env_is_missing(monkeyp
 
     assert base_dir == public_dir / "Documents" / "ChaeumLAB" / "LabelPrint"
     assert (base_dir / "config.ini").exists()
+
+
+def test_upgrade_adds_new_examples_without_overwriting_customer_templates(monkeypatch, tmp_path):
+    install_dir = tmp_path / "Program Files" / "ChaeumLAB"
+    templates = install_dir / "templates"
+    templates.mkdir(parents=True)
+    (templates / "default_label.json").write_bytes(b'{"elements":[]}')
+    (templates / "sample_excel_product.cllabel").write_bytes(b"new example")
+    (templates / "sample_direct_open.cllabel").write_bytes(b"supplied example")
+    target = _expected_user_data_dir(tmp_path / "Local")
+    (target / "templates").mkdir(parents=True)
+    (target / "templates" / "sample_direct_open.cllabel").write_bytes(b"customer edited example")
+    (target / "templates" / "old.gblabel").write_bytes(b"legacy customer label")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "Program Files"))
+    result = runtime_base_dir(install_dir)
+    assert result == target
+    assert (target / "templates" / "sample_excel_product.cllabel").read_bytes() == b"new example"
+    assert (target / "templates" / "sample_direct_open.cllabel").read_bytes() == b"customer edited example"
+    assert (target / "templates" / "old.gblabel").read_bytes() == b"legacy customer label"
+
+
+def test_initial_seed_keeps_blank_default_alongside_new_example(monkeypatch, tmp_path):
+    install_dir = tmp_path / "Program Files" / "ChaeumLAB"
+    templates = install_dir / "templates"
+    templates.mkdir(parents=True)
+    (templates / "default_label.json").write_bytes(b'{"elements":[]}')
+    (templates / "sample_excel_product.cllabel").write_bytes(b"new example")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "Program Files"))
+    target = runtime_base_dir(install_dir)
+    assert (target / "templates" / "default_label.json").read_bytes() == b'{"elements":[]}'
+    assert (target / "templates" / "sample_excel_product.cllabel").read_bytes() == b"new example"

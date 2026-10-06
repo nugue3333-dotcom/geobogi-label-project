@@ -37,6 +37,13 @@ def main() -> int:
                 capture_output=True,
                 check=False,
             )
+            if brand == "sewoo":
+                message = result.stdout + result.stderr
+                if result.returncode == 0 or "printer.model is not an approved SEWOO ZPL model" not in message:
+                    print("sewoo: expected model-approval restriction was not enforced")
+                    return 1
+                print("sewoo: MODEL_APPROVAL_GATE_OK (no release-approved model)")
+                continue
             if result.returncode != 0:
                 print(result.stdout)
                 print(result.stderr)
@@ -108,7 +115,7 @@ windows_printer_name = SEWOO Label Printer
 
 [label]
 width_mm = 50
-height_mm = 30
+height_mm = 40
 dpi = 203
 gap_mm = 3
 

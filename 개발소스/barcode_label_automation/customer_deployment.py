@@ -187,10 +187,12 @@ def create_customer_deployment(
 
     try:
         stats = copy_customer_tree(source, target)
+        source_version, source_build = _source_release_metadata(source)
         write_release_manifest(
             target,
             package_name=target.name,
-            package_version=_source_release_version(source),
+            package_version=source_version,
+            build_metadata=source_build,
         )
         ok, message = validate_release_manifest(target)
         if not ok:
@@ -219,19 +221,23 @@ def _assert_child_path(parent: Path, child: Path) -> None:
         raise CustomerDeploymentError(f"배포 대상이 배포 루트 밖입니다: {child_resolved}") from exc
 
 
-def _source_release_version(source: Path) -> str | None:
+def _source_release_metadata(source: Path) -> tuple[str | None, dict[str, object] | None]:
     manifest_path = source / "release_manifest.json"
     if not manifest_path.is_file():
-        return None
+        return None, None
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError):
-        return None
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    build = payload.get("build")
+    build_metadata = build if isinstance(build, dict) else None
     version = payload.get("version") if isinstance(payload, dict) else None
     if not isinstance(version, str):
-        return None
+        return None, build_metadata
     normalized = version.strip()
-    return normalized if normalized and normalized != "unversioned" else None
+    return (normalized if normalized and normalized != "unversioned" else None), build_metadata
 
 
 def _is_forbidden_relative(relative: str) -> bool:

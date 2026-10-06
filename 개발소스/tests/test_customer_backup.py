@@ -60,6 +60,26 @@ def test_backup_is_verified_manifest_zip_published_atomically(tmp_path: Path) ->
             assert entry["sha256"] == hashlib.sha256(content).hexdigest()
 
 
+def test_backup_and_restore_preserve_new_and_legacy_documents(tmp_path: Path) -> None:
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    expected = {}
+    for suffix in (".cllabel", ".gblabel", ".clproject", ".gbproject"):
+        path = templates / ("customer" + suffix)
+        expected[path] = ("original " + suffix).encode("utf-8")
+        path.write_bytes(expected[path])
+    sample = tmp_path / "sample_direct_open.cllabel"
+    sample.write_bytes(b"new-format sample")
+    expected[sample] = b"new-format sample"
+    backup = create_customer_backup(tmp_path)
+    for path in expected:
+        path.write_bytes(b"modified")
+    restored = restore_customer_backup(tmp_path, backup)
+    assert restored.restored_files == len(expected)
+    for path, content in expected.items():
+        assert path.read_bytes() == content
+
+
 def test_backup_validation_failure_never_publishes_partial_zip(monkeypatch, tmp_path: Path) -> None:
     (tmp_path / "config.ini").write_bytes(b"printer=tsc\n")
 

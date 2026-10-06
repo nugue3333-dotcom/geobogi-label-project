@@ -79,7 +79,7 @@ def test_copy_preserves_build_evidence_and_all_other_payload_bytes(package_input
     assert result.applied
     assert snapshot(source) == current_source
     assert validate_release_manifest(output)[0]
-    new_manifest = json.loads((output / guides.MANIFEST_NAME).read_text())
+    new_manifest = json.loads((output / guides.MANIFEST_NAME).read_text(encoding="utf-8"))
     for key in ("build", "package", "package_name", "version", "generated_at", "base_folder"):
         assert new_manifest[key] == old_manifest[key]
     for relative, data in current_source.items():
@@ -111,7 +111,7 @@ def test_rejects_invalid_packages_without_publishing_or_changing_source(package_
         (source / "unrecorded.pdf").write_bytes(b"unrecorded")
     else:
         path = source / guides.MANIFEST_NAME
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(path.read_text(encoding="utf-8"))
         if damage == "bad-schema":
             manifest["schema_version"] = 999
         elif damage == "empty-required-contract":
@@ -181,7 +181,7 @@ def test_rejects_linked_guide(package_inputs: tuple[Path, Path, Path]) -> None:
     original = documents / guides.GUIDE_NAMES[1]
     linked = documents / "actual-guide.txt"
     original.rename(linked)
-    original.symlink_to(linked)
+    _create_test_symlink(original, linked)
     with pytest.raises(guides.GuidePackageError, match="링크"):
         guides.create_guide_package(source, documents, output, apply=True)
     assert not output.exists()
@@ -247,7 +247,7 @@ def test_unrecorded_runtime_folders_are_never_copied_regardless_of_case(package_
 def test_dry_run_also_rejects_invalid_update_history(package_inputs: tuple[Path, Path, Path]) -> None:
     source, documents, output = package_inputs
     path = source / guides.MANIFEST_NAME
-    manifest = json.loads(path.read_text())
+    manifest = json.loads(path.read_text(encoding="utf-8"))
     manifest["docs_updates"] = "invalid"
     path.write_text(json.dumps(manifest), encoding="utf-8")
     before = snapshot(source.parent)
@@ -264,7 +264,7 @@ def test_link_inserted_during_copy_prevents_publication(package_inputs: tuple[Pa
         config = origin / "config.ini"
         saved = source.parent / "same-config.ini"
         config.rename(saved)
-        config.symlink_to(saved)
+        _create_test_symlink(config, saved)
     monkeypatch.setattr(guides, "_copy_payload", copy_then_link)
     with pytest.raises(guides.GuidePackageError, match="링크"):
         guides.create_guide_package(source, documents, output, apply=True)
@@ -276,7 +276,7 @@ def test_link_inserted_during_copy_prevents_publication(package_inputs: tuple[Pa
 def test_rejects_windows_and_traversal_paths_before_copy(package_inputs: tuple[Path, Path, Path], invalid_path: str, location: str) -> None:
     source, documents, output = package_inputs
     path = source / guides.MANIFEST_NAME
-    manifest = json.loads(path.read_text())
+    manifest = json.loads(path.read_text(encoding="utf-8"))
     if location == "files":
         entry = dict(manifest["files"][0])
         entry["path"] = invalid_path
@@ -293,7 +293,7 @@ def test_rejects_windows_and_traversal_paths_before_copy(package_inputs: tuple[P
 def test_rejects_casefold_duplicate_manifest_paths(package_inputs: tuple[Path, Path, Path]) -> None:
     source, documents, output = package_inputs
     path = source / guides.MANIFEST_NAME
-    manifest = json.loads(path.read_text())
+    manifest = json.loads(path.read_text(encoding="utf-8"))
     entry = dict(next(e for e in manifest["files"] if e["path"] == "README_먼저읽기.txt"))
     entry["path"] = "readme_먼저읽기.txt"
     manifest["files"].append(entry)
@@ -301,3 +301,12 @@ def test_rejects_casefold_duplicate_manifest_paths(package_inputs: tuple[Path, P
     with pytest.raises(guides.GuidePackageError, match="대소문자"):
         guides.create_guide_package(source, documents, output, apply=True)
     assert not output.exists()
+
+
+def _create_test_symlink(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows symbolic-link privilege unavailable; run these two tests on CI or with Developer Mode")
+        raise

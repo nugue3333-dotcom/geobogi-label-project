@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
-import winreg
 from pathlib import Path
-
-from barcode_label_automation.file_association import STABLE_ICON_DIRECTORY, local_app_data_dir
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -65,36 +62,31 @@ def test_customer_first_run_script_has_quiet_steps() -> None:
     assert "처음 실행 점검이 완료되었습니다." in script
 
 
-def test_customer_file_association_command_uses_white_icon_without_powershell() -> None:
-    script = (PROJECT_ROOT / "고객용_실행폴더" / "register_label_filetype.cmd").read_text(encoding="utf-8")
+def test_file_association_command_delegates_to_verified_designer_cli() -> None:
+    script = (PROJECT_ROOT / "register_label_filetype.cmd").read_text(encoding="utf-8")
 
     assert "chcp 65001 >nul" in "\n".join(script.splitlines()[:3])
     assert "powershell" not in script.lower()
-    assert "chaeumlab_label_file_icon_white.ico" in script
-    assert "ChaeumLAB.LabelFile" in script
-    assert "shell\\open\\command" in script
-    assert "shell\\print\\command" in script
-    assert "LOCAL_APP_DATA=%LOCALAPPDATA%" in script
-    assert r"%LOCAL_APP_DATA%\ChaeumLAB\icons" in script
-    assert "certutil -hashfile" in script
-    assert "chaeumlab_label_file_!ICON_HASH!.ico" in script
-    assert "LEGACY_PROG_ID" in script
-    assert "ie4uinit.exe" in script
-    assert 'if not defined SYSTEM_ROOT set "SYSTEM_ROOT=C:\\Windows"' in script
-    assert '"%SYSTEM_ROOT%\\System32\\ie4uinit.exe"' in script
+    assert "--register-file-associations" in script
+    assert "--restore-file-associations" in script
+    assert 'if /I "%~1"=="rollback" goto RESTORE' in script
+    assert ".cllabel / .clproject" in script
+    assert ".gblabel / .gbproject" in script
+    assert "기존 사용자 기본 앱 선택은 유지됩니다." in script
+    assert "if errorlevel 1 goto FAILED" in script
+    assert "reg add" not in script.lower()
+    assert "reg delete" not in script.lower()
 
 
-def test_customer_file_association_command_registers_gblabel() -> None:
-    if os.name != "nt":
-        return
-
-    customer_dir = PROJECT_ROOT / "고객용_실행폴더"
-    command_path = customer_dir / "register_label_filetype.cmd"
-    designer_path = customer_dir / "라벨디자이너.exe"
+def test_file_association_command_missing_designer_fails_without_registry_changes(tmp_path) -> None:
+    # Exercise the real batch wrapper in an isolated directory. No EXE is
+    # present, so no registration entry point or Windows registry is invoked.
+    command_path = tmp_path / "register_label_filetype.cmd"
+    shutil.copy2(PROJECT_ROOT / "register_label_filetype.cmd", command_path)
 
     completed = subprocess.run(
         ["cmd.exe", "/d", "/c", "call", str(command_path), "-Quiet"],
-        cwd=customer_dir,
+        cwd=tmp_path,
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -103,31 +95,9 @@ def test_customer_file_association_command_registers_gblabel() -> None:
         check=False,
     )
 
-    assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert ".gblabel 저장파일 연결을 등록했습니다." in completed.stdout
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.gblabel") as key:
-        assert winreg.QueryValueEx(key, "")[0] == "ChaeumLAB.LabelFile"
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\ChaeumLAB.LabelFile\DefaultIcon") as key:
-        registered_icon = winreg.QueryValueEx(key, "")[0]
-    icon_path = Path(registered_icon.rsplit(",", 1)[0].strip('"'))
-    assert icon_path.parent == local_app_data_dir() / STABLE_ICON_DIRECTORY
-    assert icon_path.name.startswith("chaeumlab_label_file_")
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\ChaeumLAB.LabelFile\shell\open\command") as key:
-        assert winreg.QueryValueEx(key, "")[0] == f'"{designer_path}" "%1"'
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\ChaeumLAB.LabelFile\shell\print\command") as key:
-        assert winreg.QueryValueEx(key, "")[0] == f'"{designer_path}" --print "%1"'
-    assert icon_path.read_bytes() == (customer_dir / "assets" / "brand" / "chaeumlab_label_file_icon_white.ico").read_bytes()
-    with winreg.OpenKey(
-        winreg.HKEY_CURRENT_USER,
-        r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.gblabel\OpenWithProgids",
-    ) as key:
-        assert winreg.QueryValueEx(key, "ChaeumLAB.LabelFile")[1] == winreg.REG_NONE
-        try:
-            winreg.QueryValueEx(key, "GeobogiDream.LabelFile")
-        except FileNotFoundError:
-            pass
-        else:
-            raise AssertionError("legacy GeobogiDream.LabelFile association remains")
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert "라벨디자이너.exe 파일을 찾을 수 없습니다." in completed.stdout
+    assert "등록했습니다" not in completed.stdout
 
 
 def test_customer_start_menu_version_runs() -> None:

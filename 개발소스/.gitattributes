@@ -1,0 +1,10 @@
+*.exe binary
+*.dll binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.xlsm binary
+*.ico binary
+*.png binary
+*.traineddata binary
+고객용_실행폴더/** -text

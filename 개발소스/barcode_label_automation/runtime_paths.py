@@ -16,9 +16,11 @@ SEED_FILES = (
     "barcode_db.xlsx",
     "print_queue.xlsx",
     "labels.xlsm",
+    "sample_direct_open.cllabel",
     "sample_direct_open.gblabel",
 )
 SEED_DIRS = ("templates", "db", "assets", "tools")
+SEED_TEMPLATE_FILES = ("sample_direct_open.cllabel", "sample_excel_product.cllabel")
 
 
 def executable_dir() -> Path:
@@ -121,6 +123,12 @@ def _copy_seed_files(source_dir: Path, target_dir: Path) -> None:
         target = target_dir / dir_name
         if source.exists() and not target.exists():
             shutil.copytree(source, target)
+    for file_name in SEED_TEMPLATE_FILES:
+        source = source_dir / "templates" / file_name
+        target = target_dir / "templates" / file_name
+        if source.is_file() and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
 
 
 def _copy_config_if_missing(source: Path, target: Path) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import tkinter as tk
 from configparser import ConfigParser
@@ -23,6 +24,7 @@ from .errors import PrinterError
 from .printers.network import check_connection as check_network_connection
 from .runtime_paths import executable_dir, runtime_base_dir
 from .ui_tokens import COLORS, SPACING, TYPOGRAPHY
+from .ui_style import configure_suite_style
 from .ui_window import set_initial_window_size
 
 
@@ -417,7 +419,7 @@ class SettingsApp(tk.Tk):
         self.install_dir = executable_dir() if getattr(sys, "frozen", False) else self.base_dir
         self.printer_names = installed_printers()
         self.title(self._base_title)
-        apply_window_icon(self, base_dir=self.base_dir, install_dir=self.install_dir)
+        apply_window_icon(self, base_dir=self.base_dir, install_dir=self.install_dir, app_role="settings")
         set_initial_window_size(
             self,
             preferred_width=1280,
@@ -462,13 +464,14 @@ class SettingsApp(tk.Tk):
         self.pdf417_module_width_var = tk.StringVar()
         self.pdf417_module_height_var = tk.StringVar()
         self.status_var = tk.StringVar()
+        self.document_state_var = tk.StringVar(value="불러오는 중")
         self.validation_var = tk.StringVar()
         self.brand_logo = load_header_logo(
             self,
             base_dir=self.base_dir,
             install_dir=self.install_dir,
-            max_width=220,
-            max_height=54,
+            max_width=self._scaled(148),
+            max_height=self._scaled(40),
         )
 
         self._configure_style()
@@ -489,132 +492,47 @@ class SettingsApp(tk.Tk):
         return max(1, round(value * self._display_scale))
 
     def _configure_style(self) -> None:
-        style = ttk.Style(self)
-        style.theme_use("clam")
-        style.configure(".", font=TYPOGRAPHY.body, background=COLORS.background)
-        style.configure("TLabel", font=TYPOGRAPHY.body, foreground=COLORS.text_primary, background=COLORS.surface)
-        style.configure("Body.TFrame", background=COLORS.background)
-        style.configure("Surface.TFrame", background=COLORS.surface)
-        style.configure("Header.TFrame", background=COLORS.panel)
+        style = configure_suite_style(self)
         style.configure("Ribbon.TFrame", background=COLORS.surface)
         style.configure("Overview.TFrame", background=COLORS.surface_subtle)
-        style.configure(
-            "Brand.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground="#ffffff",
-            background=COLORS.primary,
-            padding=(9, 4),
-        )
-        style.configure(
-            "Title.TLabel",
-            font=(TYPOGRAPHY.page_title[0], 18, "bold"),
-            foreground=COLORS.text_primary,
-            background=COLORS.panel,
-        )
-        style.configure(
-            "Subtitle.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.text_secondary,
-            background=COLORS.panel,
-        )
-        style.configure("HeaderLogo.TLabel", background=COLORS.panel)
-        style.configure(
-            "SectionTitle.TLabel",
-            font=TYPOGRAPHY.section_title,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface,
-        )
-        style.configure(
-            "OverviewTitle.TLabel",
-            font=TYPOGRAPHY.section_title,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_subtle,
-        )
-        style.configure(
-            "OverviewBody.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.text_secondary,
-            background=COLORS.surface_subtle,
-        )
-        style.configure(
-            "Primary.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground="#ffffff",
-            background=COLORS.primary,
-            bordercolor=COLORS.primary,
-            padding=(12, 5),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.map("Primary.TButton", background=[("active", COLORS.primary_hover), ("pressed", COLORS.primary_hover)])
-        style.configure(
-            "Secondary.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface,
-            bordercolor=COLORS.border_strong,
-            padding=(12, 5),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.map("Secondary.TButton", background=[("active", COLORS.surface_muted)])
-        style.configure("Status.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary, background=COLORS.surface)
-        style.configure(
-            "StatusPill.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.accent,
-            background=COLORS.accent_soft,
-            padding=(8, 4),
-        )
-        style.configure(
-            "Validation.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_subtle,
-        )
-        style.configure(
-            "ValidationMuted.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.text_secondary,
-            background=COLORS.surface_subtle,
-        )
-        style.configure("TEntry", padding=(8, 5), fieldbackground=COLORS.surface, bordercolor=COLORS.border_strong)
-        style.configure(
-            "TSpinbox",
-            padding=(8, 5),
-            background=COLORS.surface,
-            fieldbackground=COLORS.surface,
-            foreground=COLORS.text_primary,
-            bordercolor=COLORS.border_strong,
-            arrowcolor=COLORS.text_secondary,
-        )
-        style.map(
-            "TSpinbox",
-            fieldbackground=[("disabled", COLORS.surface_muted)],
-            background=[("active", COLORS.surface_muted)],
-            foreground=[("disabled", COLORS.text_tertiary)],
-        )
-        style.configure(
-            "TCombobox",
-            padding=(8, 5),
-            background=COLORS.surface,
-            fieldbackground=COLORS.surface,
-            foreground=COLORS.text_primary,
-            bordercolor=COLORS.border_strong,
-            arrowcolor=COLORS.text_secondary,
-        )
-        style.map(
-            "TCombobox",
-            fieldbackground=[("readonly", COLORS.surface), ("disabled", COLORS.surface_muted)],
-            background=[("readonly", COLORS.surface), ("active", COLORS.surface_muted)],
-            foreground=[("disabled", COLORS.text_tertiary)],
-        )
-        style.configure("TRadiobutton", background=COLORS.surface, foreground=COLORS.text_primary, font=TYPOGRAPHY.body)
-        style.map("TRadiobutton", background=[("active", COLORS.surface)])
-        style.configure("TCheckbutton", background=COLORS.surface, foreground=COLORS.text_primary, font=TYPOGRAPHY.body)
-        style.map("TCheckbutton", background=[("active", COLORS.surface)])
+        style.configure("Brand.TLabel", font=TYPOGRAPHY.button_text, foreground=COLORS.surface,
+                        background=COLORS.primary, padding=(9, 4))
+        style.configure("HeaderField.TLabel", font=TYPOGRAPHY.button_text, foreground=COLORS.text_primary,
+                        background=COLORS.surface)
+        style.configure("Subtitle.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary,
+                        background=COLORS.surface)
+        style.configure("OverviewTitle.TLabel", font=TYPOGRAPHY.button_text, foreground=COLORS.primary,
+                        background=COLORS.surface_subtle)
+        for name in ("OverviewBody", "Validation", "ValidationMuted"):
+            style.configure(f"{name}.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary,
+                            background=COLORS.surface_subtle)
+        style.configure("Menu.TMenubutton", font=TYPOGRAPHY.button_text, foreground=COLORS.text_primary,
+                        background=COLORS.surface, padding=(10, 6))
 
     def _build_ui(self) -> None:
+        header = ttk.Frame(self, style="Header.TFrame", padding=(16, 8))
+        header.pack(fill="x")
+        header.columnconfigure(1, weight=1)
+        if self.brand_logo is not None:
+            ttk.Label(header, image=self.brand_logo, style="HeaderLogo.TLabel").grid(
+                row=0, column=0, rowspan=2, sticky="w", padx=(0, 18))
+        else:
+            ttk.Label(header, text="채움랩", style="Brand.TLabel").grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 18))
+        self._settings_path_label = ttk.Label(header, text=self.config_path.name, style="HeaderField.TLabel")
+        self._settings_path_label.grid(row=0, column=1, sticky="w")
+        self._settings_status_label = ttk.Label(header, textvariable=self.document_state_var,
+                                               style="Subtitle.TLabel")
+        self._settings_status_label.grid(row=1, column=1, sticky="w")
+        ttk.Label(header, text="프린터설정", style="HeaderTitle.TLabel").grid(row=0, column=2, rowspan=2, sticky="e")
+        self._build_menu_surface()
+        ribbon = ttk.Frame(self, style="Ribbon.TFrame", padding=(16, 6))
+        ribbon.pack(fill="x")
+        self._settings_ribbon = ribbon
+        self._build_buttons(ribbon, 0, save_text="설정 저장")
+        footer = ttk.Frame(self, style="StatusBar.TFrame", padding=(16, 6))
+        footer.pack(side="bottom", fill="x")
+        ttk.Label(footer, textvariable=self.status_var, style="FooterStatus.TLabel", wraplength=1100).pack(anchor="w")
+
         container = tk.Frame(self, bg=COLORS.background)
         container.pack(fill="both", expand=True)
         container.columnconfigure(0, weight=1)
@@ -624,7 +542,6 @@ class SettingsApp(tk.Tk):
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
-
         main = ttk.Frame(canvas, padding=(12, 10), style="Body.TFrame")
         main_window = canvas.create_window((0, 0), window=main, anchor="nw")
         self._settings_canvas = canvas
@@ -635,41 +552,6 @@ class SettingsApp(tk.Tk):
         canvas.bind("<Configure>", self._on_settings_canvas_configure)
         canvas.bind_all("<MouseWheel>", lambda event: canvas.yview_scroll(int(-1 * (event.delta / 120)), "units"))
         main.columnconfigure(0, weight=1)
-
-        header = ttk.Frame(main, style="Header.TFrame", padding=(16, 8))
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        header.columnconfigure(1, weight=1)
-        if self.brand_logo is not None:
-            ttk.Label(header, image=self.brand_logo, style="HeaderLogo.TLabel").grid(
-                row=0, column=0, sticky="w", padx=(0, 18)
-            )
-        else:
-            ttk.Label(header, text="채움랩", style="Brand.TLabel").grid(
-                row=0, column=0, sticky="w", padx=(0, 18)
-            )
-        ttk.Label(header, text="\ud504\ub9b0\ud130 \uc124\uc815", style="Title.TLabel").grid(row=0, column=1, sticky="w")
-        self._settings_status_label = ttk.Label(
-            header,
-            textvariable=self.status_var,
-            style="StatusPill.TLabel",
-            wraplength=240,
-        )
-        self._settings_status_label.grid(row=0, column=2, sticky="e", padx=(14, 0))
-        self._settings_path_label = ttk.Label(
-            header,
-            text=f"설정 파일  {self.config_path.name}",
-            style="Subtitle.TLabel",
-        )
-        self._settings_path_label.grid(row=0, column=3, sticky="e", padx=(14, 0))
-
-        ribbon_card = tk.Frame(main, bg=COLORS.surface, highlightbackground=COLORS.border, highlightthickness=1, bd=0)
-        ribbon_card.grid(row=1, column=0, sticky="ew", pady=(0, 8))
-        ribbon_card.columnconfigure(0, weight=1)
-        ribbon = ttk.Frame(ribbon_card, style="Ribbon.TFrame", padding=(8, 5))
-        ribbon.grid(row=0, column=0, sticky="ew")
-        self._settings_ribbon = ribbon
-        self._build_buttons(ribbon, 0, save_text="설정 저장")
-
         overview_card = tk.Frame(
             main,
             bg=COLORS.surface_subtle,
@@ -677,7 +559,7 @@ class SettingsApp(tk.Tk):
             highlightthickness=1,
             bd=0,
         )
-        overview_card.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        overview_card.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         overview_card.columnconfigure(0, weight=1)
         overview = ttk.Frame(overview_card, style="Overview.TFrame")
         overview.grid(row=0, column=0, sticky="ew")
@@ -695,7 +577,7 @@ class SettingsApp(tk.Tk):
         self._layout_settings_overview(compact=False)
 
         self._settings_workbench = ttk.Frame(main, style="Body.TFrame")
-        self._settings_workbench.grid(row=3, column=0, sticky="nsew")
+        self._settings_workbench.grid(row=1, column=0, sticky="nsew")
 
         self._settings_primary_column = ttk.Frame(self._settings_workbench, style="Body.TFrame")
         self._settings_primary_column.columnconfigure(0, weight=1)
@@ -708,6 +590,38 @@ class SettingsApp(tk.Tk):
         self._build_barcode_section(self._settings_secondary_column, 1)
 
         self._layout_settings_workbench(compact=False)
+
+    def _build_menu_surface(self) -> None:
+        bar = ttk.Frame(self, style="Toolbar.TFrame", padding=(16, 0))
+        bar.pack(fill="x")
+        definitions = (
+            ("파일", (("설정 다시 불러오기", self.load_from_file), ("설정 저장", self.save_to_file))),
+            ("도구", (("연결 확인", self.check_connection), ("프린터 목록 새로고침", self.refresh_printers),
+                     ("설정 점검", self.validate_current_settings))),
+            ("도움말", (("고객용 매뉴얼", self.open_manual),)),
+        )
+        self.suite_menus = {}
+        for name, commands in definitions:
+            button = ttk.Menubutton(bar, text=name, style="Menu.TMenubutton")
+            menu = tk.Menu(button, tearoff=0)
+            for label, command in commands:
+                menu.add_command(label=label, command=command)
+            button.configure(menu=menu)
+            button.pack(side="left", padx=(0, 4))
+            self.suite_menus[name] = menu
+
+    def open_manual(self) -> None:
+        names = ("채움랩_프린터설정_고객용_매뉴얼.pdf", "채움LAB_프린터설정_고객용_매뉴얼.pdf")
+        candidates = [root / folder / name for root in (self.base_dir, self.install_dir)
+                      for folder in (Path("고객용_매뉴얼"), Path("docs/고객용_매뉴얼"), Path(".")) for name in names]
+        path = next((candidate for candidate in candidates if candidate.is_file()), None)
+        if path is None:
+            messagebox.showwarning("고객 매뉴얼", "프린터설정 고객 매뉴얼을 찾을 수 없습니다. 고객 배포 폴더 전체를 확인하세요.", parent=self)
+            return
+        try:
+            os.startfile(path)
+        except OSError as exc:
+            messagebox.showerror("고객 매뉴얼 열기 실패", str(exc), parent=self)
 
     def _on_settings_content_configure(self, _event: tk.Event | None = None) -> None:
         bounds = self._settings_canvas.bbox("all")
@@ -745,19 +659,22 @@ class SettingsApp(tk.Tk):
 
     def _layout_settings_overview(self, *, compact: bool) -> None:
         overview = self._settings_overview
+        viewport_width = max(600, self._settings_canvas.winfo_width())
+        panel_width = (viewport_width - 24) // (1 if compact else 2)
+        summary_width = max(120, panel_width - self._settings_validation_heading.winfo_reqwidth() - 36)
+        if int(self._settings_validation_summary.cget("wraplength")) != summary_width:
+            self._settings_validation_summary.configure(wraplength=summary_width)
         for column in range(2):
             overview.columnconfigure(column, weight=0, minsize=0)
         if compact:
             overview.columnconfigure(0, weight=1)
             self._settings_flow_panel.grid(row=0, column=0, sticky="ew")
             self._settings_validation_panel.grid(row=1, column=0, sticky="ew")
-            self._settings_validation_summary.configure(wraplength=380)
             return
         overview.columnconfigure(0, weight=1, uniform="settings_overview")
         overview.columnconfigure(1, weight=1, uniform="settings_overview")
         self._settings_flow_panel.grid(row=0, column=0, sticky="nsew")
         self._settings_validation_panel.grid(row=0, column=1, sticky="nsew")
-        self._settings_validation_summary.configure(wraplength=340)
 
     def _layout_settings_workbench(self, *, compact: bool) -> None:
         workbench = self._settings_workbench
@@ -791,9 +708,10 @@ class SettingsApp(tk.Tk):
         self.brand_box.bind("<<ComboboxSelected>>", self._sync_media_handling_state)
         ttk.Label(frame, text="\uc778\uc1c4 \ubc29\uc2dd").grid(row=1, column=0, sticky="w", padx=(0, 12), pady=3)
         method_frame = ttk.Frame(frame, style="Surface.TFrame")
-        method_frame.grid(row=1, column=1, sticky="w", pady=3)
-        for label in PRINT_METHOD_VALUES:
-            ttk.Radiobutton(method_frame, text=label, value=label, variable=self.print_method_var).pack(side="left", padx=(0, 12))
+        method_frame.grid(row=1, column=1, sticky="ew", pady=3)
+        method_buttons = [ttk.Radiobutton(method_frame, text=label, value=label, variable=self.print_method_var)
+                          for label in PRINT_METHOD_VALUES]
+        self._wrap_radio_choices(method_frame, method_buttons)
         ttk.Label(frame, text="인쇄후작업").grid(row=2, column=0, sticky="w", padx=(0, 12), pady=3)
         handling_frame = ttk.Frame(frame, style="Surface.TFrame")
         handling_frame.grid(row=2, column=1, sticky="w", pady=3)
@@ -804,9 +722,10 @@ class SettingsApp(tk.Tk):
             self.media_handling_buttons[value] = button
         ttk.Label(frame, text="\uc778\uc1c4 \ubc29\ud5a5").grid(row=3, column=0, sticky="w", padx=(0, 12), pady=3)
         orientation_frame = ttk.Frame(frame, style="Surface.TFrame")
-        orientation_frame.grid(row=3, column=1, sticky="w", pady=3)
-        for label in PRINT_ORIENTATION_VALUES:
-            ttk.Radiobutton(orientation_frame, text=label, value=label, variable=self.print_orientation_var).pack(side="left", padx=(0, 12))
+        orientation_frame.grid(row=3, column=1, sticky="ew", pady=3)
+        orientation_buttons = [ttk.Radiobutton(orientation_frame, text=label, value=label, variable=self.print_orientation_var)
+                               for label in PRINT_ORIENTATION_VALUES]
+        self._wrap_radio_choices(orientation_frame, orientation_buttons)
         ttk.Label(frame, text="\ucd9c\ub825 \uac15\ub3c4").grid(row=4, column=0, sticky="w", padx=(0, 12), pady=3)
         tuning_frame = ttk.Frame(frame, style="Surface.TFrame")
         tuning_frame.grid(row=4, column=1, sticky="ew", pady=3)
@@ -829,11 +748,10 @@ class SettingsApp(tk.Tk):
         frame.columnconfigure(1, weight=1)
         ttk.Label(frame, text="\ubc29\uc2dd").grid(row=0, column=0, sticky="w", padx=(0, 12), pady=3)
         mode_frame = ttk.Frame(frame, style="Surface.TFrame")
-        mode_frame.grid(row=0, column=1, sticky="w", pady=3)
-        for label in MODE_VALUES:
-            ttk.Radiobutton(mode_frame, text=label, value=label, variable=self.mode_var, command=self._sync_connection_state).pack(
-                side="left", padx=(0, 12)
-            )
+        mode_frame.grid(row=0, column=1, sticky="ew", pady=3)
+        mode_buttons = [ttk.Radiobutton(mode_frame, text=label, value=label, variable=self.mode_var,
+                                       command=self._sync_connection_state) for label in MODE_VALUES]
+        self._wrap_radio_choices(mode_frame, mode_buttons)
 
         network_row = ttk.Frame(frame, style="Surface.TFrame")
         network_row.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(4, 2))
@@ -931,6 +849,7 @@ class SettingsApp(tk.Tk):
         frame.grid(row=row, column=0, sticky="ew")
         frame.columnconfigure(1, weight=1)
         heading = ttk.Frame(frame, style="Overview.TFrame")
+        self._settings_validation_heading = heading
         heading.grid(row=0, column=0, sticky="w", padx=(0, 8))
         ttk.Label(heading, text="저장 전 점검", style="OverviewTitle.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(heading, text="설정 점검 결과", style="OverviewBody.TLabel").grid(row=1, column=0, sticky="w")
@@ -941,6 +860,33 @@ class SettingsApp(tk.Tk):
             wraplength=340,
         )
         self._settings_validation_summary.grid(row=0, column=1, sticky="ew")
+
+    def _wrap_radio_choices(self, parent: ttk.Frame, buttons: list[ttk.Radiobutton]) -> None:
+        previous: list[tuple[int, int]] = []
+
+        def layout(event: tk.Event | None = None) -> None:
+            nonlocal previous
+            available = max(1, event.width if event is not None else parent.winfo_width())
+            positions = []
+            row = column = used = 0
+            for button in buttons:
+                requested = button.winfo_reqwidth() + 10
+                if column and used + requested > available:
+                    row += 1
+                    column = used = 0
+                positions.append((row, column))
+                used += requested
+                column += 1
+            if positions == previous:
+                return
+            previous = positions
+            for button, (row, column) in zip(buttons, positions):
+                button.grid(row=row, column=column, sticky="w", padx=(0, 10), pady=2)
+
+        parent.bind("<Configure>", layout)
+        for column, button in enumerate(buttons):
+            button.grid(row=0, column=column, sticky="w", padx=(0, 10), pady=2)
+        self.after_idle(layout)
 
     def _labeled_widget(self, parent: ttk.Frame, row: int, column: int, text: str, widget: tk.Widget) -> None:
         ttk.Label(parent, text=text).grid(row=row, column=column, sticky="w", padx=(0 if column == 0 else 8, 2), pady=(0, 2))
@@ -973,14 +919,14 @@ class SettingsApp(tk.Tk):
         card = tk.Frame(parent, bg=COLORS.surface, highlightbackground=COLORS.border, highlightthickness=1, bd=0)
         card.grid(row=row, column=0, sticky="ew", pady=(0, 8))
         card.columnconfigure(0, weight=1)
-        title_bar = tk.Frame(card, bg=COLORS.surface_muted, height=30)
+        title_bar = tk.Frame(card, bg=COLORS.primary, height=30)
         title_bar.grid(row=0, column=0, sticky="ew")
         title_bar.columnconfigure(0, weight=1)
         tk.Label(
             title_bar,
             text=title,
-            bg=COLORS.surface_muted,
-            fg=COLORS.text_primary,
+            bg=COLORS.primary,
+            fg=COLORS.surface,
             font=TYPOGRAPHY.section_title,
             anchor="w",
         ).grid(row=0, column=0, sticky="ew", padx=12, pady=4)
@@ -1099,6 +1045,20 @@ class SettingsApp(tk.Tk):
             self.barcode_auto_layout_var,
             self.barcode_x_var,
             self.barcode_y_var,
+            self.barcode_rotation_var,
+            self.one_d_height_var,
+            self.one_d_narrow_var,
+            self.one_d_wide_var,
+            self.one_d_human_readable_var,
+            self.qr_model_var,
+            self.qr_ecc_var,
+            self.qr_cell_size_var,
+            self.datamatrix_cell_size_var,
+            self.pdf417_rows_var,
+            self.pdf417_columns_var,
+            self.pdf417_security_var,
+            self.pdf417_module_width_var,
+            self.pdf417_module_height_var,
         )
 
     def _mark_settings_dirty(self, *_args: object) -> None:
@@ -1110,6 +1070,7 @@ class SettingsApp(tk.Tk):
     def _set_settings_dirty(self, dirty: bool) -> None:
         self._settings_dirty = dirty
         self.title(f"{self._base_title}{' *' if dirty else ''}")
+        self.document_state_var.set("변경사항 있음 · 저장 필요" if dirty else "저장됨")
 
     def _confirm_close(self) -> None:
         if self._settings_dirty and not messagebox.askyesno(
@@ -1230,7 +1191,11 @@ class SettingsApp(tk.Tk):
         if current not in supported:
             self.media_handling_var.set(MEDIA_HANDLING_LABELS["tear_off"])
         for value, button in self.media_handling_buttons.items():
-            button.configure(state="normal" if value in supported else "disabled")
+            if value in supported:
+                button.configure(state="normal")
+                button.pack(side="left", padx=(0, 12))
+            else:
+                button.pack_forget()
 
     def _sync_barcode_layout_state(self) -> None:
         state = "disabled" if self.barcode_auto_layout_var.get() else "normal"

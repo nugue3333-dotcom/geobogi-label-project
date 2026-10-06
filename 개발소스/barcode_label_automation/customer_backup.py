@@ -20,6 +20,7 @@ BACKUP_FILES = (
     "barcode_db.xlsx",
     "print_queue.xlsx",
     "labels.xlsm",
+    "sample_direct_open.cllabel",
     "sample_direct_open.gblabel",
 )
 BACKUP_DIRS = ("templates", "db", "assets/images")

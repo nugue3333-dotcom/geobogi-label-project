@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "label": {"width_mm": 50, "height_mm": 40},
+  "elements": [
+    {"id": "sample-product-name", "type": "text", "text": "{{item_name}}", "field": "item_name", "required": true, "x": 3, "y": 3, "width": 44, "height": 7, "font_size": 12, "font_name": "Malgun Gothic", "align": "left"},
+    {"id": "sample-product-price", "type": "text", "text": "판매가 {{판매가}}", "field": "판매가", "x": 3, "y": 12, "width": 44, "height": 5, "font_size": 10, "font_name": "Malgun Gothic", "align": "left"},
+    {"id": "sample-product-barcode", "type": "barcode", "text": "{{barcode}}", "field": "barcode", "x": 5, "y": 20, "width": 40, "height": 15, "barcode_type": "code128", "font_size": 10, "font_name": "Malgun Gothic", "align": "center"}
+  ]
+}

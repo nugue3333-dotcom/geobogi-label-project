@@ -68,5 +68,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/brand/chaeumlab_app_icon.ico',
+    icon='assets/brand/chaeumlab_designer_icon.ico',
 )

@@ -12,8 +12,9 @@ from pathlib import Path
 from uuid import uuid4
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
+from .label_file_types import LABEL_FILE_EXTENSION, PROJECT_FILE_EXTENSION, PROJECT_FILE_EXTENSIONS, is_project_file
 
-PROJECT_EXTENSION = ".gbproject"
+PROJECT_EXTENSION = PROJECT_FILE_EXTENSION
 PROJECT_VERSION = 1
 MAX_ASSET_BYTES = 25 * 1024 * 1024
 MAX_TOTAL_BYTES = 150 * 1024 * 1024
@@ -34,8 +35,8 @@ def export_portable_project(
     data_source_headers: tuple[str, ...] = (),
 ) -> None:
     """Write a self-contained design archive with an Excel reconnection hint."""
-    if target.suffix.lower() != PROJECT_EXTENSION:
-        raise ValueError(f"이동용 프로젝트는 {PROJECT_EXTENSION} 파일로 저장해야 합니다.")
+    if target.suffix.lower() not in PROJECT_FILE_EXTENSIONS:
+        raise ValueError(f"이동용 프로젝트는 {' 또는 '.join(PROJECT_FILE_EXTENSIONS)} 파일로 저장해야 합니다.")
     portable = copy.deepcopy(template)
     elements = portable.get("elements")
     if not isinstance(elements, list):
@@ -97,6 +98,8 @@ def export_portable_project(
 
 def import_portable_project(source: Path, base_dir: Path) -> tuple[Path, dict[str, object]]:
     """Validate all archive content before creating a unique imported project."""
+    if not is_project_file(source):
+        raise ValueError(f"이동용 프로젝트는 {' 또는 '.join(PROJECT_FILE_EXTENSIONS)} 파일이어야 합니다.")
     try:
         with ZipFile(source) as archive:
             entries = archive.infolist()
@@ -119,9 +122,15 @@ def import_portable_project(source: Path, base_dir: Path) -> tuple[Path, dict[st
             names = [entry.filename for entry in entries]
             if len(names) != len(set(names)) or set(names) != expected:
                 raise ValueError("프로젝트 파일 목록이 올바르지 않습니다.")
+            fonts = manifest.get("fonts", [])
+            if not isinstance(fonts, list) or any(not isinstance(font, str) for font in fonts):
+                raise ValueError("프로젝트 글꼴 목록이 올바르지 않습니다.")
             checked_assets: dict[str, bytes] = {}
             for name, digest in assets.items():
-                if not isinstance(name, str) or not name.startswith("assets/") or Path(name).name != name[7:] or not isinstance(digest, str):
+                if (not isinstance(name, str) or not name.startswith("assets/")
+                        or Path(name).name != name[7:] or not isinstance(digest, str)
+                        or any(char in name[7:] for char in '\\/:<>"|?*\x00')
+                        or name.endswith((".", " "))):
                     raise ValueError("프로젝트 이미지 경로가 올바르지 않습니다.")
                 if not name[7:].startswith(digest) or len(digest) != 64:
                     raise ValueError("프로젝트 이미지 검증 정보가 올바르지 않습니다.")
@@ -129,7 +138,14 @@ def import_portable_project(source: Path, base_dir: Path) -> tuple[Path, dict[st
                 if hashlib.sha256(data).hexdigest() != digest:
                     raise ValueError(f"프로젝트 이미지가 손상되었습니다: {Path(name).name}")
                 checked_assets[name] = data
-    except (BadZipFile, KeyError, json.JSONDecodeError) as exc:
+            for element in template["elements"]:
+                if not isinstance(element, dict):
+                    raise ValueError("라벨 개체 형식이 올바르지 않습니다.")
+                for key in IMAGE_KEYS:
+                    raw = element.get(key)
+                    if raw and (not isinstance(raw, str) or raw not in checked_assets):
+                        raise ValueError("프로젝트 이미지 참조가 누락되었습니다.")
+    except (BadZipFile, KeyError, UnicodeDecodeError, json.JSONDecodeError, RuntimeError) as exc:
         raise ValueError("프로젝트 파일을 읽거나 검증할 수 없습니다.") from exc
 
     destination_root = base_dir / "templates" / "imported"
@@ -152,11 +168,11 @@ def import_portable_project(source: Path, base_dir: Path) -> tuple[Path, dict[st
             target = folder / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-        label_path = folder / "label.gblabel"
+        label_path = folder / f"label{LABEL_FILE_EXTENSION}"
         label_path.write_bytes(_json_bytes(template))
         profile = manifest.get("data_profile")
         safe_profile = dict(profile) if isinstance(profile, dict) else {}
-        safe_profile["fonts"] = list(manifest.get("fonts", []))
+        safe_profile["fonts"] = fonts
         (folder / "project_profile.json").write_bytes(_json_bytes(safe_profile))
         return label_path, safe_profile
     except Exception:

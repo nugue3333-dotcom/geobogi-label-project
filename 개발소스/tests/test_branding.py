@@ -40,7 +40,9 @@ def test_brand_logo_assets_are_present_and_packaged() -> None:
     ):
         spec = (PROJECT_ROOT / spec_name).read_text(encoding="utf-8")
         assert "assets/brand" in spec
-        assert "icon='assets/brand/chaeumlab_app_icon.ico'" in spec
+        role = {"label_designer.spec": "designer", "label_manager.spec": "manager", "printer_settings.spec": "settings"}.get(spec_name)
+        icon_name = f"chaeumlab_{role}_icon.ico" if role else "chaeumlab_app_icon.ico"
+        assert f"icon='assets/brand/{icon_name}'" in spec
 
 
 def test_brand_icons_are_high_resolution_symbol_assets() -> None:
@@ -93,14 +95,14 @@ def test_saved_label_icon_uses_legible_document_shape_at_small_sizes() -> None:
             assert any(green > red + 25 and green > blue + 15 and alpha > 0 for red, green, blue, alpha in pixels)
 
 
-def test_saved_label_file_association_uses_white_file_icon() -> None:
-    text = (PROJECT_ROOT / "register_label_filetype.ps1").read_text(encoding="utf-8")
-
-    assert "chaeumlab_label_file_icon_white.ico" in text
-    assert 'Set-Item -Path $iconKey -Value "`"$fileIconPath`",0"' in text
-    assert 'GetEnvironmentVariable("SystemRoot", "Machine")' in text
-    assert '$iconRefresh = Join-Path $systemRoot' in text
-    assert 'Write-Verbose "Explorer icon cache refresh was skipped:' in text
+def test_saved_file_registration_delegates_to_the_single_application_adapter() -> None:
+    script = (PROJECT_ROOT / "register_label_filetype.ps1").read_text(encoding="utf-8-sig")
+    adapter = (PROJECT_ROOT / "barcode_label_automation/file_association.py").read_text(encoding="utf-8")
+    assert "--register-file-associations" in script
+    assert "--restore-file-associations" in script
+    assert "chaeumlab_label_file_icon_white.ico" in adapter
+    assert "chaeumlab_project_file_icon_white.ico" in adapter
+    assert "_notify_shell_association_changed" in adapter
 
 
 def test_window_titles_use_chaeumlab_brand() -> None:

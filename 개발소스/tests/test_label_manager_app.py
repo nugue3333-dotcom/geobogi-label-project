@@ -454,6 +454,10 @@ def test_selected_print_uses_temporary_excel_without_replacing_full_queue(monkey
     ]
     app.selected_label_indexes = {1}
     app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
+    save_label_rows(app.queue_path, app.label_rows)
+    app.db_path.write_bytes(b"customer DB unchanged")
+    queue_before = app.queue_path.read_bytes()
+    db_before = app.db_path.read_bytes()
     calls: list[list[str]] = []
     monkeypatch.setattr(
         "barcode_label_automation.label_manager_app.subprocess.run",
@@ -464,6 +468,8 @@ def test_selected_print_uses_temporary_excel_without_replacing_full_queue(monkey
 
     selected_path = _selected_print_queue_path(tmp_path)
     assert [row["barcode"] for row in load_label_rows(app.queue_path)] == ["KEEP-001", "SEL-002"]
+    assert app.queue_path.read_bytes() == queue_before
+    assert app.db_path.read_bytes() == db_before
     assert [row["barcode"] for row in load_label_rows(selected_path)] == ["SEL-002"]
     assert calls
     assert "--excel" in calls[0]
@@ -867,6 +873,10 @@ def test_print_quantity_override_uses_temporary_excel_without_replacing_full_que
     ]
     app.selected_label_indexes = set()
     app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
+    save_label_rows(app.queue_path, app.label_rows)
+    app.db_path.write_bytes(b"customer DB unchanged")
+    queue_before = app.queue_path.read_bytes()
+    db_before = app.db_path.read_bytes()
     calls: list[list[str]] = []
     monkeypatch.setattr(
         "barcode_label_automation.label_manager_app.subprocess.run",
@@ -886,6 +896,8 @@ def test_print_quantity_override_uses_temporary_excel_without_replacing_full_que
 
     selected_path = _selected_print_queue_path(tmp_path)
     assert load_label_rows(app.queue_path)[0]["print_qty"] == "1"
+    assert app.queue_path.read_bytes() == queue_before
+    assert app.db_path.read_bytes() == db_before
     assert load_label_rows(selected_path)[0]["print_qty"] == "7"
     assert calls
     assert "--yes" in calls[0]
@@ -944,18 +956,19 @@ def test_print_with_quantity_cancel_does_not_start_print(monkeypatch):
     assert app.status_var.value == "인쇄 매수 선택을 취소했습니다."
 
 
-def test_print_with_quantity_requires_explicit_output_selection(monkeypatch):
+def test_print_with_quantity_uses_all_rows_when_none_checked(monkeypatch):
     app = LabelManagerApp.__new__(LabelManagerApp)
     app.label_rows = [{"barcode": "A", "print_qty": "2"}]
     app.selected_label_indexes = set()
-    warnings: list[str] = []
-    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.showwarning", lambda _title, message: warnings.append(message))
-    app.ask_print_quantity = lambda *_args, **_kwargs: pytest.fail("no quantity popup before selection")
-    app.run_print_job = lambda *_args, **_kwargs: pytest.fail("no print without selection")
+    prompts = []
+    calls = []
+    app.ask_print_quantity = lambda default_quantity, *, selected_only: prompts.append((default_quantity, selected_only)) or 5
+    app.run_print_job = lambda action, **kwargs: calls.append((action, kwargs))
 
     app.print_with_quantity()
 
-    assert "먼저 선택하세요" in warnings[0]
+    assert prompts == [(2, False)]
+    assert calls == [("--print", {"selected_only": False, "print_quantity": 5})]
 
 
 def test_print_job_sends_without_confirmation(monkeypatch, tmp_path):
@@ -1276,7 +1289,7 @@ def test_open_manual_warns_when_file_is_missing(monkeypatch, tmp_path):
 
     app.open_manual()
 
-    assert warnings == [("상세 매뉴얼", "상세 매뉴얼 파일을 찾을 수 없습니다.")]
+    assert warnings == [("고객용 매뉴얼", "고객용 매뉴얼 파일을 찾을 수 없습니다.")]
 
 
 def test_label_manager_prefers_docx_manual_over_text_manual():
@@ -1284,9 +1297,11 @@ def test_label_manager_prefers_docx_manual_over_text_manual():
 
     source = inspect.getsource(LabelManagerApp.__init__)
 
-    docx_index = source.index('base_dir / "라벨출력패키지_고객용_매뉴얼.docx"')
+    pdf_index = source.index("채움랩_라벨출력관리_고객용_매뉴얼.pdf")
+    docx_index = source.index('base_dir / "채움랩_라벨출력패키지_고객용_매뉴얼.docx"')
+    legacy_index = source.index('base_dir / "라벨출력패키지_고객용_매뉴얼.docx"')
     text_index = source.index('base_dir / "설치_및_사용_메뉴얼.txt"')
-    assert docx_index < text_index
+    assert pdf_index < docx_index < legacy_index < text_index
 
 
 def test_rows_with_print_quantity_returns_copies_and_clamps_quantity():
@@ -1303,24 +1318,26 @@ def test_default_print_quantity_uses_first_valid_positive_value():
     assert _default_print_quantity([{"print_qty": "bad"}]) == 1
 
 
-def test_top_action_surface_is_three_menus():
+def test_top_action_surface_uses_common_suite_menus():
     import inspect
 
     source = inspect.getsource(LabelManagerApp._build_ui)
+    menu_source = inspect.getsource(LabelManagerApp._build_menu_surface)
 
-    assert 'text="DB 파일"' in source
-    assert 'text="설정"' in source
-    assert 'text="출력"' in source
-    assert "DB 연결" in source
-    assert "DB 해제" in source
+    assert "self._build_menu_surface()" in source
+    positions = [menu_source.index(f'("{name}",') for name in ("파일", "보기", "도구", "도움말")]
+    assert positions == sorted(positions)
+    assert "상품 엑셀 연결" in menu_source
+    assert "상품 DB 연결 해제" in menu_source
     assert "프린터 설정" in source
     assert "실행 전 점검" in source
-    assert "빠른 사용안내 열기" in source
-    assert "상세 매뉴얼 열기" in source
-    assert "지원 패키지 생성" in source
-    assert 'label="인쇄"' in source
-    assert 'label="전체 선택"' in source
-    assert 'label="선택 해제"' in source
+    assert "빠른 사용안내 열기" in menu_source
+    assert "고객용 매뉴얼" in menu_source
+    assert "지원 패키지 생성" in menu_source
+    assert '("인쇄", self.print_with_quantity)' in menu_source
+    assert '("전체 선택", self.select_all_labels)' in menu_source
+    assert '("선택 해제", self.clear_label_selection)' in menu_source
+    assert menu_source.index('("도구",') < menu_source.index('("라벨디자이너",') < menu_source.index('("도움말",')
     assert "출력 파일 확인" not in source
     assert "출력 폴더 열기" not in source
     assert "인쇄 데이터" in source
@@ -1349,7 +1366,7 @@ def test_start_checklist_exposes_first_run_workflow():
 def test_label_manager_uses_chaeumlab_icon_in_spec():
     spec_path = Path(__file__).resolve().parents[1] / "label_manager.spec"
 
-    assert "icon='assets/brand/chaeumlab_app_icon.ico'" in spec_path.read_text(encoding="utf-8")
+    assert "icon='assets/brand/chaeumlab_manager_icon.ico'" in spec_path.read_text(encoding="utf-8")
 
 
 def test_build_print_args_passes_excel_override_with_yes_for_explicit_print(tmp_path):
@@ -1372,11 +1389,206 @@ def test_build_print_args_dry_run_does_not_add_yes(tmp_path):
     assert "--yes" not in args
 
 
-def test_job_panel_keeps_support_package_generation_in_settings_menu():
+def test_job_panel_keeps_support_package_generation_in_help_menu():
     source = Path(__file__).resolve().parents[1].joinpath("barcode_label_automation", "label_manager_app.py").read_text(encoding="utf-8")
     panel_start = source.index("    def _build_job_panel")
     panel_end = source.index("    def _create_table", panel_start)
     panel_source = source[panel_start:panel_end]
 
-    assert "지원 패키지는 설정 메뉴에서 생성합니다." in panel_source
+    assert "지원 패키지는 도움말 메뉴에서 생성합니다." in panel_source
     assert 'text="지원 패키지 생성"' not in panel_source
+
+
+def _manager_for_delete_test():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.label_rows = [{"barcode": value, "print_qty": "1"} for value in ("A", "B", "C")]
+    app.db_rows = [dict(row) for row in app.label_rows]
+    app.label_headers = ("barcode", "print_qty")
+    app.db_headers = app.label_headers
+    app.db_path = Path("barcode_db.xlsx")
+    app.selected_label_indexes = {1}
+    app._data_dirty = False
+    app._delete_history = []
+    app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
+    app.document_name_var = SimpleNamespace(value="", set=lambda value: setattr(app.document_name_var, "value", value))
+    app.document_state_var = SimpleNamespace(value="", set=lambda value: setattr(app.document_state_var, "value", value))
+    app.labels_tree = SimpleNamespace(selection=lambda: ("0",), index=int)
+    app.db_tree = SimpleNamespace(selection=lambda: ("1",), index=int)
+    app._active_tree_and_rows = lambda: (app.labels_tree, app.label_rows)
+    app.refresh_tables = lambda: None
+    app.undo_delete_button = SimpleNamespace(states=[], state=lambda values: app.undo_delete_button.states.append(values))
+    return app
+
+
+def test_delete_confirmation_names_target_and_count_and_cancel_preserves_rows(monkeypatch):
+    app = _manager_for_delete_test()
+    app.selected_label_indexes = {0, 2}
+    messages = []
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno",
+                        lambda title, message, **kwargs: messages.append((title, message)) or False)
+
+    app.delete_selected()
+
+    assert messages[0][0] == "선택 삭제 확인"
+    assert "인쇄 데이터 2건" in messages[0][1]
+    assert "삭제 실행취소" in messages[0][1]
+    assert [row["barcode"] for row in app.label_rows] == ["A", "B", "C"]
+    assert app.selected_label_indexes == {0, 2}
+    assert app._delete_history == []
+    assert not app._data_dirty
+
+
+def test_delete_checked_print_rows_can_be_undone_without_changing_db(monkeypatch):
+    app = _manager_for_delete_test()
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno", lambda *args, **kwargs: True)
+    original_db = [dict(row) for row in app.db_rows]
+
+    app.delete_selected()
+
+    assert [row["barcode"] for row in app.label_rows] == ["A", "C"]
+    assert app.db_rows == original_db
+    assert app._data_dirty
+    assert app.undo_delete_button.states[-1] == ["!disabled"]
+    app.undo_delete()
+
+    assert [row["barcode"] for row in app.label_rows] == ["A", "B", "C"]
+    assert app.db_rows == original_db
+    assert app.selected_label_indexes == {1}
+    assert app._delete_history == []
+    assert app.undo_delete_button.states[-1] == ["disabled"]
+    assert app._data_dirty
+
+
+def test_delete_original_db_row_restores_both_tables_on_undo(monkeypatch):
+    app = _manager_for_delete_test()
+    app._active_tree_and_rows = lambda: (app.db_tree, app.db_rows)
+    app._sync_labels_from_db = lambda **kwargs: setattr(app, "label_rows", [dict(row) for row in app.db_rows])
+    messages = []
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno",
+                        lambda title, message, **kwargs: messages.append(message) or True)
+
+    app.delete_selected()
+
+    assert "원본 DB 1건" in messages[0]
+    assert [row["barcode"] for row in app.db_rows] == ["A", "C"]
+    assert app.label_rows == app.db_rows
+    app.undo_delete()
+    assert [row["barcode"] for row in app.db_rows] == ["A", "B", "C"]
+    assert app.label_rows == app.db_rows
+
+
+@pytest.mark.parametrize("changed_context", ["label_rows", "db_rows", "headers", "db_path"])
+def test_delete_undo_never_restores_stale_snapshot(monkeypatch, changed_context):
+    app = _manager_for_delete_test()
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno", lambda *args, **kwargs: True)
+    app.delete_selected()
+    if changed_context == "label_rows":
+        app.label_rows[0]["barcode"] = "EDITED"
+    elif changed_context == "db_rows":
+        app.db_rows[0]["barcode"] = "EDITED"
+    elif changed_context == "headers":
+        app.label_headers = ("barcode", "new_column")
+    else:
+        app.db_path = Path("another_db.xlsx")
+    current_rows = [dict(row) for row in app.label_rows]
+    current_db = [dict(row) for row in app.db_rows]
+
+    app.undo_delete()
+
+    assert app.label_rows == current_rows
+    assert app.db_rows == current_db
+    assert not app._delete_history
+    assert "데이터가 변경" in app.status_var.value
+
+
+def test_two_deletes_can_be_undone_in_reverse_order(monkeypatch):
+    app = _manager_for_delete_test()
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno", lambda *args, **kwargs: True)
+    app.delete_selected()
+    app.delete_selected()
+    assert [row["barcode"] for row in app.label_rows] == ["C"]
+    app.undo_delete()
+    assert [row["barcode"] for row in app.label_rows] == ["A", "C"]
+    app.undo_delete()
+    assert [row["barcode"] for row in app.label_rows] == ["A", "B", "C"]
+
+
+def test_new_data_edit_clears_delete_history_and_updates_saved_state(monkeypatch):
+    app = _manager_for_delete_test()
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno", lambda *args, **kwargs: True)
+    app.delete_selected()
+    app._set_data_dirty(True)
+    assert not app._delete_history
+    assert "저장 필요" in app.document_state_var.value
+    assert app.undo_delete_button.states[-1] == ["disabled"]
+
+
+def test_undo_shortcut_leaves_text_field_undo_to_the_field():
+    app = _manager_for_delete_test()
+    app.undo_delete = lambda: pytest.fail("a text field must keep its own undo")
+    event = SimpleNamespace(widget=SimpleNamespace(winfo_class=lambda: "TEntry"))
+    assert app._on_undo_delete_shortcut(event) is None
+
+
+def test_invalid_selection_indexes_still_use_all_rows_quantity_confirmation():
+    app = _manager_for_delete_test()
+    app.selected_label_indexes = {99}
+    prompts = []
+    calls = []
+    app.ask_print_quantity = lambda quantity, **kwargs: prompts.append(kwargs) or 1
+    app.run_print_job = lambda action, **kwargs: calls.append(kwargs)
+    app.print_with_quantity()
+    assert prompts == [{"selected_only": False}]
+    assert calls == [{"selected_only": False, "print_quantity": 1}]
+
+
+def test_manager_prices_align_right_without_changing_barcode_text_alignment():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    columns = {}
+    tree = SimpleNamespace(configure=lambda **kwargs: None, heading=lambda *args, **kwargs: None,
+                           column=lambda name, **kwargs: columns.update({name: kwargs}))
+    app._configure_table_columns(tree, ("barcode", "item_name", "판매가", "price"))
+    assert columns["barcode"]["anchor"] == "w"
+    assert columns["item_name"]["anchor"] == "w"
+    assert columns["판매가"]["anchor"] == columns["price"]["anchor"] == "e"
+
+
+def test_print_confirmation_targets_exclude_completely_empty_new_rows():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.label_headers = ("바코드", "품명", "출력 매수")
+    app.label_rows = [{"바코드": "00123", "품명": "상품", "출력 매수": "2"},
+                      {"바코드": "", "품명": "", "출력 매수": "1"}]
+    app.selected_label_indexes = set()
+    assert app._print_target_rows(False) == [app.label_rows[0]]
+    app.selected_label_indexes = {1}
+    assert app._print_target_rows(True) == []
+
+
+def test_print_confirmation_does_not_skip_nonempty_row_with_missing_barcode():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.label_headers = ("바코드", "품명")
+    app.label_rows = [{"바코드": "", "품명": "바코드가 빠진 상품"}]
+    app.selected_label_indexes = set()
+    assert app._print_target_rows(False) == app.label_rows
+
+
+@pytest.mark.parametrize("step_width,button_width,scale,expected", [(300, 90, 1.0, 198),
+                                                                  (300, 110, 1.5, 174),
+                                                                  (160, 90, 1.0, 80)])
+def test_checklist_description_wraps_inside_remaining_space(step_width, button_width, scale, expected):
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app._display_scale = scale
+    changes = []
+    description = SimpleNamespace(cget=lambda key: 180, configure=lambda **kwargs: changes.append(kwargs))
+    button = SimpleNamespace(winfo_reqwidth=lambda: button_width)
+    app._fit_checklist_description(SimpleNamespace(width=step_width), description, button)
+    assert changes == [{"wraplength": expected}]
+
+
+def test_checklist_wrap_skips_unchanged_geometry_to_avoid_resize_feedback():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app._display_scale = 1.0
+    description = SimpleNamespace(cget=lambda key: 198,
+                                  configure=lambda **kwargs: pytest.fail("same wrap width must not trigger layout"))
+    app._fit_checklist_description(SimpleNamespace(width=300), description,
+                                  SimpleNamespace(winfo_reqwidth=lambda: 90))

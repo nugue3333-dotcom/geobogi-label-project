@@ -6,9 +6,11 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+import pytest
 from openpyxl import Workbook
 
 from barcode_label_automation.customer_preflight import (
+    REQUIRED_BRAND_ASSET_FILES,
     _check_dry_run,
     _check_runtime_temp_hygiene,
     default_report_path,
@@ -94,6 +96,11 @@ output_dir = out
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("stub", encoding="utf-8")
+    for relative in REQUIRED_BRAND_ASSET_FILES:
+        path = base_dir / relative
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"brand fixture")
     write_release_manifest(base_dir, package_name="test-package")
 
 
@@ -239,6 +246,29 @@ def test_run_preflight_reports_missing_brand_logo_asset(tmp_path):
     logo = next(result for result in report.results if result.name == "브랜드 로고")
     assert not logo.ok
     assert "chaeumlab_logo_header.png" in logo.message
+
+
+@pytest.mark.parametrize("filename", [
+    "chaeumlab_designer_icon.ico",
+    "chaeumlab_manager_icon.ico",
+    "chaeumlab_settings_icon.ico",
+    "chaeumlab_project_file_icon_white.ico",
+])
+@pytest.mark.parametrize("empty", [False, True])
+def test_run_preflight_requires_role_and_project_icons(tmp_path, filename, empty):
+    _write_deploy_fixture(tmp_path)
+    icon = tmp_path / "assets" / "brand" / filename
+    if empty:
+        icon.write_bytes(b"")
+    else:
+        icon.unlink()
+
+    report = run_preflight(tmp_path, run_dry_run=False)
+
+    assert not report.ok
+    brand = next(result for result in report.results if result.name == "브랜드 로고")
+    assert not brand.ok
+    assert filename in brand.message
 
 
 def test_run_preflight_rejects_nonblank_default_template(tmp_path):

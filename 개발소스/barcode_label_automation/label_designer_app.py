@@ -29,7 +29,7 @@ from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, 
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps, ImageTk
 
 from .brand_assets import apply_window_icon, load_header_logo
-from .file_association import ensure_label_file_association
+from .file_association import ensure_label_file_association, restore_file_association
 from .config import DEFAULTS
 from .config import SUPPORTED_BARCODE_TYPES as PRINT_SUPPORTED_BARCODE_TYPES
 from .config import SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE
@@ -49,6 +49,11 @@ from .templates import mm_to_dots, print_orientation_command
 from .ui_tokens import COLORS, SPACING, TYPOGRAPHY
 from .font_assets import APP_FONT_FAMILY, bundled_font_path
 from .ui_window import set_initial_window_size
+from .ui_style import build_command_bar, build_suite_menu_bar, configure_suite_style
+from .label_file_types import (
+    LABEL_FILE_EXTENSION, LABEL_OPEN_FILE_TYPES, LABEL_SAVE_FILE_TYPES,
+    PROJECT_OPEN_FILE_TYPES, PROJECT_SAVE_FILE_TYPES, is_label_file, is_project_file,
+)
 
 
 FIELDS = ("item_code", "item_name", "barcode", "lot_no", "qty", "print_qty")
@@ -138,7 +143,7 @@ HANDLE_SIZE = 7
 MIN_ELEMENT_MM = 1.0
 DESIGNER_MAX_SCALE = 24.0
 DESIGNER_LAYOUT_PADDING = 8.0
-DESIGNER_BG = "#cbd6dc"
+DESIGNER_BG = COLORS.workspace
 WORKBENCH_BORDER = "#9baeb7"
 RULER_BG = "#f7fafc"
 RULER_OUTLINE = "#8fa7bb"
@@ -152,13 +157,9 @@ LABEL_SURFACE_COLOR = "#ffffff"
 LABEL_OUTLINE_COLOR = "#26394a"
 LABEL_CORNER_RADIUS = 3.0
 ELEMENT_GUIDE_COLOR = "#9aa9b7"
-SELECT_COLOR = COLORS.accent
+SELECT_COLOR = COLORS.primary
 DEFAULT_FONT_NAME = APP_FONT_FAMILY
-LABEL_FILE_EXTENSION = ".gblabel"
-LABEL_FILE_TYPES = [
-    ("채움랩 라벨 파일", f"*{LABEL_FILE_EXTENSION}"),
-    ("라벨 템플릿 JSON", "*.json"),
-]
+LABEL_FILE_TYPES = list(LABEL_OPEN_FILE_TYPES)
 IMAGE_FILE_TYPES = [
     ("Photoshop/사진 파일", "*.psd *.png *.jpg *.jpeg *.bmp *.gif *.tif *.tiff *.webp"),
     ("Photoshop", "*.psd"),
@@ -323,7 +324,7 @@ def ensure_blank_default_template(template_path: str | Path, config_path: str | 
         except (OSError, UnicodeError, json.JSONDecodeError):
             needs_recovery = True
         if needs_recovery:
-            recovery_path = path.with_name(f"복구_기본템플릿_{uuid4().hex[:8]}.gblabel")
+            recovery_path = path.with_name(f"복구_기본템플릿_{uuid4().hex[:8]}{LABEL_FILE_EXTENSION}")
             shutil.copy2(path, recovery_path)
 
     template = default_template_from_config(config_path)
@@ -371,8 +372,8 @@ def _printer_settings_command(
     for directory in (install_dir, base_dir):
         for exe_name in PRINTER_SETTINGS_EXE_NAMES:
             candidate = directory / exe_name
-            if candidate.exists():
-                return [str(candidate)]
+            if candidate.is_file():
+                return [str(candidate), "--config", str(base_dir / "config.ini")]
     is_frozen = getattr(sys, "frozen", False) if frozen is None else frozen
     if is_frozen:
         names = ", ".join(PRINTER_SETTINGS_EXE_NAMES)
@@ -2396,7 +2397,7 @@ class LabelDesignerApp(tk.Tk):
             messagebox.showinfo("기존 디자인 복구", self._initial_template_notice)
 
     def _apply_window_icon(self) -> None:
-        apply_window_icon(self, base_dir=self.base_dir, install_dir=self.install_dir)
+        apply_window_icon(self, base_dir=self.base_dir, install_dir=self.install_dir, app_role="designer")
 
     def _raise_initial_window(self) -> None:
         self._initial_raise_after_id = None
@@ -2426,207 +2427,17 @@ class LabelDesignerApp(tk.Tk):
                 pass
         self._initial_raise_after_id = None
         self._topmost_release_after_id = None
+        # Tk removes callback commands on destruction, but pending timers must
+        # also be cancelled so a later root cannot execute stale callbacks.
+        for callback_id in self.tk.splitlist(self.tk.call("after", "info")):
+            try:
+                self.after_cancel(callback_id)
+            except tk.TclError:
+                pass
         super().destroy()
 
     def _configure_style(self) -> None:
-        style = ttk.Style(self)
-        style.theme_use("clam")
-        self.option_add("*Menu.font", TYPOGRAPHY.body)
-        self.option_add("*Menu.background", COLORS.surface)
-        self.option_add("*Menu.foreground", COLORS.text_primary)
-        self.option_add("*Menu.activeBackground", COLORS.accent_soft)
-        self.option_add("*Menu.activeForeground", COLORS.accent)
-        self.option_add("*Menu.borderWidth", 0)
-        style.configure(".", font=TYPOGRAPHY.body, background=COLORS.background)
-        style.configure("App.TFrame", background=COLORS.background)
-        style.configure("Surface.TFrame", background=COLORS.surface)
-        style.configure("Panel.TFrame", background=COLORS.surface_muted)
-        style.configure("Toolbar.TFrame", background=COLORS.surface)
-        style.configure("Ribbon.TFrame", background=COLORS.surface)
-        style.configure("Workbench.TFrame", background=COLORS.surface_muted)
-        style.configure("SidePanel.TFrame", background=COLORS.surface)
-        style.configure("StatusBar.TFrame", background=COLORS.surface_muted)
-        style.configure("Header.TFrame", background=COLORS.panel)
-        style.configure("TLabel", font=TYPOGRAPHY.body, foreground=COLORS.text_primary, background=COLORS.surface)
-        style.configure(
-            "Brand.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground="#ffffff",
-            background=COLORS.primary,
-            padding=(9, 3),
-        )
-        style.configure("HeaderTitle.TLabel", font=TYPOGRAPHY.page_title, foreground=COLORS.text_primary, background=COLORS.panel)
-        style.configure("HeaderSub.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary, background=COLORS.panel)
-        style.configure("HeaderLogo.TLabel", background=COLORS.panel)
-        style.configure("PanelTitle.TLabel", font=TYPOGRAPHY.section_title, foreground=COLORS.text_primary, background=COLORS.surface_muted)
-        style.configure("SidePanelTitle.TLabel", font=TYPOGRAPHY.section_title, foreground=COLORS.text_primary, background=COLORS.surface)
-        style.configure("SidePanelBody.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary, background=COLORS.surface)
-        style.configure("RibbonCaption.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary, background=COLORS.surface)
-        style.configure("RibbonGroup.TFrame", background=COLORS.surface)
-        style.configure("RibbonGroupBody.TFrame", background=COLORS.surface)
-        style.configure("RibbonGroupTitle.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_tertiary, background=COLORS.surface)
-        style.configure("PropertyGroup.TFrame", background=COLORS.surface)
-        style.configure("PropertyGroupTitle.TLabel", font=TYPOGRAPHY.button_text, foreground=COLORS.text_primary, background=COLORS.surface)
-        style.configure("Status.TLabel", font=TYPOGRAPHY.caption, foreground=COLORS.text_secondary, background=COLORS.surface)
-        style.configure(
-            "FooterStatus.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.text_secondary,
-            background=COLORS.surface_muted,
-        )
-        style.configure(
-            "StatusPill.TLabel",
-            font=TYPOGRAPHY.caption,
-            foreground=COLORS.accent_hover,
-            background=COLORS.accent_soft,
-            padding=(9, 5),
-        )
-        style.configure("TSeparator", background=COLORS.border_subtle)
-        style.configure(
-            "Tool.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_subtle,
-            bordercolor=COLORS.border,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            padding=(11, 6),
-            relief="flat",
-            borderwidth=1,
-            anchor="w",
-        )
-        style.map(
-            "Tool.TButton",
-            background=[("active", COLORS.accent_soft), ("pressed", COLORS.accent_soft)],
-            foreground=[("active", COLORS.accent), ("pressed", COLORS.accent)],
-            bordercolor=[("active", COLORS.accent_soft)],
-        )
-        style.configure(
-            "Ribbon.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_subtle,
-            bordercolor=COLORS.border_strong,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            padding=(13, 9),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.map(
-            "Ribbon.TButton",
-            background=[("active", COLORS.accent_soft), ("pressed", COLORS.accent_soft)],
-            foreground=[("active", COLORS.accent), ("pressed", COLORS.accent)],
-            bordercolor=[("active", COLORS.accent), ("focus", COLORS.accent)],
-        )
-        style.configure(
-            "Primary.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground="#ffffff",
-            background=COLORS.primary,
-            bordercolor=COLORS.primary,
-            lightcolor=COLORS.primary,
-            darkcolor=COLORS.primary,
-            padding=(15, 10),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.map("Primary.TButton", background=[("active", COLORS.primary_hover), ("pressed", COLORS.primary_hover)])
-        style.configure(
-            "Secondary.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_subtle,
-            bordercolor=COLORS.border_strong,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            padding=(13, 9),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.map("Secondary.TButton", background=[("active", COLORS.surface_muted)])
-        style.configure(
-            "Danger.TButton",
-            font=TYPOGRAPHY.button_text,
-            foreground="#ffffff",
-            background=COLORS.danger,
-            bordercolor=COLORS.danger,
-            lightcolor=COLORS.danger,
-            darkcolor=COLORS.danger,
-            padding=(13, 9),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.configure(
-            "TEntry",
-            padding=(11, 7),
-            fieldbackground=COLORS.surface,
-            bordercolor=COLORS.border_strong,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-        )
-        style.map("TEntry", bordercolor=[("focus", COLORS.accent)])
-        style.configure(
-            "TCombobox",
-            padding=(11, 7),
-            fieldbackground=COLORS.surface,
-            bordercolor=COLORS.border_strong,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            arrowcolor=COLORS.text_secondary,
-        )
-        style.map("TCombobox", bordercolor=[("focus", COLORS.accent)])
-        style.configure(
-            "TSpinbox",
-            padding=(11, 7),
-            fieldbackground=COLORS.surface,
-            bordercolor=COLORS.border_strong,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            arrowcolor=COLORS.text_secondary,
-        )
-        style.map("TSpinbox", bordercolor=[("focus", COLORS.accent)])
-        style.configure(
-            "TMenubutton",
-            font=TYPOGRAPHY.button_text,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_subtle,
-            bordercolor=COLORS.border,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            padding=(13, 9),
-            relief="flat",
-            borderwidth=1,
-        )
-        style.map(
-            "TMenubutton",
-            background=[("active", COLORS.accent_soft), ("pressed", COLORS.accent_soft)],
-            foreground=[("active", COLORS.accent), ("pressed", COLORS.accent)],
-            bordercolor=[("active", COLORS.accent_soft)],
-        )
-        style.configure("TCheckbutton", background=COLORS.surface, foreground=COLORS.text_primary, font=TYPOGRAPHY.body)
-        style.map("TCheckbutton", background=[("active", COLORS.surface)])
-        style.configure(
-            "Treeview",
-            background=COLORS.surface,
-            fieldbackground=COLORS.surface,
-            foreground=COLORS.text_primary,
-            bordercolor=COLORS.border,
-            lightcolor=COLORS.surface,
-            darkcolor=COLORS.border,
-            rowheight=34,
-            font=TYPOGRAPHY.table_text,
-        )
-        style.configure(
-            "Treeview.Heading",
-            font=TYPOGRAPHY.button_text,
-            foreground=COLORS.text_primary,
-            background=COLORS.surface_muted,
-            bordercolor=COLORS.border,
-            padding=(10, 8),
-            relief="flat",
-        )
-        style.map("Treeview", background=[("selected", COLORS.graphite)], foreground=[("selected", "#ffffff")])
+        configure_suite_style(self)
 
     def _build_menu(self) -> None:
         self.config(menu="")
@@ -2653,74 +2464,42 @@ class LabelDesignerApp(tk.Tk):
         )
 
     def _build_ui(self) -> None:
-        header = ttk.Frame(self, style="Header.TFrame", padding=(SPACING.page_padding, 14))
+        header = ttk.Frame(self, style="Header.TFrame", padding=(SPACING.page_padding, 8))
         header.pack(fill="x")
-        header.columnconfigure(2, weight=1)
+        header.columnconfigure(1, weight=1)
         if self.brand_logo is not None:
-            ttk.Label(header, image=self.brand_logo, style="HeaderLogo.TLabel").grid(row=0, column=0, rowspan=2, sticky="w")
+            ttk.Label(header, image=self.brand_logo, style="HeaderLogo.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 18))
         else:
-            ttk.Label(header, text="채움랩", style="Brand.TLabel").grid(row=0, column=0, rowspan=2, sticky="w")
-        tk.Frame(header, width=1, bg=COLORS.border).grid(row=0, column=1, rowspan=2, sticky="ns", padx=(18, 18))
-        ttk.Label(header, text="라벨 디자이너", style="HeaderTitle.TLabel").grid(row=0, column=2, sticky="sw")
-        ttk.Label(header, textvariable=self.document_state_var, style="HeaderSub.TLabel").grid(
-            row=1, column=2, sticky="nw", pady=(2, 0)
+            ttk.Label(header, text="채움랩", style="HeaderTitle.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 18))
+        ttk.Label(header, textvariable=self.document_state_var, style="HeaderSub.TLabel").grid(row=0, column=1, sticky="w")
+        ttk.Label(header, text="라벨디자이너", style="HeaderTitle.TLabel").grid(row=0, column=2, sticky="e")
+        menus = (
+            ("파일", (("새 라벨", self.new_label), ("열기  Ctrl+O", self.open_template),
+                      ("최근 라벨", self.open_recent_template), ("저장  Ctrl+S", self.save_template),
+                      ("다른 이름으로 저장", self.save_template_as), (None, None),
+                      ("이동 프로젝트 내보내기", self.export_project), ("이동 프로젝트 가져오기", self.import_project),
+                      (None, None),
+                      ("현재 미리보기 인쇄파일", lambda: self.run_output_test(send_to_printer=False)),
+                      ("현재 미리보기 인쇄", lambda: self.run_output_test(send_to_printer=True)),
+                      ("선택 항목 인쇄파일", lambda: self.run_selected_output(send_to_printer=False)),
+                      ("선택 항목 인쇄", lambda: self.run_selected_output(send_to_printer=True)))),
+            ("보기", (("화면 맞춤", self.fit_zoom), ("확대", lambda: self.change_zoom(1)),
+                      ("축소", lambda: self.change_zoom(-1)), ("도구 패널 표시/숨기기", lambda: self.toggle_side_panel("tools")),
+                      ("DB 패널 표시/숨기기", lambda: self.toggle_side_panel("data")),
+                      ("반복 출력 화면", self.open_output_workspace))),
+            ("도구", (("상품 엑셀 연결", self.connect_data_source_async), ("상품 선택", self.open_data_source_window),
+                      ("연결 해제", self.disconnect_data_source), ("엑셀 새로고침", self.reload_db), (None, None),
+                      ("프린터 설정", self.open_printer_settings), ("도안 가져오기 안내", self.show_bartender_migration_help),
+                      ("빈 라벨로 초기화", self.reset_template))),
+            ("도움말", (("고객용 매뉴얼", self.open_customer_manual),)),
         )
-        header_output_button = ttk.Button(
-            header,
-            text="인쇄파일 생성",
-            command=lambda: self.run_output_test(send_to_printer=False),
-            style="Primary.TButton",
-        )
-        header_output_button.grid(row=0, column=3, rowspan=2, sticky="e", padx=(18, 0))
-        manager_button = ttk.Button(header, text="반복 출력 화면", command=self.open_output_workspace, style="Secondary.TButton")
-        manager_button.grid(
-            row=0, column=4, rowspan=2, sticky="e", padx=(8, 0)
-        )
-
-        header_compact: bool | None = None
-
-        def layout_header(event: tk.Event) -> None:
-            nonlocal header_compact
-            compact = event.width < 1000
-            if compact == header_compact:
-                return
-            header_compact = compact
-            if compact:
-                header_output_button.grid_configure(
-                    row=2,
-                    column=0,
-                    columnspan=3,
-                    rowspan=1,
-                    sticky="ew",
-                    padx=0,
-                    pady=(10, 0),
-                )
-                manager_button.grid_configure(
-                    row=2, column=3, columnspan=2, rowspan=1,
-                    sticky="ew", padx=(8, 0), pady=(10, 0),
-                )
-                return
-            header_output_button.grid_configure(
-                row=0,
-                column=3,
-                columnspan=1,
-                rowspan=2,
-                sticky="e",
-                padx=(18, 0),
-                pady=0,
-            )
-            manager_button.grid_configure(
-                row=0, column=4, columnspan=1, rowspan=2,
-                sticky="e", padx=(8, 0), pady=0,
-            )
-
-        header.bind("<Configure>", layout_header)
-
+        self.suite_menu_bar = build_suite_menu_bar(self, menus)
+        self.suite_menu_bar.pack(fill="x")
         body = ttk.Frame(self, style="App.TFrame", padding=(SPACING.page_padding, 8, SPACING.page_padding, 10))
         body.pack(fill="both", expand=True)
-        body.columnconfigure(0, minsize=330)
+        body.columnconfigure(0, minsize=220)
         body.columnconfigure(1, weight=1)
-        body.columnconfigure(2, minsize=300)
+        body.columnconfigure(2, minsize=288)
         body.rowconfigure(1, weight=1)
         self._workbench_body = body
 
@@ -2743,7 +2522,7 @@ class LabelDesignerApp(tk.Tk):
         tools_shell.rowconfigure(0, weight=1)
         tools_canvas = tk.Canvas(
             tools_shell,
-            width=320,
+            width=220,
             height=180,
             bg=COLORS.surface,
             highlightthickness=0,
@@ -2753,7 +2532,7 @@ class LabelDesignerApp(tk.Tk):
         tools_scroll = ttk.Scrollbar(tools_shell, orient="vertical", command=tools_canvas.yview)
         tools_scroll.grid(row=0, column=1, sticky="ns")
         tools_canvas.configure(yscrollcommand=tools_scroll.set)
-        tools_inner = ttk.Frame(tools_canvas, style="SidePanel.TFrame", padding=(14, 12, 14, 12))
+        tools_inner = ttk.Frame(tools_canvas, style="SidePanel.TFrame", padding=(10, 10))
         tools_window = tools_canvas.create_window((0, 0), window=tools_inner, anchor="nw")
         tools_inner.columnconfigure(0, weight=1)
         self._build_tool_panel(tools_inner)
@@ -2766,8 +2545,8 @@ class LabelDesignerApp(tk.Tk):
             if compact == workbench_compact:
                 return
             workbench_compact = compact
-            body.columnconfigure(0, minsize=(290 if compact else 330) if self.tools_panel_visible else 0)
-            body.columnconfigure(2, minsize=(280 if compact else 300) if self.data_panel_visible else 0)
+            body.columnconfigure(0, minsize=(210 if compact else 220) if self.tools_panel_visible else 0)
+            body.columnconfigure(2, minsize=(280 if compact else 288) if self.data_panel_visible else 0)
 
         body.bind("<Configure>", layout_workbench)
 
@@ -2845,7 +2624,7 @@ class LabelDesignerApp(tk.Tk):
         properties_scroll = ttk.Scrollbar(properties_shell, orient="vertical", command=properties_canvas.yview)
         properties_scroll.grid(row=0, column=1, sticky="ns")
         properties_canvas.configure(yscrollcommand=properties_scroll.set)
-        properties_inner = ttk.Frame(properties_canvas, style="SidePanel.TFrame", padding=(16, 16, 16, 16))
+        properties_inner = ttk.Frame(properties_canvas, style="SidePanel.TFrame", padding=(10, 10))
         properties_window = properties_canvas.create_window((0, 0), window=properties_inner, anchor="nw")
 
         def sync_properties_scrollregion(_event: tk.Event | None = None) -> None:
@@ -2880,204 +2659,47 @@ class LabelDesignerApp(tk.Tk):
 
     def _build_tool_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        parent.columnconfigure(1, weight=1)
-
-        ttk.Label(parent, text="개체 도구", style="SidePanelTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
-        ttk.Label(
-            parent,
-            text="라벨에 넣을 개체를 선택하세요.",
-            style="SidePanelBody.TLabel",
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 6))
-        tools = [
-            ("텍스트", lambda: self.add_element("text"), 1),
-            ("여러 줄", lambda: self.add_element("multiline_text"), 1),
-            ("1D 바코드", lambda: self.add_element("barcode"), 1),
-            ("2D 코드", lambda: self.add_barcode_element("qr"), 1),
-            ("그림", self.add_image_element, 1),
-            ("박스", lambda: self.add_element("box"), 1),
-            ("선", lambda: self.add_element("line"), 1),
-            ("표", lambda: self.add_element("table"), 1),
-        ]
-        row = 2
-        column = 0
-        for text, command, columnspan in tools:
-            button = ttk.Button(parent, text=text, command=command, style="Tool.TButton", width=0)
-            button.grid(
-                row=row,
-                column=column,
-                columnspan=columnspan,
-                sticky="ew",
-                padx=(0, 4) if columnspan == 1 and column == 0 else ((4, 0) if columnspan == 1 else 0),
-                pady=2,
-            )
-            if columnspan == 2 or column == 1:
-                row += 1
-                column = 0
-            else:
-                column = 1
-
-        ttk.Separator(parent, orient="horizontal").grid(
-            row=row,
-            column=0,
-            columnspan=2,
-            sticky="ew",
-            pady=(6, 6),
+        ttk.Label(parent, text="개체 도구", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        tools = (
+            ("텍스트", lambda: self.add_element("text")),
+            ("여러 줄", lambda: self.add_element("multiline_text")),
+            ("1D 바코드", lambda: self.add_element("barcode")),
+            ("2D 코드", lambda: self.add_barcode_element("qr")),
+            ("그림", self.add_image_element), ("박스", lambda: self.add_element("box")),
+            ("선", lambda: self.add_element("line")), ("표", lambda: self.add_element("table")),
         )
-        ttk.Label(parent, text="도안 변환", style="PropertyGroupTitle.TLabel").grid(
-            row=row + 1,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            pady=(0, 7),
-        )
-        ttk.Button(
-            parent,
-            text="도안 불러오기",
-            command=self.add_label_image_element,
-            style="Tool.TButton",
-        ).grid(row=row + 2, column=0, columnspan=2, sticky="ew", pady=2)
-        ttk.Button(
-            parent,
-            text="도안 적용",
-            command=self.start_apply_design_template,
-            style="Tool.TButton",
-        ).grid(row=row + 3, column=0, columnspan=2, sticky="ew", pady=2)
-        ttk.Button(
-            parent,
-            text="인식 값 검토",
-            command=self.open_ocr_review_dialog,
-            style="Tool.TButton",
-        ).grid(row=row + 4, column=0, columnspan=2, sticky="ew", pady=2)
-        ttk.Separator(parent, orient="horizontal").grid(row=row + 5, column=0, columnspan=2, sticky="ew", pady=(10, 8))
+        for row, (label, command) in enumerate(tools, 1):
+            ttk.Button(parent, text=label, command=command, style="Tool.TButton").grid(row=row, column=0, sticky="ew", pady=3)
+        ttk.Label(parent, text="도안 가져오기", style="SidePanelTitle.TLabel").grid(row=9, column=0, sticky="ew", pady=(16, 8))
+        for row, (label, command, style) in enumerate((
+            ("도안 불러오기", self.add_label_image_element, "Tool.TButton"),
+            ("도안 적용", self.start_apply_design_template, "Tool.TButton"),
+            ("인식 값 전체 확인", self.open_ocr_review_dialog, "Blue.TButton"),
+        ), 10):
+            ttk.Button(parent, text=label, command=command, style=style).grid(row=row, column=0, sticky="ew", pady=3)
 
     def _build_canvas_toolbar(self, parent: ttk.Frame) -> None:
-        toolbar = ttk.Frame(parent, style="Toolbar.TFrame", padding=(0, 0, 0, 6))
-        toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        toolbar.columnconfigure(0, weight=1)
-        toolbar.rowconfigure(0, weight=0)
-
-        action_row = ttk.Frame(toolbar, style="Toolbar.TFrame")
-        action_row.grid(row=0, column=0, sticky="ew")
-        self._ribbon_wrappers: list[ttk.Frame] = []
-        for column, weight in enumerate((2, 1, 1, 2)):
-            action_row.columnconfigure(column, weight=weight, uniform="toolbar_groups")
-
-        data_group = self._ribbon_group(action_row, 0, "데이터")
-        ttk.Button(data_group, text="상품 엑셀 연결", command=self.connect_data_source_async, style="Ribbon.TButton", width=0).grid(row=0, column=0, padx=(0, 6), sticky="ew")
-        self.data_source_button = ttk.Button(data_group, text="상품 선택", command=self.open_data_source_window, style="Ribbon.TButton", state="disabled", width=0)
-        self.data_source_button.grid(row=0, column=1, sticky="ew")
-        data_group.columnconfigure(0, weight=1)
-        data_group.columnconfigure(1, weight=1)
-
-        device_group = self._ribbon_group(action_row, 1, "장비")
-        ttk.Button(device_group, text="프린터 설정", command=self.open_printer_settings, style="Ribbon.TButton", width=0).grid(row=0, column=0, sticky="ew")
-
-        template_group = self._ribbon_group(action_row, 2, "파일")
-        for column, (label, action) in enumerate((
-            ("새 라벨", self.new_label), ("열기", self.open_template), ("저장", self.save_template),
-        )):
-            ttk.Button(template_group, text=label, command=action, style="Ribbon.TButton", width=0).grid(
-                row=0, column=column, padx=(0 if column == 0 else 4, 0), sticky="ew"
-            )
-        transfer_button = ttk.Menubutton(template_group, text="편집·이동", width=0)
-        transfer_menu = tk.Menu(transfer_button, tearoff=0)
-        transfer_menu.add_command(label="실행취소  Ctrl+Z", command=self.undo)
-        transfer_menu.add_command(label="다시실행  Ctrl+Y", command=self.redo)
-        transfer_menu.add_separator()
-        transfer_menu.add_command(label="이동용 프로젝트 내보내기", command=self.export_project)
-        transfer_menu.add_command(label="이동용 프로젝트 가져오기", command=self.import_project)
-        transfer_menu.add_separator()
-        transfer_menu.add_command(label="다른 프로그램 도안 가져오기 안내", command=self.show_bartender_migration_help)
-        transfer_button.configure(menu=transfer_menu)
-        transfer_button.grid(row=0, column=3, padx=(4, 0), sticky="ew")
-
-        output_group = self._ribbon_group(action_row, 3, "출력")
-        output_menu_button = ttk.Menubutton(output_group, text="출력 메뉴", width=0)
-        output_menu = tk.Menu(output_menu_button, tearoff=0)
-        output_menu.add_command(label="현재 미리보기 인쇄파일", command=lambda: self.run_output_test(send_to_printer=False))
-        output_menu.add_command(label="현재 미리보기 인쇄", command=lambda: self.run_output_test(send_to_printer=True))
-        output_menu.add_separator()
-        output_menu.add_command(label="선택 항목 인쇄파일", command=lambda: self.run_selected_output(send_to_printer=False))
-        output_menu.add_command(label="선택 항목 인쇄", command=lambda: self.run_selected_output(send_to_printer=True))
-        output_menu_button.configure(menu=output_menu)
-        output_menu_button.grid(row=0, column=0, padx=(0, 6), sticky="ew")
-        ttk.Button(output_group, textvariable=self.primary_print_text_var, command=self.run_primary_print, style="Primary.TButton", width=0).grid(row=0, column=1, sticky="ew")
-
-        ribbon_column_count: int | None = None
-
-        def layout_ribbon_groups(event: tk.Event) -> None:
-            nonlocal ribbon_column_count
-            column_count = 1 if event.width < 680 else 2 if event.width < 1200 else 4
-            if column_count == ribbon_column_count:
-                return
-            ribbon_column_count = column_count
-            wide_weights = (3, 1, 1, 2)
-            for column in range(4):
-                action_row.columnconfigure(
-                    column,
-                    weight=(wide_weights[column] if column_count == 4 else 1) if column < column_count else 0,
-                    minsize=0,
-                    uniform="" if column_count == 4 else ("toolbar_groups" if column < column_count else ""),
-                )
-            for index, wrapper in enumerate(self._ribbon_wrappers):
-                wrapper.grid_configure(
-                    row=index // column_count,
-                    column=index % column_count,
-                    padx=(0 if index % column_count == 0 else 6, 0),
-                    pady=(0, 8) if index < len(self._ribbon_wrappers) - column_count else 0,
-                )
-
-        action_row.bind("<Configure>", layout_ribbon_groups)
-
-        size_row = ttk.Frame(toolbar, style="Toolbar.TFrame")
-        size_row.grid(row=1, column=0, sticky="ew", pady=(2, 0))
-        size_row.columnconfigure(5, weight=1)
-        ttk.Label(size_row, text="라벨").grid(row=0, column=0, padx=(0, 10), sticky="w")
-        ttk.Label(size_row, text="가로(mm)").grid(row=0, column=1, sticky="e")
-        ttk.Spinbox(size_row, textvariable=self.width_var, from_=20, to=120, width=8, command=self.update_label_size).grid(row=0, column=2, padx=(5, 12), sticky="w")
-        ttk.Label(size_row, text="세로(mm)").grid(row=0, column=3, sticky="e")
-        ttk.Spinbox(size_row, textvariable=self.height_var, from_=15, to=120, width=8, command=self.update_label_size).grid(row=0, column=4, padx=(5, 12), sticky="w")
-        size_apply_button = ttk.Button(size_row, text="크기 적용", command=self.update_label_size, style="Ribbon.TButton")
-        center_button = ttk.Button(size_row, text="좌우 가운데 정렬", command=self.center_selected, style="Ribbon.TButton")
-        vertical_center_button = ttk.Button(size_row, text="상하 가운데 정렬", command=self.center_selected_vertically, style="Ribbon.TButton")
-        reset_button = ttk.Button(size_row, text="빈 라벨로 초기화", command=self.reset_template, style="Danger.TButton")
-        size_apply_button.grid(row=1, column=0, columnspan=2, padx=(0, 6), pady=(8, 0), sticky="ew")
-        center_button.grid(row=1, column=2, columnspan=2, padx=(0, 6), pady=(8, 0), sticky="ew")
-        vertical_center_button.grid(row=2, column=0, columnspan=2, padx=(0, 6), pady=(6, 0), sticky="ew")
-        reset_button.grid(row=2, column=2, columnspan=2, padx=(0, 6), pady=(6, 0), sticky="ew")
-
-        size_row_compact: bool | None = None
-
-        def layout_size_row(event: tk.Event) -> None:
-            nonlocal size_row_compact
-            compact = event.width < 900
-            if compact == size_row_compact:
-                return
-            size_row_compact = compact
-            if compact:
-                size_apply_button.grid_configure(row=1, column=0, columnspan=2, padx=(0, 6), pady=(8, 0))
-                center_button.grid_configure(row=1, column=2, columnspan=3, padx=0, pady=(8, 0))
-                vertical_center_button.grid_configure(row=2, column=0, columnspan=2, padx=(0, 6), pady=(6, 0))
-                reset_button.grid_configure(row=2, column=2, columnspan=3, padx=0, pady=(6, 0))
-                return
-            size_apply_button.grid_configure(row=1, column=0, columnspan=1, padx=(0, 6), pady=(8, 0))
-            center_button.grid_configure(row=1, column=1, columnspan=1, padx=(0, 6), pady=(8, 0))
-            vertical_center_button.grid_configure(row=1, column=2, columnspan=1, padx=(0, 6), pady=(8, 0))
-            reset_button.grid_configure(row=1, column=3, columnspan=2, padx=0, pady=(8, 0))
-
-        size_row.bind("<Configure>", layout_size_row)
-
-    def _ribbon_group(self, parent: ttk.Frame, column: int, title: str) -> ttk.Frame:
-        wrapper = ttk.Frame(parent, style="RibbonGroup.TFrame", padding=(0, 0, 10, 0))
-        wrapper.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0))
-        self._ribbon_wrappers.append(wrapper)
-        wrapper.columnconfigure(0, weight=1)
-        body = ttk.Frame(wrapper, style="RibbonGroupBody.TFrame")
-        body.grid(row=0, column=0, sticky="ew")
-        body.columnconfigure(0, weight=1)
-        body.columnconfigure(1, weight=1)
-        ttk.Label(wrapper, text=title, style="RibbonGroupTitle.TLabel").grid(row=1, column=0, sticky="w", pady=(5, 0))
-        return body
+        commands = (
+            ("새 라벨", self.new_label, "Ribbon.TButton"),
+            ("열기", self.open_template, "Ribbon.TButton"),
+            ("저장", self.save_template, "Ribbon.TButton"),
+            ("되돌리기", self.undo, "Ribbon.TButton"),
+            ("다시실행", self.redo, "Ribbon.TButton"),
+            ("좌우 가운데 정렬", self.center_selected, "Ribbon.TButton"),
+            ("상하 가운데 정렬", self.center_selected_vertically, "Ribbon.TButton"),
+            ("프린터 설정", self.open_printer_settings, "Ribbon.TButton"),
+            ("인쇄파일 생성", lambda: self.run_output_test(send_to_printer=False), "Blue.TButton"),
+            ("인쇄", self.run_primary_print, "Primary.TButton"),
+        )
+        build_command_bar(parent, commands).grid(row=0, column=0, sticky="ew")
+        size_row = ttk.Frame(parent, style="Toolbar.TFrame", padding=(0, 5, 0, 0))
+        size_row.grid(row=1, column=0, sticky="ew")
+        ttk.Label(size_row, text="라벨 크기").pack(side="left", padx=(0, 12))
+        ttk.Label(size_row, text="가로(mm)").pack(side="left")
+        ttk.Spinbox(size_row, textvariable=self.width_var, from_=20, to=120, width=5, command=self.update_label_size).pack(side="left", padx=(5, 12))
+        ttk.Label(size_row, text="세로(mm)").pack(side="left")
+        ttk.Spinbox(size_row, textvariable=self.height_var, from_=15, to=120, width=5, command=self.update_label_size).pack(side="left", padx=(5, 12))
+        ttk.Button(size_row, text="크기 적용", command=self.update_label_size, style="Ribbon.TButton").pack(side="left")
 
     def _build_data_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -3183,18 +2805,20 @@ class LabelDesignerApp(tk.Tk):
 
     def _build_property_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        ttk.Label(parent, text="상품 DB", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(parent, text="상품 DB", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="ew")
         ttk.Label(
             parent,
             text="상품 엑셀 연결 상태와 선택 개체의 열을 확인합니다.",
             style="SidePanelBody.TLabel",
+            wraplength=240,
+            justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(4, 12))
 
         connection_group = ttk.Frame(parent, style="PropertyGroup.TFrame")
         connection_group.grid(row=2, column=0, sticky="ew", pady=(0, 14))
         connection_group.columnconfigure(0, weight=1)
         connection_group.columnconfigure(1, weight=1)
-        ttk.Label(connection_group, text="상품 엑셀 상태", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        ttk.Label(connection_group, text="상품 엑셀 상태", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
         tk.Label(
             connection_group,
             textvariable=self.data_source_label_var,
@@ -3203,29 +2827,32 @@ class LabelDesignerApp(tk.Tk):
             font=TYPOGRAPHY.caption,
             justify="left",
             anchor="w",
-            wraplength=270,
+            wraplength=240,
         ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        ttk.Button(connection_group, text="상품 엑셀 연결", command=self.connect_data_source_async, style="Tool.TButton").grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        self.data_source_button = ttk.Button(connection_group, text="상품 선택", command=self.open_data_source_window, style="Blue.TButton", state="disabled")
+        self.data_source_button.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 6))
         self.disconnect_button = ttk.Button(connection_group, text="연결 해제", command=self.disconnect_data_source, style="Secondary.TButton")
-        self.disconnect_button.grid(row=2, column=0, sticky="ew", padx=(0, 4))
+        self.disconnect_button.grid(row=4, column=0, sticky="ew", padx=(0, 4))
         self.reload_button = ttk.Button(connection_group, text="엑셀 새로고침", command=self.reload_db, style="Tool.TButton")
-        self.reload_button.grid(row=2, column=1, sticky="ew", padx=(4, 0))
+        self.reload_button.grid(row=4, column=1, sticky="ew", padx=(4, 0))
 
         mapping_group = ttk.Frame(parent, style="PropertyGroup.TFrame")
         mapping_group.grid(row=3, column=0, sticky="ew", pady=(0, 14))
         mapping_group.columnconfigure(0, weight=1)
-        ttk.Label(mapping_group, text="선택 개체 DB 연결", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 6))
-        ttk.Label(mapping_group, textvariable=self.db_object_status_var, style="Status.TLabel", wraplength=270).grid(row=1, column=0, sticky="w", pady=(0, 6))
+        ttk.Label(mapping_group, text="선택 개체 DB 연결", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        ttk.Label(mapping_group, textvariable=self.db_object_status_var, style="Status.TLabel", wraplength=240).grid(row=1, column=0, sticky="w", pady=(0, 6))
         self.field_label = ttk.Label(mapping_group, text="연결할 DB 열")
         self.field_label.grid(row=2, column=0, sticky="w", pady=(5, 3))
         self.field_combo = ttk.Combobox(mapping_group, textvariable=self.field_option_var, values=["연결 안 함"], state="disabled")
         self.field_combo.grid(row=3, column=0, sticky="ew")
         self.field_combo.bind("<<ComboboxSelected>>", lambda _event: self._apply_selected_data_field())
-        ttk.Label(mapping_group, textvariable=self.db_mapping_help_var, style="Status.TLabel", wraplength=270).grid(row=4, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(mapping_group, textvariable=self.db_mapping_help_var, style="Status.TLabel", wraplength=240).grid(row=4, column=0, sticky="w", pady=(6, 0))
 
         preview_group = ttk.Frame(parent, style="PropertyGroup.TFrame")
         preview_group.grid(row=4, column=0, sticky="nsew")
         preview_group.columnconfigure(0, weight=1)
-        ttk.Label(preview_group, text="현재 행 값", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 6))
+        ttk.Label(preview_group, text="현재 행 값", style="PropertyGroupTitle.TLabel").grid(row=0, column=0, sticky="ew", pady=(0, 6))
         preview_table = ttk.Frame(preview_group, style="Surface.TFrame")
         preview_table.grid(row=1, column=0, sticky="nsew")
         preview_table.columnconfigure(0, weight=1)
@@ -3259,7 +2886,7 @@ class LabelDesignerApp(tk.Tk):
         else:
             card.grid_remove()
         compact = self._workbench_body.winfo_width() < 1160
-        minsize = (290 if compact else 330) if side == "tools" else (280 if compact else 300)
+        minsize = (210 if compact else 220) if side == "tools" else (280 if compact else 288)
         self._workbench_body.columnconfigure(column, minsize=minsize if visible else 0)
         self.update_idletasks()
         self.redraw()
@@ -4806,7 +4433,7 @@ class LabelDesignerApp(tk.Tk):
         staged: list[tuple[dict[str, object], str]] = []
         for key, raw_value in values.items():
             if key not in by_id:
-                raise ValueError("도안이 변경되었습니다. 인식 값 검토 창을 다시 열어 주세요.")
+                raise ValueError("도안이 변경되었습니다. '인식 값 전체 확인'을 다시 열어 주세요.")
             element = by_id[key]
             value = raw_value.strip()
             if not value or (element.get("review_source") == "placeholder" and value == BARCODE_FALLBACK_VALUE):
@@ -4823,11 +4450,11 @@ class LabelDesignerApp(tk.Tk):
     def open_ocr_review_dialog(self) -> None:
         candidates = self._recognition_review_candidates()
         if not candidates:
-            messagebox.showinfo("인식 값 검토", "검토할 도안 인식 값이 없습니다.", parent=self)
+            messagebox.showinfo("인식 값 전체 확인", "검토할 도안 인식 값이 없습니다.", parent=self)
             return
 
         dialog = tk.Toplevel(self)
-        dialog.title("도안 인식 값 검토")
+        dialog.title("인식 값 전체 확인")
         dialog.transient(self)
         dialog.grab_set()
         set_initial_window_size(dialog, preferred_width=1020, preferred_height=650, minimum_width=760, minimum_height=500)
@@ -4911,7 +4538,7 @@ class LabelDesignerApp(tk.Tk):
             try:
                 self.confirm_recognized_values(values)
             except ValueError as exc:
-                messagebox.showwarning("인식 값 검토", str(exc), parent=dialog)
+                messagebox.showwarning("인식 값 전체 확인", str(exc), parent=dialog)
                 return
             for key in values:
                 tree.set(key, "value", str(by_id[key]["text"]))
@@ -5948,7 +5575,9 @@ class LabelDesignerApp(tk.Tk):
         self._update_document_state()
 
     def start_with_example(self) -> None:
-        template_path = self.base_dir / "templates" / "sample_excel_product.gblabel"
+        template_path = self.base_dir / "templates" / "sample_excel_product.cllabel"
+        if not template_path.is_file():
+            template_path = template_path.with_suffix(".gblabel")
         db_path = self.base_dir / "barcode_db.xlsx"
         try:
             template = load_template_file(template_path)
@@ -6071,7 +5700,7 @@ class LabelDesignerApp(tk.Tk):
         if not isinstance(payload, dict) or not isinstance(payload.get("paths"), list):
             return []
         return [candidate for raw in payload["paths"] if isinstance(raw, str)
-                and (candidate := Path(raw)).is_file() and candidate.suffix.lower() == LABEL_FILE_EXTENSION][:8]
+                and (candidate := Path(raw)).is_file() and is_label_file(candidate, include_json=True)][:8]
 
     def _remember_template(self) -> None:
         if "base_dir" not in self.__dict__ or "template_path" not in self.__dict__:
@@ -6184,7 +5813,7 @@ class LabelDesignerApp(tk.Tk):
             parent=self,
             initialdir=self.template_dir,
             defaultextension=PROJECT_EXTENSION,
-            filetypes=[("채움랩 이동용 프로젝트", f"*{PROJECT_EXTENSION}")],
+            filetypes=list(PROJECT_SAVE_FILE_TYPES),
         )
         if not target:
             return
@@ -6211,7 +5840,7 @@ class LabelDesignerApp(tk.Tk):
         source = filedialog.askopenfilename(
             parent=self,
             initialdir=self.template_dir,
-            filetypes=[("채움랩 이동용 프로젝트", f"*{PROJECT_EXTENSION}")],
+            filetypes=list(PROJECT_OPEN_FILE_TYPES),
         )
         if not source or not self._confirm_save_changes("프로젝트를 가져오기 전에"):
             return
@@ -6236,7 +5865,7 @@ class LabelDesignerApp(tk.Tk):
             "다른 프로그램 도안 가져오기",
             ".btw/.nlbl/.lbl 같은 원본 파일의 이름만 .png로 바꿔서는 가져올 수 없습니다.\n\n"
             "원본 프로그램에서 실제 이미지로 내보내거나 인쇄 미리보기를 저장하세요. "
-            "라벨 1장만 여백 없이 저장하고 용지 크기를 동일하게 맞춘 뒤 도안 불러오기 → 도안 적용 → 인식 값 검토를 사용합니다.\n\n"
+            "라벨 1장만 여백 없이 저장하고 용지 크기를 동일하게 맞춘 뒤 도안 불러오기 → 도안 적용 → 인식 값 전체 확인을 사용합니다.\n\n"
             "글꼴·수식·DB 연결은 이미지에 남지 않아 다시 연결해야 합니다. "
             "원본 파일을 직접 읽는 연동 방식은 프로그램별 SDK와 버전 검증이 필요하며 현재 지원하지 않습니다.",
             parent=self,
@@ -6270,13 +5899,16 @@ class LabelDesignerApp(tk.Tk):
             parent=self,
             initialdir=self.template_dir,
             defaultextension=LABEL_FILE_EXTENSION,
-            filetypes=LABEL_FILE_TYPES,
+            filetypes=list(LABEL_SAVE_FILE_TYPES),
         )
         if not target:
             return False
         target_path = Path(target)
         if not target_path.suffix:
             target_path = target_path.with_suffix(LABEL_FILE_EXTENSION)
+        if not is_label_file(target_path, include_json=True):
+            messagebox.showerror("저장 형식 확인", "도안은 .cllabel, .gblabel 또는 .json 형식으로 저장하세요.", parent=self)
+            return False
         default_path = (self.template_dir / "default_label.json").resolve()
         if target_path.resolve() == default_path:
             messagebox.showerror(
@@ -6398,7 +6030,7 @@ class LabelDesignerApp(tk.Tk):
         for element_index, element in enumerate(printable_elements, start=1):
             element_type = str(element.get("type", "text"))
             if element.get("review_source") and not element.get("review_confirmed"):
-                raise ValueError(f"{element_index}번 도안 인식 값이 미확인입니다. '인식 값 검토'에서 원본과 비교해 확인하세요.")
+                raise ValueError(f"{element_index}번 도안 인식 값이 미확인입니다. '인식 값 전체 확인'에서 원본과 비교해 확인하세요.")
             x_mm = float(element.get("x", 0))
             y_mm = float(element.get("y", 0))
             width_mm = float(element.get("width", 1))
@@ -6505,6 +6137,7 @@ class LabelDesignerApp(tk.Tk):
             messagebox.showwarning("인쇄할 내용 확인", str(exc))
             return
         if send_to_printer and print_quantity is None:
+            self._quantity_target_count = len(source_rows)
             print_quantity = self.ask_print_quantity()
             if print_quantity is None:
                 self.status_var.set("인쇄 매수 선택을 취소했습니다.")
@@ -6729,7 +6362,7 @@ class LabelDesignerApp(tk.Tk):
             to=100,
             textvariable=qty_var,
             justify="center",
-            font=(APP_FONT_FAMILY, 24, "bold"),
+            font=(TYPOGRAPHY.body[0], 24, "bold"),
             width=7,
         )
         qty_entry.grid(row=1, column=1, sticky="ew", ipady=6, pady=(0, 14))
@@ -6770,7 +6403,8 @@ class LabelDesignerApp(tk.Tk):
         def refresh_summary(*_args: object) -> None:
             value = int(_float_value(qty_var.get(), initial))
             value = max(1, min(100, value))
-            summary_var.set(f"각 항목을 {value}장씩 프린터로 전송합니다.")
+            count = int(self.__dict__.get("_quantity_target_count", 1))
+            summary_var.set(f"대상 {count}건 × 각 {value}장 = 총 {count * value}장\n취소하면 명령을 전송하지 않습니다.")
 
         qty_var.trace_add("write", refresh_summary)
         refresh_summary()
@@ -6802,6 +6436,14 @@ class LabelDesignerApp(tk.Tk):
         dialog.bind("<Escape>", lambda _event: cancel())
         qty_entry.focus_set()
         qty_entry.select_range(0, "end")
+        dialog.update_idletasks()
+        set_initial_window_size(
+            dialog,
+            preferred_width=max(520, frame.winfo_reqwidth() + 4),
+            preferred_height=max(460, frame.winfo_reqheight() + 4),
+            minimum_width=440,
+            minimum_height=420,
+        )
         self.wait_window(dialog)
         return result["value"]
 
@@ -7600,6 +7242,18 @@ class LabelDesignerApp(tk.Tk):
     def open_path(self, path: Path) -> None:
         path.mkdir(parents=True, exist_ok=True)
         subprocess.Popen(["explorer.exe", str(path)])
+
+    def open_customer_manual(self) -> None:
+        relative = Path("docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf")
+        for root in (self.install_dir, self.base_dir):
+            candidate = root / relative
+            if candidate.is_file():
+                try:
+                    os.startfile(candidate)
+                except OSError as exc:
+                    messagebox.showerror("매뉴얼을 열 수 없음", f"PDF를 열 프로그램을 확인해 주세요.\n{exc}", parent=self)
+                return
+        messagebox.showerror("매뉴얼을 찾을 수 없음", "배포 폴더 전체를 복사한 뒤 다시 열어 주세요.", parent=self)
 
     def open_printer_settings(self) -> None:
         try:
@@ -8533,9 +8187,22 @@ def _run_design_analysis_cli(args: argparse.Namespace, base_dir: Path) -> int:
     return 0
 
 
+def _resolve_initial_document(source: Path | None, base_dir: Path, *, print_requested: bool = False) -> tuple[Path | None, dict[str, object] | None]:
+    if source is None or not is_project_file(source):
+        return source, None
+    if print_requested:
+        raise ValueError("이동 프로젝트는 바로 인쇄할 수 없습니다. 먼저 가져온 뒤 엑셀·글꼴·프린터를 확인하세요.")
+    label_path, profile = import_portable_project(source, base_dir)
+    return label_path, profile
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Visual label template designer.")
-    parser.add_argument("label_file", nargs="?", help="Saved .gblabel or .json label file to open")
+    parser.add_argument("label_file", nargs="?", help="Saved .cllabel/.gblabel/.json or .clproject/.gbproject file")
+    parser.add_argument("--import-project", type=Path, help="Import a portable .clproject or legacy .gbproject")
+    association_group = parser.add_mutually_exclusive_group()
+    association_group.add_argument("--register-file-associations", action="store_true", help="Register document/project icons and safe open commands without displaying the GUI")
+    association_group.add_argument("--restore-file-associations", type=Path, help="Restore this application's registration snapshot")
     parser.add_argument("--base-dir", default=None, help="Folder containing config.ini and barcode_db.xlsx")
     parser.add_argument("--print", dest="print_on_open", action="store_true", help="Open the label file and show the print flow")
     parser.add_argument("--smoke-test", action="store_true", help="Load template and data source without showing the UI")
@@ -8546,15 +8213,39 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--analysis-json", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--analysis-preview", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.register_file_associations or args.restore_file_associations:
+        if args.label_file or args.import_project or args.print_on_open:
+            parser.error("파일 연결 등록/복원은 도안 열기 또는 인쇄와 함께 실행할 수 없습니다.")
+        if args.restore_file_associations:
+            result = restore_file_association(args.restore_file_associations)
+        else:
+            result = ensure_label_file_association(executable_dir() / "라벨디자이너.exe")
+        if not result.registered:
+            print(result.error, file=sys.stderr)
+            return 1
+        print("채움랩 파일 연결 복원 완료" if args.restore_file_associations else "채움랩 도안·프로젝트 파일 연결 등록 완료")
+        if result.rollback_path:
+            print(f"복원 기록: {result.rollback_path}")
+        return 0
     if args.smoke_test and not args.base_dir:
         base_dir = executable_dir()
     else:
         base_dir = Path(args.base_dir).resolve() if args.base_dir else app_base_dir()
     label_file = Path(args.label_file).resolve() if args.label_file else None
+    if args.import_project:
+        if label_file is not None:
+            parser.error("프로젝트 파일과 라벨 파일을 동시에 지정할 수 없습니다.")
+        label_file = args.import_project.resolve()
+        if not is_project_file(label_file):
+            parser.error("프로젝트 확장자는 .clproject 또는 .gbproject여야 합니다.")
     if args.analyze_design:
         return _run_design_analysis_cli(args, base_dir)
     if args.print_on_open and label_file is None:
         parser.error("--print requires a label_file")
+    try:
+        label_file, project_profile = _resolve_initial_document(label_file, base_dir, print_requested=args.print_on_open)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     if args.smoke_test:
         if label_file is not None:
             load_template_file(label_file)
@@ -8582,6 +8273,13 @@ def main(argv: list[str] | None = None) -> int:
         app.destroy()
         return 0
     app = LabelDesignerApp(base_dir, initial_template_path=label_file, print_on_open=args.print_on_open)
+    if project_profile is not None:
+        app.status_var.set("프로젝트 가져오기 완료 · 상품 엑셀 재연결 필요")
+        source_name = str(project_profile.get("file_name", "")).strip()
+        app._initial_template_notice = "라벨과 이미지를 가져왔습니다. 상품 엑셀·글꼴·프린터를 확인한 뒤 첫 장을 출력하세요."
+        if source_name:
+            app._initial_template_notice += f"\n이전에 연결한 엑셀: {source_name}"
+        app.after(350, app._show_initial_template_notice)
     app.mainloop()
     return 0
 

@@ -19,7 +19,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from .brand_assets import HEADER_LOGO_FILE
+from .brand_assets import APP_ROLE_ICONS, HEADER_LOGO_FILE
 from .config import AppConfig, load_config
 from .data_store import load_label_rows
 from .errors import BarcodeLabelAutomationError
@@ -65,6 +65,8 @@ REQUIRED_BRAND_ASSET_FILES = (
     "assets/brand/chaeumlab_app_icon.ico",
     "assets/brand/chaeumlab_app_icon_white.ico",
     "assets/brand/chaeumlab_label_file_icon_white.ico",
+    "assets/brand/chaeumlab_project_file_icon_white.ico",
+    *(path.as_posix() for path in APP_ROLE_ICONS.values()),
 )
 FORBIDDEN_DISTRIBUTION_FILES = (
     "label_designer.exe",
@@ -490,9 +492,9 @@ def _check_brand_assets(install_dir: Path) -> CheckResult:
         return CheckResult(
             "브랜드 로고",
             False,
-            "프로그램 상단 로고 파일이 없습니다: " + ", ".join(missing_or_empty),
+            "프로그램 로고 또는 아이콘 파일이 없습니다: " + ", ".join(missing_or_empty),
         )
-    return CheckResult("브랜드 로고", True, "채움랩 로고 파일 확인")
+    return CheckResult("브랜드 로고", True, "채움랩 로고 및 프로그램·저장 파일 아이콘 확인")
 
 
 def _check_app_font(install_dir: Path) -> CheckResult:
@@ -616,7 +618,7 @@ def _check_default_template(path: Path) -> CheckResult:
     if not isinstance(elements, list):
         return CheckResult("기본 템플릿", False, "elements 배열이 없습니다.")
     if elements:
-        return CheckResult("기본 템플릿", False, "기본 템플릿 elements는 빈 배열이어야 합니다. 저장한 라벨은 .gblabel 파일로 따로 보관하세요.")
+        return CheckResult("기본 템플릿", False, "기본 템플릿 elements는 빈 배열이어야 합니다. 저장한 라벨은 .cllabel 파일로 따로 보관하세요. 기존 .gblabel 파일도 열 수 있습니다.")
     return CheckResult("기본 템플릿", True, f"개체 {len(elements)}개")
 
 

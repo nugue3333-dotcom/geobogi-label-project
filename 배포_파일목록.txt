@@ -1,0 +1,184 @@
+﻿채움랩 라벨 출력 패키지 배포 파일 목록
+패키지명: 채움랩_라벨출력_고객용_20261006_01
+버전: 2026.10.06.01
+빌드 ID: suite_20261006_01
+생성시간: 2026-10-06T10:06:16+09:00
+
+요약
+- 배포 파일 수: 165
+- 누락 필수 파일 수: 0
+- 추가 금지 파일 수: 0
+
+파일 목록
+- [OK] 00_install_trusted_location.cmd / 1035 bytes / sha256 3eecc59105210eac38098b74cccd3386dd56385b795b26f944b02705e31d008d
+- [OK] 00_고객PC_실행전점검.cmd / 628 bytes / sha256 a4f76207e754c183d9c2f555ff69f06d1a3a77ca7d9c0f6a39e93dee9cab22fe
+- [OK] 01_output_check.cmd / 259 bytes / sha256 b495cd2195531bfb9a3aa34095b1e0a91a3cc214f40e98421ce144ad63f30fce
+- [OK] 02_print_labels.cmd / 258 bytes / sha256 48a588b6bbf78d4421ebd0664dc76afb6135b808b6ff1b5a191c78f0ca6c3ace
+- [OK] 03_open_output_folder.cmd / 269 bytes / sha256 e8b862e9dc3e7aa120dcd37b6ce91d5cae3121230b28f3b79e5e0cf326541d6b
+- [OK] 04_open_last_log.cmd / 267 bytes / sha256 2233acc6e47ad2d94b2bb1f654dab88b01bf7809ccf0498ea07aa677f262945d
+- [OK] assets/brand/chaeumlab_app_icon.ico / 28304 bytes / sha256 9d24f790f9ba3189f057e6fc1b51ad25e8c46e58d758d74f3880a0deef53ea66
+- [OK] assets/brand/chaeumlab_app_icon.png / 10556 bytes / sha256 f574af0f5c63e87462fe06c46eedf4825c9e7708da6148576134c8d2b437508b
+- [OK] assets/brand/chaeumlab_app_icon_dark.png / 20480 bytes / sha256 b8005a4039c3e53693362c310fc41488a8aa96517536fe2f517212ff317fcf7a
+- [OK] assets/brand/chaeumlab_app_icon_white.ico / 28304 bytes / sha256 9d24f790f9ba3189f057e6fc1b51ad25e8c46e58d758d74f3880a0deef53ea66
+- [OK] assets/brand/chaeumlab_app_icon_white.png / 10556 bytes / sha256 f574af0f5c63e87462fe06c46eedf4825c9e7708da6148576134c8d2b437508b
+- [OK] assets/brand/chaeumlab_designer_icon.ico / 33478 bytes / sha256 0b9c60c4e256a33733b66d80cc4f1bb2b6ab327da864a2833f9df4d4c8486e9d
+- [OK] assets/brand/chaeumlab_designer_icon.png / 69693 bytes / sha256 f844bb8fb7dd5888840821a1d67d18d9e734444183e43d1e7e9eb6bfda6d1383
+- [OK] assets/brand/chaeumlab_label_file_icon_white.ico / 23497 bytes / sha256 a9c326c059fdc2b037c7ca13feee8dc66835477c36ac9999b017ef6b08c1fd55
+- [OK] assets/brand/chaeumlab_label_file_icon_white.png / 50303 bytes / sha256 3c748cca64cf816bfea155c9b67cee758ef2e0ee39a221a82a0eed834697e987
+- [OK] assets/brand/chaeumlab_logo_compact.png / 104166 bytes / sha256 736f403b8f9c2f6876495720b0a5f8d4a244a3a22cffa48e0509606e9389a0ec
+- [OK] assets/brand/chaeumlab_logo_header.png / 34073 bytes / sha256 6e50f7517cd2611774f5282d4351594db84b022d8e45b99d09a85f22daee436b
+- [OK] assets/brand/chaeumlab_logo_header_2x.png / 91269 bytes / sha256 50ac7a76e630b7ac8bce35f26acc8ef0883ec4253d8fdc865d1481bf8ce2bc4c
+- [OK] assets/brand/chaeumlab_manager_icon.ico / 34382 bytes / sha256 188a0f862a4289917d5011772cd96568bd44af1c0b83d57440ef96cdaeaf4086
+- [OK] assets/brand/chaeumlab_manager_icon.png / 69207 bytes / sha256 8f5b630af07e8c24bdb60e6ad6db5ae33cbf93e0944d44f47293f23f25079b7b
+- [OK] assets/brand/chaeumlab_mark.png / 104166 bytes / sha256 736f403b8f9c2f6876495720b0a5f8d4a244a3a22cffa48e0509606e9389a0ec
+- [OK] assets/brand/chaeumlab_project_file_icon_white.ico / 26391 bytes / sha256 85ff151e81cfe484c3ad1bfa0ff5a7b0be63d1927fc266c8445d3c5ed5bb5bdb
+- [OK] assets/brand/chaeumlab_project_file_icon_white.png / 53775 bytes / sha256 7ccbd928aede27e3a6cdd9ebf7a97a8b42e8e892eba4ea11cdb322102041f7ba
+- [OK] assets/brand/chaeumlab_settings_icon.ico / 40629 bytes / sha256 abafb1d5334f0280b922a791c52b6976cc21a30eb9295b42f395d0badb877f5f
+- [OK] assets/brand/chaeumlab_settings_icon.png / 71091 bytes / sha256 2b8063e1d0f3baf00f0c2eec6356ba4d840c262f7128422e4ad3738651df3ff7
+- [OK] assets/fonts/MONEYGRAPHY-ROUNDED.TTF / 1049748 bytes / sha256 24e07ffaabe939ac0e6d6da90207077a47de6ebeb1df2b8dfdb8deb8e6d1a93e
+- [OK] assets/fonts/README.txt / 457 bytes / sha256 e09c4c8de44dc613d0c49f7ea8dd278167706f892b81cfdbc37d4dcb983f1ad4
+- [OK] assets/label_designer.ico / 19081 bytes / sha256 7da2e1531ee8bcceb77a48dd7bd9d8c3432a8bfe1ffb1d427b7cfd71c773cfee
+- [OK] assets/label_designer_icon.png / 2594 bytes / sha256 4c5781522f3acdde7ce8534efb505da1e4433865aea7f67166590fe9a2a986f0
+- [OK] barcode_db.xlsx / 5387 bytes / sha256 3aafc63169983bd8679e4190d294151bce9db4baee95a8bb1589f55eb38fe86c / 고객 수정 허용
+- [OK] config.example.ini / 1743 bytes / sha256 ebae444e2da3a85a9722f838335687aa5c1173952f9242c38bfe56b99e43ce3a
+- [OK] config.ini / 1035 bytes / sha256 1980a5de190ad46d78ae9b6225af64b12637e95471d9fc4dfeb2ed194714aa3b / 고객 수정 허용
+- [OK] db/barcode_db.xlsx / 9045 bytes / sha256 8c188e4ee7b23ec5c9d18eb53ccccafa3607f52f0e1b8ed89fe1ec0c85359db8
+- [OK] docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf / 2000627 bytes / sha256 9efe13a73f0aba26b52479441dba77145e6fc2d7a82d1672843ba2c0bfa557bf
+- [OK] docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf / 2864365 bytes / sha256 9681155085644a7c814dcc6afc3befed05869254c2dab489ceb606cc0a4fc505
+- [OK] docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf / 1435570 bytes / sha256 2cc2e3a069e894440c659be73199dc3c9c5404957f0e188d52b5d81151e97fad
+- [OK] labels.xlsm / 40999 bytes / sha256 8321619dac2b9ba9d26df4f9c9cbf058c50ed65b052e0ce39349d526446e72d3 / 고객 수정 허용
+- [OK] print_queue.xlsx / 5375 bytes / sha256 7af1ecfb2304b345423c0c41da8bf8d805ab806136aea6d8fbd6a1ca6609befd / 고객 수정 허용
+- [OK] README.md / 7716 bytes / sha256 9f26e65a4112a380d15668b35882bc6a382d61d9e2d00e8f50ba8bee4cfa8bd6
+- [OK] README_먼저읽기.txt / 7355 bytes / sha256 a7f142c8966ee8f92d23b820b6fcfd8945a58dd1dabb89cae464a49985784f91
+- [OK] register_label_filetype.cmd / 1406 bytes / sha256 5e48bea85ea75d3ea5ca2c217ab1ed98603c49f45462b80be62f1b41633d83b6
+- [OK] register_label_filetype.ps1 / 1309 bytes / sha256 ece355951b5c6e46e0f9b04e7a4b76c316ea186ab60c9f6866c3fbce440904fe
+- [OK] run_label_job.cmd / 1300 bytes / sha256 25d00b52c3d08f37caf704a29820c0e066759dbef17565fd8a02c929940cd242
+- [OK] run_label_job.ps1 / 13251 bytes / sha256 f14776dc93a509d51e2043942c1e0a94fc490c05c323d48e474f96164df13358
+- [OK] sample_direct_open.cllabel / 805 bytes / sha256 d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc
+- [OK] sample_direct_open.gblabel / 805 bytes / sha256 d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc
+- [OK] scripts/install_chaeumlab_font.ps1 / 3056 bytes / sha256 c4c23a4b770a016b3ea519e28b296d80d6e157bbc9a6b562045bbbc653a080b4
+- [OK] scripts/install_tesseract_ocr.ps1 / 7269 bytes / sha256 c37bc0fb9e644f5f0ae5c2160b9e887c89c7831be6594b1cd31de644ed15d7c8
+- [OK] scripts/verify_korean_encoding.py / 4020 bytes / sha256 53cfbd44041ba25584cc6203d991abb50083c0ef0beb274dfd0400f6643185eb
+- [OK] templates/default_label.json / 101 bytes / sha256 c5515031d843015a604e87e392ab9df936e30c67afef7195365fb6b54f6896cb / 고객 수정 허용
+- [OK] templates/sample_direct_open.cllabel / 805 bytes / sha256 d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc
+- [OK] templates/sample_direct_open.gblabel / 805 bytes / sha256 d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc
+- [OK] templates/sample_excel_product.cllabel / 760 bytes / sha256 26058c00c4ed6478e07eb3601747e3b864d81372e0238ffb1e6ac37e89b371a2
+- [OK] templates/sample_excel_product.gblabel / 760 bytes / sha256 26058c00c4ed6478e07eb3601747e3b864d81372e0238ffb1e6ac37e89b371a2
+- [OK] tesseract.exe / 1585024 bytes / sha256 babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9
+- [OK] tools/ocr/doc/AUTHORS / 787 bytes / sha256 720862b7253993b348fe15f37ed6e0d4feb0fc8df8324284d75975d54dd29923
+- [OK] tools/ocr/doc/LICENSE / 11358 bytes / sha256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+- [OK] tools/ocr/doc/README.md / 8485 bytes / sha256 099fb244ec3e34962afc4861a6c8c42d2727c2f834f23071070c6f2d557b164c
+- [OK] tools/ocr/libarchive-13.dll / 769154 bytes / sha256 98b9b7e9259f23eab6749ee25cca2c0643f09df6b23c58229fd43bf6249195e9
+- [OK] tools/ocr/libb2-1.dll / 34372 bytes / sha256 7fb8418a1172042dab5227fcd466b1bf293737f5b5cf35359e851516227f109c
+- [OK] tools/ocr/libbrotlicommon.dll / 143397 bytes / sha256 62f363f6aac0d54ce7b115c0412b19e0fe5480f4e6fc1254f663b0ab6868e46f
+- [OK] tools/ocr/libbrotlidec.dll / 60412 bytes / sha256 7d6c0f954b6f2db1c1c5fd5904886ae055859a02ca31b6dde5f96f6b0259d23f
+- [OK] tools/ocr/libbz2-1.dll / 100964 bytes / sha256 b79cd3a7102e359ef6324e98966a67939e58ec2b651ae2847cae84a4dfa453f7
+- [OK] tools/ocr/libcairo-2.dll / 1213715 bytes / sha256 c531e50be733f641e39419bf62cb799698b20086afb958d73f56677ea0c3f9da
+- [OK] tools/ocr/libcrypto-3-x64.dll / 5130880 bytes / sha256 c0674a225d30f1642ca1da45ac040a9c1885d8f23883532b42987bae458edc4d
+- [OK] tools/ocr/libdatrie-1.dll / 34386 bytes / sha256 f760aef8a31b7c3670484ca4eabab1ab8e95c14052167e191463f6371c3f0850
+- [OK] tools/ocr/libdeflate.dll / 91035 bytes / sha256 b6ee7b31a23605d8e8b9be5eae782a3ddf7adf2b7ca2c8e0041bdfd4fe4659ee
+- [OK] tools/ocr/libexpat-1.dll / 188909 bytes / sha256 d9ea333175b1e995bbe6a062567f38ff362f1b2f369fa8ebdb0eeed21813bdc6
+- [OK] tools/ocr/libffi-8.dll / 33708 bytes / sha256 f1ed51652b3746c1b4bce497b7041e677e5d80c5ab8198efebb8fc6f75329ae8
+- [OK] tools/ocr/libfontconfig-1.dll / 350185 bytes / sha256 d6c70b7e205f24ff96b29a80849b59c84f8701b311434f64f2bf93bd36bdb163
+- [OK] tools/ocr/libfreetype-6.dll / 776690 bytes / sha256 5297f754dfca04abdb0d21705d5afc3c4122aa25c7afbdd87900313cb780c868
+- [OK] tools/ocr/libfribidi-0.dll / 144627 bytes / sha256 449085380e54089871ccc9f32b715f65a2e53eb9f5125793fed900461d29a420
+- [OK] tools/ocr/libgcc_s_seh-1.dll / 150707 bytes / sha256 b22b954397a52703579d92db64b57812af70f2afcafe2e742a009c1640b9ec1a
+- [OK] tools/ocr/libgif-7.dll / 41367 bytes / sha256 a1a179853ae6fad8eb045b8e9f12c55e6fc99929446b02fa345512354cf5e582
+- [OK] tools/ocr/libgio-2.0-0.dll / 1814226 bytes / sha256 07bda2471ca0490598d1e6fbdfc8958cd91926d68effc90d9eda0ea2f9279c7c
+- [OK] tools/ocr/libglib-2.0-0.dll / 1456928 bytes / sha256 12b2f4d609a5d3cf714a8c502074409d32f21082a682373f4e1bca36821f08bc
+- [OK] tools/ocr/libgmodule-2.0-0.dll / 26783 bytes / sha256 8cf9bb9be24c88a66ad478214a55357a9d44702636789dfa436ca509457d781c
+- [OK] tools/ocr/libgobject-2.0-0.dll / 359001 bytes / sha256 4fcf4fb2d5ef234e717b389f3b637f05ee6ff111b698ef59664394f10622aef6
+- [OK] tools/ocr/libgraphite2.dll / 152538 bytes / sha256 f927efecd958f0e54a24ae297f86cd6aed05e7fc20e5da0882050ab9ec464395
+- [OK] tools/ocr/libharfbuzz-0.dll / 1329363 bytes / sha256 c1fa05f089041e348c9fcf18ae115942c989ac5259069d0ae83aa63e9a7c66ea
+- [OK] tools/ocr/libiconv-2.dll / 1118202 bytes / sha256 967189adfbc889fde89aafc867f7a1f02731f8592cf6fd5a4ace1929213e2e13
+- [OK] tools/ocr/libicudt75.dll / 30743046 bytes / sha256 6a60829e1c13fd73043af6f475f85971a42eb5553e88c92f26b8802bde92c2f4
+- [OK] tools/ocr/libicuin75.dll / 3381215 bytes / sha256 9fad2353a168134305e67a62fedff21cd43293055b7f4b9c39ff30cc78f30be0
+- [OK] tools/ocr/libicuuc75.dll / 1932464 bytes / sha256 60e6f91536efd0a8e408b060edb76a2148a7a397399b76ee39e4ed61de0774b0
+- [OK] tools/ocr/libintl-8.dll / 188681 bytes / sha256 42a63cb4c3c28a683d9f6c3510de5ec17849eb18c097fa02cd78aeb800bff202
+- [OK] tools/ocr/libjbig-0.dll / 62083 bytes / sha256 275a827ba6839d47cfdbe059db1b1b403a92ff26e2b76a29362915487868bef2
+- [OK] tools/ocr/libjpeg-8.dll / 912746 bytes / sha256 e44514c4e7753635e79bdb668f1e10315c1a93287f8d044ae74594ed57de619d
+- [OK] tools/ocr/libleptonica-6.dll / 2721006 bytes / sha256 26861baff4d25446a03ed1f6064d2eae7435eddf51bb36af4e634c0eb4eb3af0
+- [OK] tools/ocr/libLerc.dll / 761261 bytes / sha256 4ab688c7c5c4afdfee0f519f942759137067a7876a1c1bb825ee575b0a5760b1
+- [OK] tools/ocr/liblz4.dll / 147105 bytes / sha256 1b64d6429ae4aacf9eb35b8158d98556859a5c5e8ee817e155da343e194dd8e3
+- [OK] tools/ocr/liblzma-5.dll / 184667 bytes / sha256 3a599d97ea4dd002166ee7ffdc527c129d2cf8b05e9152ca7cae006c4187977e
+- [OK] tools/ocr/libopenjp2-7.dll / 462194 bytes / sha256 5ff762ff6d672a06ee502819daf1494aa3aa3acf408805f0429303e026705011
+- [OK] tools/ocr/libpango-1.0-0.dll / 401912 bytes / sha256 834caf40403a447634b0e80ff4ea290f1ee361364cf24ffc8bb55b048f9254a9
+- [OK] tools/ocr/libpangocairo-1.0-0.dll / 74540 bytes / sha256 ee706c4561af24de6cbe7ad10b46852fc8b0f328534ea2beb5f1147696e87b55
+- [OK] tools/ocr/libpangoft2-1.0-0.dll / 102261 bytes / sha256 7c80bc1949255a8bc62fe05ab003b777aa844ac8f6c5da1ebc4c49ee35f3b9b8
+- [OK] tools/ocr/libpangowin32-1.0-0.dll / 114044 bytes / sha256 d940a831f2a9be33dd36ff3d8b97488a068b1699fb6b2e874633d4d5564f301c
+- [OK] tools/ocr/libpcre2-8-0.dll / 399737 bytes / sha256 5ffa31709c275120a745f9f714974db1e86c8fd54f8ca6889617530dffbff95b
+- [OK] tools/ocr/libpixman-1-0.dll / 714812 bytes / sha256 8f8b8f09ec8fe9945ba76fadf8a04183056afd2c35aa7be1808e1a1301d87757
+- [OK] tools/ocr/libpng16-16.dll / 247380 bytes / sha256 f1b0a9d6cf3b8809c22fa0e27b5b82d9357e5bca43ab0ce8762f55fb303ed23f
+- [OK] tools/ocr/libsharpyuv-0.dll / 57852 bytes / sha256 60bcc87ac64a834e967e9ec9461be37395dbc090c579f3e23497ef69a5d8323e
+- [OK] tools/ocr/libstdc++-6.dll / 2409896 bytes / sha256 0d9c01ab1771df439c75f144b2d855b4ac400243f006d14d9a043493de628f0d
+- [OK] tools/ocr/libtesseract-5.dll / 101471336 bytes / sha256 279488c41bd341edaa03dcd097faa33604ba330e6254ac97bcaf2229d8d7ac1a
+- [OK] tools/ocr/libthai-0.dll / 69739 bytes / sha256 420e08cedaf9daaabcf8f6c92349d9dadb7b5ad9e4e79d1126bb2a55a7cdbe09
+- [OK] tools/ocr/libtiff-6.dll / 576887 bytes / sha256 e000306d3de299b05ebef443e48c1486d9fa291b0244f6ca6225843b75fdf581
+- [OK] tools/ocr/libwebp-7.dll / 743580 bytes / sha256 687b8859e1f739dad5800fdc293a6ee1fd0dd4b33380ab283681a5a12eb3d4fa
+- [OK] tools/ocr/libwebpmux-3.dll / 78730 bytes / sha256 ad10bacecd37b44c7c2c813da098a8bf6a42a3bf0152f7f33726d216815558f9
+- [OK] tools/ocr/libwinpthread-1.dll / 60798 bytes / sha256 bbcbe5eb8e806f3537585d4c9832b4ee15f86617328a566695d7d3728aa370ee
+- [OK] tools/ocr/libzstd.dll / 1179848 bytes / sha256 f216ea8efb5b3bb9ad3d938fb9ac07e3b8f78c2c92faab03d2c468d0b6798a5a
+- [OK] tools/ocr/README.txt / 259 bytes / sha256 450546a35d6b33e1ab3644a00d16b29d90bd54f499c3469670ef0f552700b1a2
+- [OK] tools/ocr/tessdata/configs/alto / 23 bytes / sha256 23a038ff290c7471a1a8aa4b5d23e310b0bf49f718480dad6b619a7d06eca330
+- [OK] tools/ocr/tessdata/configs/ambigs.train / 146 bytes / sha256 717e534fd4330ed3f9bdb006f0465aa2633cca866786a8f8d469dbd4b01c10c2
+- [OK] tools/ocr/tessdata/configs/api_config / 26 bytes / sha256 2929bc0f1d2ba77f28cfc230f7b835b2b54038c0f9d2e8e4c5ada43803c999fd
+- [OK] tools/ocr/tessdata/configs/bigram / 129 bytes / sha256 65e6583abc617a34d4091285181f2493d312c296a85629ac3c092d3b93b6e554
+- [OK] tools/ocr/tessdata/configs/box.train / 311 bytes / sha256 a421355e3488bf3fdfc14a1bdcca08c6f6414ec92c53f0eea22317c868c1a623
+- [OK] tools/ocr/tessdata/configs/box.train.stderr / 311 bytes / sha256 3e62cd37d2383abf0c6dfa5ba39fd1187fcff6856c4f4f27ea1554cb4c1874d2
+- [OK] tools/ocr/tessdata/configs/digits / 37 bytes / sha256 e757d95bb1e51444860ea10d7f2c8bb8a0c9c4ccc58a0e8c67e8dc2933a56e2e
+- [OK] tools/ocr/tessdata/configs/get.images / 24 bytes / sha256 28c774c157a2f48d835a1d58f5a35dd70106c136e176572ee43bbf46f3d65c92
+- [OK] tools/ocr/tessdata/configs/hocr / 40 bytes / sha256 d6a7ec7c5143317a59fce2393054f6b7a8261824b934e7426fdd24febc929ad6
+- [OK] tools/ocr/tessdata/configs/inter / 59 bytes / sha256 46303bf83668e446f4966d1ebf7418ad9f0c5e08836bc59d98cae3bbfc3aee9d
+- [OK] tools/ocr/tessdata/configs/kannada / 101 bytes / sha256 7d34fec99283142a3a22d157dc5cc8824b93ee923e576e6bfd1b026039c2e8f0
+- [OK] tools/ocr/tessdata/configs/linebox / 70 bytes / sha256 eb0279527b009a53432a9e1dde85bf42814901393546bc365bb61837f83355c9
+- [OK] tools/ocr/tessdata/configs/logfile / 25 bytes / sha256 5eed5e41e5fbbf0862836c0e4cda7821f8e08441645858ec6821ab41d926e195
+- [OK] tools/ocr/tessdata/configs/lstm.train / 282 bytes / sha256 3d1f8e5ab4e41467fdd938dc4d266eea081b477f8d74ab6b198dd1d854b5301c
+- [OK] tools/ocr/tessdata/configs/lstmbox / 26 bytes / sha256 61255d1b7c9df76b673ff43d2d91cda7f4c3c2e7d7f0643a71b212739833017e
+- [OK] tools/ocr/tessdata/configs/lstmdebug / 98 bytes / sha256 62d40d7a7d80315e10cdca2561d2ddf2981f53dfdbd567513b04d36f3add7f4e
+- [OK] tools/ocr/tessdata/configs/makebox / 26 bytes / sha256 a8fe20a2bc9ff1e9e8ed06d56845336c978627b8e965600abd63f1f412c18ffe
+- [OK] tools/ocr/tessdata/configs/page / 67 bytes / sha256 6e4b43f27a77124e66c87fce8de518ff81e918d3cc36fe71a3d01179c1856a07
+- [OK] tools/ocr/tessdata/configs/pdf / 22 bytes / sha256 54d56e81dfefe289b0d2e4c7bc9bbe662711f5b8255c128b73bcd66efb6bba1a
+- [OK] tools/ocr/tessdata/configs/quiet / 21 bytes / sha256 8a93fad8251f61b5f17b8628203a0e068c71e0907cd63012ab22afb7b560fce3
+- [OK] tools/ocr/tessdata/configs/rebox / 65 bytes / sha256 73ca35d7d71084fb88e2eb9a5c53ad91682754b3aecb918dece7591ec22a0b26
+- [OK] tools/ocr/tessdata/configs/strokewidth / 377 bytes / sha256 ffb140aadd3e26d0d9b3b355d592b50cff8b2c3ce0394b4a6de4fabc1c0942c9
+- [OK] tools/ocr/tessdata/configs/tsv / 22 bytes / sha256 59d079bb75d8b3d7c839a3564580cb559e362c93a9d70f234e421c0c3e767e04
+- [OK] tools/ocr/tessdata/configs/txt / 166 bytes / sha256 9bcbdbe285fd3a024be563cb237751ceb3435d86610e231f08894023321af5d7
+- [OK] tools/ocr/tessdata/configs/unlv / 45 bytes / sha256 1b02e7801de71f0757a26ba6d749e9182a0d9971929966bebb67f99db8733f40
+- [OK] tools/ocr/tessdata/configs/wordstrbox / 29 bytes / sha256 9d1787cdce085ad36dc9d6ba6b2702ac262beaf06a0bb4a0b84355f6458261e5
+- [OK] tools/ocr/tessdata/eng.traineddata / 4113088 bytes / sha256 7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2
+- [OK] tools/ocr/tessdata/eng.user-patterns / 33 bytes / sha256 1970d87625c9c7c0924f97181a7f349ff4935178e3bdb5bb6305c28a3af9824b
+- [OK] tools/ocr/tessdata/eng.user-words / 27 bytes / sha256 63008cdace728eb209dd926a35afe012469c88c8621a57ed9902034396ca4e2b
+- [OK] tools/ocr/tessdata/kor.traineddata / 1677415 bytes / sha256 6b85e11d9bbf07863b97b3523b1b112844c43e713df8b66418a081fd1060b3b2
+- [OK] tools/ocr/tessdata/pdf.ttf / 572 bytes / sha256 c7845420925a23d88ed830a63957b8af85a66a8daf8d9fc90e843673b2ef1a59
+- [OK] tools/ocr/tessdata/tessconfigs/batch / 49 bytes / sha256 d91107c3a8c1c311b00c64aee56cbce4d48894c6e5762165f1ec7871c7b7bf4e
+- [OK] tools/ocr/tessdata/tessconfigs/batch.nochop / 37 bytes / sha256 5acabb534cfd4fd8fe111c854955e1ffa9390619ef43775b1a5fbaf5283f68bb
+- [OK] tools/ocr/tessdata/tessconfigs/matdemo / 243 bytes / sha256 d098cdf6ffe691ccc9dfa4490603f6ae33cdd313010cedfa50007ebde3ddd2d0
+- [OK] tools/ocr/tessdata/tessconfigs/msdemo / 368 bytes / sha256 0ed753a05ea60766f4269d81873b6390e937ea2df1758de91c57db7e92429555
+- [OK] tools/ocr/tessdata/tessconfigs/nobatch / 1 bytes / sha256 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+- [OK] tools/ocr/tessdata/tessconfigs/segdemo / 295 bytes / sha256 7ec19f77f8c76b4dfb33ec8b13e11d7685ae5c9cf6eca4e7333cce0513ddac56
+- [OK] tools/ocr/tesseract.exe / 1585024 bytes / sha256 babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9
+- [OK] tools/ocr/winpath.exe / 19154 bytes / sha256 5223e97b220215cc3ec12acb8979a6f41f5344737af63a90f47879051567777d
+- [OK] tools/ocr/zlib1.dll / 120814 bytes / sha256 cb7ab3788d10940df874acd97b1821bbb5ee4a91f3eec11982bb5bf7a3c96443
+- [OK] winpath.exe / 19154 bytes / sha256 5223e97b220215cc3ec12acb8979a6f41f5344737af63a90f47879051567777d
+- [OK] 고객데이터_백업.cmd / 601 bytes / sha256 8795c11fb861f9b7f957fc946db2a325e91e51c19c85a0d45e5358fdca0d1298
+- [OK] 고객데이터_복원.cmd / 1093 bytes / sha256 3e03f3910d32e5b8bab7746e69b964a7200524e7dae63904e184ed815489be18
+- [OK] 고객환경점검.exe / 20298536 bytes / sha256 763f9991aa7c5f0edc9c6cc73cdf22f67ef2255b773bcac6d9359ad8cb89b0a6
+- [OK] 라벨디자이너.exe / 24197265 bytes / sha256 e9fda972f9b8a2f0a936cfac0f0388b22b46bf3552d8d5b53873ce6d08f3eb7d
+- [OK] 라벨작업실행기.exe / 20266771 bytes / sha256 def7534325dd35ae6ba93c71fef68d492c0565bb7adf029cad6476406f8fdccb
+- [OK] 라벨출력관리.exe / 21757811 bytes / sha256 24dd3897e56ab42bbca437022d4fce2d5e6e4576c7106289fefc674f537342a1
+- [OK] 라벨출력엔진.exe / 18380889 bytes / sha256 cefe9e4b817da9e9051b6351e06cdb2bd774a70e0f0d51f38afaa1e42b7ad725
+- [OK] 버전정보.txt / 1084 bytes / sha256 99ced515f0b0efbde7b0a6ea7a245a3a3cfb33606b4bc8e3e82b92ff8f3b2eea
+- [OK] 사용안내.txt / 15334 bytes / sha256 99e54f7349ff5a33d951aba65c5aa4846bcca8df21d4a4efd0465bb58117e172
+- [OK] 설치_및_사용_메뉴얼.txt / 20665 bytes / sha256 5246a9943e642d4e90e5603e45d26fb086af777da01d276e42ddd57a505ba6f7
+- [OK] 시작하기.cmd / 4162 bytes / sha256 362d67b755e46df03b80370ae4570f8a91544290aa893ba683af5b16e77c4107
+- [OK] 채움랩_라벨출력패키지_고객용_매뉴얼.docx / 507454 bytes / sha256 7a35edbe74f91164160073125b0282c440f33256b03f185f67e1a54dac40dd0d
+- [OK] 처음실행_점검.cmd / 1622 bytes / sha256 70ef329f12d5f4e620cffa58c6d8cad1111dced6ae204fe2e5a94419fb47744a
+- [OK] 프린터설정.exe / 21152479 bytes / sha256 e7cdb4ec58f6bd873841f016362c962d6ff81e5ee85451c05ac0fe1c9424348a
+- [OK] 한눈에_사용안내.pdf / 144404 bytes / sha256 552dc822dbf34082e4ca4b96150e21fbd7d24d071d4b8a769c449cf9956369c3
+
+사용 전 확인
+1. 처음실행_점검.cmd로 고객 PC 환경을 확인하세요. 시작하기.cmd는 출력 관리 화면을 바로 엽니다.
+2. 처음실행_점검.cmd는 실행 전 점검, 출력 파일 생성 테스트, 고객 데이터 백업을 순서대로 실행합니다.
+3. 프린터설정.exe에서 실제 장비와 라벨 크기를 확인하세요.
+4. 실제 출력은 02_print_labels.cmd 또는 라벨출력관리.exe의 인쇄 메뉴를 사용하세요.
+5. PC 교체나 재설치 후에는 고객데이터_복원.cmd로 백업 ZIP을 복원하세요.

@@ -2,47 +2,7 @@
   "version": 1,
   "label": {
     "width_mm": 50,
-    "height_mm": 30
+    "height_mm": 40
   },
-  "elements": [
-    {
-      "id": "ccfeb3271be94aad9f0e776f6937ad93",
-      "type": "text",
-      "text": "나무시스템 테스트",
-      "field": "",
-      "x": 14.0,
-      "y": 5.0,
-      "width": 22.0,
-      "height": 5.0,
-      "font_size": 10,
-      "font_name": "안상수 2006 굵은체",
-      "align": "center"
-    },
-    {
-      "id": "4e3d2aad27084b548c147aa7ab1780f3",
-      "type": "barcode",
-      "text": "123456789123",
-      "field": "",
-      "x": 7.0,
-      "y": 13.9,
-      "width": 36.0,
-      "height": 12.0,
-      "font_size": 10,
-      "font_name": "Malgun Gothic",
-      "align": "center",
-      "barcode_type": "ean13",
-      "barcode_options": {
-        "module_width": 0,
-        "wide_ratio": 2.5,
-        "quiet_zone": 10,
-        "human_readable": true,
-        "check_digit": "auto",
-        "cell_size": 0,
-        "qr_ecc": "M",
-        "pdf417_rows": 0,
-        "pdf417_columns": 0,
-        "pdf417_security": 2
-      }
-    }
-  ]
+  "elements": []
 }

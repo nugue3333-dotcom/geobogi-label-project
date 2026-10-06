@@ -9,6 +9,11 @@ from PIL import Image, ImageTk
 
 HEADER_LOGO_FILE = Path("assets") / "brand" / "chaeumlab_logo_header.png"
 APP_ICON_FILE = Path("assets") / "brand" / "chaeumlab_app_icon.ico"
+APP_ROLE_ICONS = {
+    "designer": Path("assets/brand/chaeumlab_designer_icon.ico"),
+    "manager": Path("assets/brand/chaeumlab_manager_icon.ico"),
+    "settings": Path("assets/brand/chaeumlab_settings_icon.ico"),
+}
 
 
 def load_header_logo(
@@ -53,8 +58,12 @@ def apply_window_icon(
     *,
     base_dir: str | Path | None = None,
     install_dir: str | Path | None = None,
+    app_role: str | None = None,
 ) -> bool:
-    for path in _asset_candidates(APP_ICON_FILE, base_dir=base_dir, install_dir=install_dir):
+    role = app_role or getattr(getattr(window, "master", None), "_suite_app_role", None)
+    window._suite_app_role = role
+    asset = APP_ROLE_ICONS.get(role, APP_ICON_FILE)
+    for path in _asset_candidates(asset, base_dir=base_dir, install_dir=install_dir):
         if not path.is_file():
             continue
         try:

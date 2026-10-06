@@ -15,7 +15,7 @@ from barcode_label_automation.font_assets import (
 )
 from barcode_label_automation.label_designer_app import DEFAULT_FONT_NAME, _load_font
 from barcode_label_automation.release_manifest import MANIFEST_FILES
-from barcode_label_automation.ui_tokens import TYPOGRAPHY
+from barcode_label_automation.ui_tokens import TYPOGRAPHY, UI_FONT_FAMILY
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -29,13 +29,14 @@ def test_moneygraphy_font_asset_matches_supplied_file() -> None:
     assert bundled_font_path(base_dir=PROJECT_ROOT) == path
 
 
-def test_all_program_typography_tokens_use_moneygraphy() -> None:
-    assert TYPOGRAPHY.page_title[0] == APP_FONT_FAMILY
-    assert TYPOGRAPHY.section_title[0] == APP_FONT_FAMILY
-    assert TYPOGRAPHY.body[0] == APP_FONT_FAMILY
-    assert TYPOGRAPHY.caption[0] == APP_FONT_FAMILY
-    assert TYPOGRAPHY.table_text[0] == APP_FONT_FAMILY
-    assert TYPOGRAPHY.button_text[0] == APP_FONT_FAMILY
+def test_interface_font_is_separate_from_label_print_font() -> None:
+    assert UI_FONT_FAMILY == "Malgun Gothic"
+    assert TYPOGRAPHY.page_title[0] == UI_FONT_FAMILY
+    assert TYPOGRAPHY.section_title[0] == UI_FONT_FAMILY
+    assert TYPOGRAPHY.body[0] == UI_FONT_FAMILY
+    assert TYPOGRAPHY.caption[0] == UI_FONT_FAMILY
+    assert TYPOGRAPHY.table_text[0] == UI_FONT_FAMILY
+    assert TYPOGRAPHY.button_text[0] == UI_FONT_FAMILY
     assert DEFAULT_FONT_NAME == APP_FONT_FAMILY
 
 

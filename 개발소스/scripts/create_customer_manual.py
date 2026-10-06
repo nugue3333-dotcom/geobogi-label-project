@@ -9,23 +9,25 @@ from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor
+from docx.shared import Cm, Inches, Pt, RGBColor
+
+from verify_customer_manuals import capture_contract_errors
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CUSTOMER_DIR = ROOT / "고객용_실행폴더"
-OUTPUT_DOCX = CUSTOMER_DIR / "라벨출력패키지_고객용_매뉴얼.docx"
+OUTPUT_DOCX = ROOT / "채움랩_라벨출력패키지_고객용_매뉴얼.docx"
 
 FONT_KO = "맑은 고딕"
 # Match the formal print-manual palette used by the three PDF guides.
-COLOR_NAVY = "171D23"
-COLOR_BLUE = "174B4E"
-COLOR_BLUE_DARK = "103A3D"
+COLOR_NAVY = "171A1E"
+COLOR_BLUE = "143E70"
+COLOR_BLUE_DARK = "143E70"
 COLOR_MUTED = "68747C"
-COLOR_GRID = "D8DEE0"
-COLOR_HEADER_FILL = "F1F7E3"
-COLOR_LIGHT_FILL = "F6F7F5"
-COLOR_ACCENT_FILL = "F1F7E3"
+COLOR_GRID = "D9D9D9"
+COLOR_HEADER_FILL = "FFFFFF"
+COLOR_LIGHT_FILL = "F3F5F7"
+COLOR_ACCENT_FILL = "FFFFFF"
 COLOR_WARNING_FILL = "FFF7E7"
 
 
@@ -114,7 +116,7 @@ def set_table_borders(table, color: str = COLOR_GRID, size: str = "8") -> None:
         element.set(qn("w:color"), color)
 
 
-def set_table_geometry(table, widths_dxa: list[int], indent_dxa: int = 120) -> None:
+def set_table_geometry(table, widths_dxa: list[int], indent_dxa: int = 0) -> None:
     tbl = table._tbl
     tbl_pr = tbl.tblPr
     tbl_w = tbl_pr.find(qn("w:tblW"))
@@ -170,13 +172,18 @@ def style_table(table, widths_dxa: list[int], header_rows: int = 1) -> None:
     table.autofit = False
     set_table_geometry(table, widths_dxa)
     for r_idx, row in enumerate(table.rows):
+        row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
+        if r_idx < header_rows:
+            marker = OxmlElement("w:tblHeader")
+            row._tr.get_or_add_trPr().append(marker)
         for cell in row.cells:
             if r_idx < header_rows:
-                set_cell_shading(cell, COLOR_HEADER_FILL)
+                set_cell_shading(cell, COLOR_BLUE)
                 for p in cell.paragraphs:
                     for run in p.runs:
-                        set_run_font(run, size_pt=10.2, bold=True, color=COLOR_NAVY)
+                        set_run_font(run, size_pt=10.2, bold=True, color="FFFFFF")
             else:
+                set_cell_shading(cell, "FFFFFF" if r_idx % 2 else "F3F5F7")
                 for p in cell.paragraphs:
                     for run in p.runs:
                         set_run_font(run, size_pt=10.2, color="111827")
@@ -224,16 +231,11 @@ def add_body(doc: Document, text: str, bold_prefix: str | None = None) -> None:
 
 
 def add_callout(doc: Document, title: str, body: str, fill: str = COLOR_LIGHT_FILL) -> None:
-    table = doc.add_table(rows=1, cols=1)
-    style_table(table, [9360], header_rows=0)
-    cell = table.cell(0, 0)
-    set_cell_shading(cell, fill)
-    cell.text = ""
-    p_title = cell.paragraphs[0]
+    p_title = doc.add_paragraph()
     p_title.paragraph_format.space_after = Pt(3)
     r_title = p_title.add_run(title)
     set_run_font(r_title, size_pt=11, bold=True, color=COLOR_NAVY)
-    p_body = cell.add_paragraph()
+    p_body = doc.add_paragraph()
     p_body.paragraph_format.space_after = Pt(0)
     p_body.paragraph_format.line_spacing = 1.3
     r_body = p_body.add_run(body)
@@ -247,16 +249,21 @@ def add_footer(section) -> None:
     paragraph = footer.paragraphs[0]
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     paragraph.paragraph_format.space_after = Pt(0)
-    run = paragraph.add_run("채움LAB 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.09.30")
+    run = paragraph.add_run("채움랩 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.10.06.01")
     set_run_font(run, size_pt=8.5, color=COLOR_MUTED)
+    paragraph.add_run(" | ")
+    page = OxmlElement("w:fldSimple")
+    page.set(qn("w:instr"), "PAGE")
+    paragraph._p.append(page)
 
 
 def add_cover(doc: Document) -> None:
-    p = doc.add_paragraph()
+    doc.add_picture(str(ROOT / "assets" / "brand" / "chaeumlab_logo_header_2x.png"), width=Inches(2.5))
+    p = doc.add_paragraph(style="Title")
     p.paragraph_format.space_before = Pt(42)
     p.paragraph_format.space_after = Pt(10)
-    r = p.add_run("채움LAB 라벨 출력 패키지")
-    set_run_font(r, size_pt=30, bold=True, color=COLOR_NAVY)
+    r = p.add_run("채움랩 라벨 출력 패키지")
+    set_run_font(r, size_pt=30, bold=True, color="000000")
 
     p2 = doc.add_paragraph()
     p2.paragraph_format.space_after = Pt(26)
@@ -265,10 +272,10 @@ def add_cover(doc: Document) -> None:
 
     metadata = doc.add_table(rows=4, cols=2)
     rows = [
-        ("문서 용도", "고객 PC 설치 후 Excel에서 라벨을 바로 출력하기 위한 사용 설명서"),
-        ("지원 프린터", "BIXOLON, TSC, Zebra, SEWOO(ZPL) 라벨 프린터"),
+        ("문서 용도", "프린터 설정, 라벨 디자인, 상품 엑셀 연결과 일상 출력을 한 흐름으로 익히는 사용 설명서"),
+        ("장비 확인", "BIXOLON, TSC, Zebra, SEWOO 브랜드 설정은 실제 모델의 지원 명령과 장착 옵션을 별도로 확인합니다."),
         ("배포 폴더", "고객용_실행폴더"),
-        ("문서 버전", "2.2 / 2026-10-01"),
+        ("문서 버전", "3.0 / 2026.10.06.01"),
     ]
     for row, (label, value) in zip(metadata.rows, rows):
         fill_cell(row.cells[0], label, bold=True, color=COLOR_NAVY)
@@ -281,7 +288,7 @@ def add_cover(doc: Document) -> None:
         doc,
         "운영 핵심",
         "처음 설치한 PC에서는 시작하기.cmd menu의 처음 실행 점검 또는 처음실행_점검.cmd를 먼저 실행합니다. "
-        "이 점검은 실행 전 점검, .gblabel 저장파일 연결, 출력 파일 생성 테스트, 고객 데이터 백업을 한 번에 수행합니다. "
+        "이 점검은 실행 전 점검, .cllabel 저장파일 연결, 출력 파일 생성 테스트, 고객 데이터 백업을 한 번에 수행합니다. "
         "PC 교체 후에는 고객데이터_복원.cmd로 백업 ZIP을 선택한 뒤 01_output_check.cmd로 복원 결과를 확인합니다. "
         "고객환경점검.exe로 배포 폴더 상태를 확인한 뒤 프린터설정.exe로 장비 환경을 저장합니다. "
         "config.ini는 설정 프로그램이 자동으로 갱신합니다. "
@@ -292,25 +299,26 @@ def add_cover(doc: Document) -> None:
 
 
 def add_quick_start(doc: Document) -> None:
-    add_heading(doc, "1. 빠른 시작", 1)
+    add_heading(doc, "1 빠른 시작", 1)
     add_body(
         doc,
         "처음 설치한 PC에서는 아래 순서대로 준비합니다. 평소에는 시작하기.cmd가 여는 라벨 출력 관리에서 상품을 선택해 인쇄합니다.",
     )
+
     table = doc.add_table(rows=1, cols=3)
     headers = ("순서", "실행 내용", "완료 기준")
     for cell, header in zip(table.rows[0].cells, headers):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
         ("1", "고객용_실행폴더를 고객 PC의 원하는 위치에 복사합니다.", "폴더 안에 실행 파일, 설정, DB, 템플릿이 함께 있습니다."),
-        ("2", "처음실행_점검.cmd를 실행합니다. 시작 메뉴는 시작하기.cmd menu로 열 수 있습니다.", "필수 파일, 설정, 엑셀, .gblabel 파일 연결, 출력 파일 생성 테스트와 고객 데이터 백업을 점검합니다."),
+        ("2", "처음실행_점검.cmd를 실행합니다. 시작 메뉴는 시작하기.cmd menu로 열 수 있습니다.", "필수 파일, 설정, 엑셀, .cllabel 파일 연결, 출력 파일 생성 테스트와 고객 데이터 백업을 점검합니다."),
         ("3", "필요하면 시작하기.cmd menu > 버전 정보 보기를 확인합니다.", "지원 문의 시 버전정보.txt와 지원 ZIP을 함께 전달합니다."),
         ("4", "Excel 매크로 방식도 사용할 경우 00_install_trusted_location.cmd를 실행합니다.", "Excel 보안 경고 없이 매크로 버튼을 사용할 준비가 됩니다."),
         ("5", "프린터설정.exe를 열어 브랜드, 연결 방식, 용지 크기, 용지 유형, 인쇄 방식을 입력하고 설정 점검 후 저장합니다.", "config.ini가 자동으로 갱신됩니다."),
         (
             "6",
             "시작하기.cmd로 라벨 출력 관리를 열어 상품을 선택하고 매수를 확인합니다.",
-            "선택 항목이 없으면 인쇄가 차단됩니다. 전체가 필요할 때는 전체 선택을 직접 누릅니다.",
+            "선택 항목이 없으면 전체 항목이 대상입니다. 인쇄 매수 선택 창에서 대상 건수와 총 매수를 확인합니다.",
         ),
     ]
     for row_data in rows:
@@ -325,24 +333,46 @@ def add_quick_start(doc: Document) -> None:
         "실제 프린터로 보내기 전에는 00_고객PC_실행전점검.cmd와 01_output_check.cmd를 순서대로 실행해 주세요. "
         "처음 실행 점검은 저장파일 연결도 PowerShell 없이 register_label_filetype.cmd로 처리합니다. "
         "01/02 배치파일은 라벨작업실행기.exe를 우선 사용하므로 일반적인 출력 점검과 인쇄 명령 생성은 PowerShell 없이 처리됩니다. "
-        "일상 사용 중에도 라벨출력관리.exe의 설정 > 실행 전 점검 메뉴로 out\\customer_preflight_report.txt를 즉시 갱신할 수 있습니다. "
+        "일상 사용 중에도 라벨출력관리.exe의 도구 > 실행 전 점검 메뉴로 out\\customer_preflight_report.txt를 즉시 갱신할 수 있습니다. "
         "업데이트 배포본을 복사해도 기존 config.ini가 있으면 고객 프린터 설정은 유지됩니다. 기본값으로 되돌리고 싶을 때만 백업 후 config.example.ini를 참고하세요. "
-        "오류 문의 시 라벨출력관리.exe의 설정 > 지원 패키지 생성 메뉴로 out\\customer_support_package.zip을 새로 만든 뒤 함께 전달하면 원인 확인이 빠릅니다. "
+        "오류 문의 시 라벨출력관리.exe의 도움말 > 지원 패키지 생성 메뉴로 out\\customer_support_package.zip을 새로 만든 뒤 함께 전달하면 원인 확인이 빠릅니다. "
         "지원 ZIP에는 원본 DB, 인쇄 데이터, labels.xlsm이 포함되지 않습니다.",
         COLOR_WARNING_FILL,
     )
 
 
+def add_product_screens(doc: Document) -> None:
+    """Use only actual source captures from the current integrated release."""
+    add_heading(doc, "공통 메뉴와 파일 형식", 1)
+    add_body(doc, "파일은 현재 작업과 저장, 보기는 해당 화면의 표시, 도구는 장비와 업무, 도움말은 고객 안내를 다룹니다. 편집·이동과 정밀편집 메뉴는 표시하지 않습니다. 앱별 역할 아이콘으로 편집·출력·설정을 구분하고 도안 문서와 이동용 프로젝트는 별도 파일 아이콘을 사용합니다.")
+    add_body(doc, "세 프로그램의 도움말 > 고객용 매뉴얼은 현재 프로그램에 맞는 PDF 설명서를 엽니다. 출력 관리의 빠른 사용안내와 지원 패키지도 도움말 메뉴에서 사용합니다.")
+    add_body(doc, "새 도안 기본 확장자는 .cllabel, 이동용 프로젝트는 .clproject입니다. 기존 .gblabel·.gbproject도 열 수 있습니다. 구형 도안은 원래 파일에 저장하며 새 형식으로 옮길 때는 다른 이름으로 저장을 사용합니다. 이동 프로젝트에는 원본 상품 엑셀이 포함되지 않으므로 별도로 옮겨 연결합니다.")
+    screens = (
+        ("라벨디자이너", "label-designer-final.png", "chaeumlab_designer_icon.png"),
+        ("라벨출력관리", "label-manager-final.png", "chaeumlab_manager_icon.png"),
+        ("프린터설정", "printer-settings.png", "chaeumlab_settings_icon.png"),
+    )
+    for title, filename, icon in screens:
+        doc.add_page_break()
+        add_heading(doc, title + " 전체 화면", 1)
+        doc.add_picture(str(ROOT / "assets" / "brand" / icon), width=Inches(0.4))
+        path = ROOT / "outputs" / "ui-redesign-preview" / filename
+        if not path.exists():
+            raise FileNotFoundError("최신 실제 화면 캡처가 없습니다: " + str(path))
+        doc.add_picture(str(path), width=Inches(6.5))
+        add_body(doc, "2026.10.06.01 실제 프로그램 화면. 창 크기와 Windows 배율에 따라 패널 폭과 표시 위치가 달라질 수 있습니다.")
+
+
 def add_file_map(doc: Document) -> None:
-    add_heading(doc, "2. 배포 폴더 구성", 1)
+    add_heading(doc, "2 배포 폴더 구성", 1)
     add_body(doc, "아래 파일은 같은 폴더 안에 있어야 합니다. 고객 사용 중에는 파일 이름을 바꾸거나 삭제하지 않는 것이 원칙입니다.")
     table = doc.add_table(rows=1, cols=3)
     for cell, header in zip(table.rows[0].cells, ("파일", "용도", "고객 사용 여부")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
         ("시작하기.cmd", "더블클릭하면 라벨 출력 관리가 열립니다. 명령줄에 menu를 붙이면 점검·설정·디자인·백업·복원 메뉴가 열립니다.", "일상 사용"),
-        ("처음실행_점검.cmd", "실행 전 점검, .gblabel 저장파일 연결, 출력 파일 생성 테스트, 고객 데이터 백업을 순서대로 실행하는 최초 설치용 점검 파일", "최초 설치 시 실행"),
-        ("register_label_filetype.cmd", ".gblabel 저장파일 아이콘, 더블클릭 열기, 우클릭 인쇄 연결을 PowerShell 없이 등록", "최초 설치/문제 복구 시 실행"),
+        ("처음실행_점검.cmd", "실행 전 점검, .cllabel 저장파일 연결, 출력 파일 생성 테스트, 고객 데이터 백업을 순서대로 실행하는 최초 설치용 점검 파일", "최초 설치 시 실행"),
+        ("register_label_filetype.cmd", ".cllabel 저장파일 아이콘, 더블클릭 열기, 우클릭 인쇄 연결을 PowerShell 없이 등록", "최초 설치/문제 복구 시 실행"),
         ("버전정보.txt", "패키지명, 배포 생성시간, 고객 첫 실행 순서, 지원 문의 시 전달할 정보를 적은 버전 확인 파일", "지원/문의용"),
         ("고객데이터_백업.cmd", "설정, 상품 DB, 인쇄 데이터, 템플릿, assets/images 도안 이미지를 out 폴더의 ZIP으로 백업", "PC 교체 전 실행"),
         ("고객데이터_복원.cmd", "백업 ZIP에서 설정, 상품 DB, 인쇄 데이터, 템플릿, assets/images 도안 이미지를 현재 PC로 복원", "PC 교체 후 실행"),
@@ -352,9 +382,9 @@ def add_file_map(doc: Document) -> None:
         ("고객환경점검.exe", "필수 파일, 설정, 엑셀, 인쇄 데이터 바코드/매수, 출력 폴더, dry-run 점검과 지원 ZIP 저장", "최초 설치 또는 지원 요청 시 사용"),
         ("release_manifest.json", "배포 파일 구성과 해시 검증용 목록", "지원/검증용"),
         ("배포_파일목록.txt", "고객이 바로 읽을 수 있는 배포 파일 목록", "확인용"),
-        ("라벨출력관리.exe", "DB 조회, 출력 데이터 선택, 인쇄 실행, 설정 메뉴의 실행 전 점검/사용안내 열기/지원 패키지 생성", "일상 사용"),
-        ("라벨디자이너.exe", "빈 라벨·예제로 시작해 개체를 배치하고 .gblabel 파일을 저장하거나 .gbproject로 이동용 프로젝트를 내보냅니다.", "양식 제작/수정 시 사용"),
-        ("templates\\sample_excel_product.gblabel", "기본 빈 라벨과 별도로 제공하는 상품 엑셀 연결 예제 도안", "처음 디자인 시 사용"),
+        ("라벨출력관리.exe", "DB 조회, 출력 데이터 선택, 인쇄 실행, 도구 메뉴의 실행 전 점검과 도움말 메뉴의 사용안내/지원 패키지 생성", "일상 사용"),
+        ("라벨디자이너.exe", "빈 라벨·예제로 시작해 개체를 배치하고 .cllabel 파일을 저장하거나 .clproject로 이동용 프로젝트를 내보냅니다.", "양식 제작/수정 시 사용"),
+        ("templates\\sample_excel_product.cllabel", "기본 빈 라벨과 별도로 제공하는 상품 엑셀 연결 예제 도안", "처음 디자인 시 사용"),
         ("프린터설정.exe", "프린터 브랜드, 연결 방식, 용지 크기, 용지 유형, 인쇄 방식, 저장 전 점검 설정 프로그램", "설치 담당자 사용"),
         ("config.ini", "프린터 설정 저장 파일", "직접 수정하지 않음"),
         ("00_고객PC_실행전점검.cmd", "고객 환경 점검과 out\\customer_support_package.zip 저장", "최초 설치 시 실행"),
@@ -371,7 +401,7 @@ def add_file_map(doc: Document) -> None:
 
 
 def add_excel_usage(doc: Document) -> None:
-    add_heading(doc, "3. Excel 입력 방법", 1)
+    add_heading(doc, "3 Excel 입력 방법", 1)
     add_body(doc, "labels.xlsm의 표 한 줄이 라벨 한 종류입니다. 출력 매수는 print_qty 값으로 결정됩니다.")
     table = doc.add_table(rows=1, cols=4)
     for cell, header in zip(table.rows[0].cells, ("열 이름", "입력 내용", "예시", "비고")):
@@ -417,14 +447,14 @@ def add_excel_usage(doc: Document) -> None:
 
 
 def add_daily_operation(doc: Document) -> None:
-    add_heading(doc, "4. 일상 사용 절차", 1)
+    add_heading(doc, "4 일상 사용 절차", 1)
     table = doc.add_table(rows=1, cols=2)
     for cell, header in zip(table.rows[0].cells, ("작업", "상세 설명")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
         ("1. 출력 화면 열기", "시작하기.cmd를 더블클릭해 라벨 출력 관리를 엽니다."),
-        ("2. 상품 찾기", "DB 파일 > DB 연결에서 상품 엑셀을 선택하고 상품명·바코드를 검색합니다."),
-        ("3. 대상 선택", "인쇄 데이터에서 필요한 행을 직접 선택합니다. 선택 항목이 없으면 인쇄가 시작되지 않습니다."),
+        ("2. 상품 찾기", "상품 엑셀 연결에서 상품 엑셀을 선택하고 상품명·바코드를 검색합니다."),
+        ("3. 대상 선택", "인쇄 데이터에서 필요한 행을 직접 선택합니다. 체크한 행이 없으면 전체 항목을 인쇄 대상으로 사용합니다."),
         ("4. 매수와 전송", "인쇄를 눌러 1~100장의 매수를 지정하고 대상 건수를 확인한 뒤 인쇄 시작을 누릅니다."),
         ("5. 실물 확인", "전송 완료 안내 후 프린터에서 라벨 배출·위치·바코드 판독을 확인합니다."),
     ]
@@ -436,7 +466,7 @@ def add_daily_operation(doc: Document) -> None:
 
     add_body(
         doc,
-        "중요: 전체 인쇄가 필요하면 전체 선택을 직접 누른 뒤 대상 건수와 매수를 확인하세요. 선택 없이 인쇄 버튼을 누르면 출력이 차단됩니다.",
+        "중요: 선택 없이 인쇄 버튼을 누르면 전체 항목이 대상입니다. 인쇄 전에는 항상 1~100장의 인쇄 매수 선택 창이 열립니다. 대상·총 매수를 확인하고 취소하면 프린터 명령을 보내지 않습니다. 이번 매수는 임시 큐에만 적용되며 원본 DB와 기본 print_queue.xlsx의 저장값은 바뀌지 않습니다.",
         bold_prefix="중요:",
     )
     add_body(
@@ -446,7 +476,7 @@ def add_daily_operation(doc: Document) -> None:
     )
     add_body(
         doc,
-        "도움말: 라벨출력관리.exe의 설정 메뉴에서 실행 전 점검, 빠른 사용안내, 상세 매뉴얼, 지원 패키지, 고객 데이터 백업·복원을 열 수 있습니다. 라벨 디자인은 상단의 별도 버튼입니다. 01/02 배치파일은 라벨작업실행기.exe를 우선 사용합니다.",
+        "도움말: 라벨출력관리.exe의 도구 메뉴에서 실행 전 점검을, 도움말에서 빠른 사용안내·고객용 매뉴얼·지원 패키지를 엽니다. 고객 데이터 백업·복원은 파일 메뉴에 있습니다. 라벨 디자인은 상단의 별도 버튼입니다. 01/02 배치파일은 라벨작업실행기.exe를 우선 사용합니다.",
         bold_prefix="도움말:",
     )
     add_body(
@@ -457,14 +487,14 @@ def add_daily_operation(doc: Document) -> None:
 
 
 def add_label_designer_usage(doc: Document) -> None:
-    add_heading(doc, "5. 라벨 디자이너", 1)
+    add_heading(doc, "5 라벨 디자이너", 1)
     add_body(doc, "라벨디자이너.exe는 양식을 만들거나 수정할 때 사용합니다. 처음 화면에서 빈 라벨, 예제로 시작, 최근 라벨 열기 중 하나를 고릅니다. 기본 템플릿은 개체가 없는 빈 라벨입니다.")
 
     table = doc.add_table(rows=1, cols=2)
     for cell, header in zip(table.rows[0].cells, ("순서", "작업 방법")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
     rows = [
-        ("1. 시작", "예제로 시작을 누르면 상품 엑셀과 예제 도안이 연결됩니다. 자신의 양식은 새 라벨에서 만들고, 작업 파일은 저장 버튼 또는 Ctrl+S로 .gblabel에 저장합니다."),
+        ("1. 시작", "예제로 시작을 누르면 상품 엑셀과 예제 도안이 연결됩니다. 자신의 양식은 새 라벨에서 만들고, 작업 파일은 저장 버튼 또는 Ctrl+S로 .cllabel에 저장합니다."),
         ("2. 크기와 개체", "실제 용지의 가로·세로(mm)를 입력하고 텍스트, 1D/2D 바코드, 그림, 박스, 선, 표를 넣습니다. 개체를 더블클릭해 크기와 위치를 확인합니다. 오른쪽은 상품 DB 메뉴만 표시합니다. 상단 좌우 가운데 정렬·상하 가운데 정렬로 가로·세로 중심에 배치합니다."),
         ("3. 상품 연결", "상품 엑셀 연결에서 .xlsx/.xlsm을 열고 개체의 열을 연결합니다. 상품 선택에서 출력할 행만 고릅니다."),
         ("4. 출력 전 확인", "인쇄파일을 먼저 생성하고 미리보기·행·매수를 확인합니다. 경계 밖 개체, 비어 있는 필수 값, 작은 QR·글자 축소 경고를 확인한 뒤 실제 인쇄합니다."),
@@ -476,12 +506,12 @@ def add_label_designer_usage(doc: Document) -> None:
     style_table(table, [2200, 7160])
 
     add_heading(doc, "편집과 복구", 2)
-    add_body(doc, "Ctrl+클릭으로 여러 개체를 선택합니다. 복제, 그룹, 그룹 해제, 잠금/해제, 왼쪽 정렬, 가로 간격 맞춤과 눈금 맞춤을 사용할 수 있습니다. 방향키는 1mm, Shift+방향키는 0.1mm씩 이동합니다. 화면 맞춤과 확대·축소는 보기 크기만 바꿉니다.")
+    add_body(doc, "Ctrl+클릭으로 여러 개체를 선택합니다. 개체는 더블클릭으로 수정하고 좌우·상하 가운데 정렬은 상단에서 실행합니다. 방향키는 1mm, Shift+방향키는 0.1mm씩 이동합니다. 화면 맞춤과 확대·축소는 보기 크기만 바꿉니다.")
     add_body(doc, "Ctrl+Z는 실행취소, Ctrl+Y는 다시실행입니다. 저장하지 않은 변경사항은 파일명과 창 제목의 *로 보입니다. 비정상 종료 후 복구 제안이 나타나면 저장한 원본을 덮어쓰지 않는 작업 사본으로 확인합니다.")
 
     add_heading(doc, "도안 인식과 이동", 2)
-    add_body(doc, "도안 불러오기에서 PNG/JPG/PSD를 선택하고 도안 적용을 누르면 편집 가능한 후보 개체가 생성됩니다. 인식 값 검토에서 원본 이미지와 후보를 나란히 비교해 잘못된 글자·바코드를 먼저 수정한 뒤 전체 값 확인을 누르면 한 번에 확정됩니다. 빈 값·임시 바코드가 있으면 전체 확인을 막습니다.")
-    add_body(doc, "다른 PC로 옮길 때는 파일 메뉴의 이동용 프로젝트 내보내기로 .gbproject를 만듭니다. 가져온 PC에서는 상품 엑셀 경로를 다시 연결하고, 그림·글꼴·라벨 크기·인쇄 설정을 확인합니다. 프로젝트 가져오기는 기존 고객 데이터를 덮어쓰지 않습니다.")
+    add_body(doc, "왼쪽 도안 가져오기 카드의 도안 불러오기에서 PNG/JPG/PSD를 선택하고 도안 적용을 누르면 편집 가능한 후보 개체가 생성됩니다. 인식 값 전체 확인으로 검토창을 열고 원본 이미지와 후보를 나란히 비교해 잘못된 글자·바코드를 먼저 수정한 뒤 전체 값 확인을 누르면 한 번에 확정됩니다. 빈 값·임시 바코드가 있으면 전체 확인을 막습니다.")
+    add_body(doc, "다른 PC로 옮길 때는 파일 메뉴의 이동 프로젝트 내보내기로 .clproject를 만듭니다. 가져온 PC에서는 상품 엑셀 경로를 다시 연결하고, 그림·글꼴·라벨 크기·인쇄 설정을 확인합니다. 프로젝트 가져오기는 기존 고객 데이터를 덮어쓰지 않습니다. 기존 .gblabel·.gbproject도 읽을 수 있습니다. 구형 도안은 저장 시 원래 파일을 유지하고 새 .cllabel로 바꾸려면 다른 이름으로 저장을 사용합니다.")
     add_body(doc, "BarTender .btw 파일은 직접 열 수 없습니다. 파일명만 .png로 바꾸지 말고 원본 프로그램에서 실제 이미지로 내보내어 참고 도안으로 불러온 뒤 개체와 데이터 열을 다시 연결합니다. 수식·변수·프린터 설정까지 자동 변환되는 기능은 아닙니다.")
 
     add_callout(
@@ -493,7 +523,7 @@ def add_label_designer_usage(doc: Document) -> None:
 
 
 def add_installer_settings(doc: Document) -> None:
-    add_heading(doc, "6. 설치 담당자용 설정", 1)
+    add_heading(doc, "6 설치 담당자용 설정", 1)
     add_body(doc, "고객에게 전달하기 전 프린터설정.exe에서 프린터 환경만 맞춰 두면 됩니다. config.ini는 직접 열지 않아도 됩니다.")
 
     table = doc.add_table(rows=1, cols=3)
@@ -538,7 +568,7 @@ def add_installer_settings(doc: Document) -> None:
 
 
 def add_troubleshooting(doc: Document) -> None:
-    add_heading(doc, "7. 문제 해결", 1)
+    add_heading(doc, "7 문제 해결", 1)
     table = doc.add_table(rows=1, cols=3)
     for cell, header in zip(table.rows[0].cells, ("증상", "확인할 내용", "조치")):
         fill_cell(cell, header, bold=True, color=COLOR_NAVY)
@@ -576,7 +606,7 @@ def add_troubleshooting(doc: Document) -> None:
         (
             "인쇄할 항목이 없다는 안내가 나옴",
             "인쇄 데이터의 선택 칸",
-            "필요한 행을 직접 체크합니다. 전체 인쇄가 의도라면 전체 선택을 누른 뒤 대상 건수와 매수를 다시 확인합니다.",
+            "필요한 행을 직접 체크합니다. 체크가 없으면 전체 항목이 대상이므로 인쇄 매수 선택 창에서 총 매수를 다시 확인합니다.",
         ),
         (
             "도안 인식 뒤 출력이 차단됨",
@@ -585,7 +615,7 @@ def add_troubleshooting(doc: Document) -> None:
         ),
         (
             "이전 PC의 도안 그림이나 상품 엑셀이 보이지 않음",
-            ".gblabel만 복사했는지, .gbproject로 옮겼는지",
+            ".cllabel만 복사했는지, .clproject로 옮겼는지",
             "파일 메뉴의 이동용 프로젝트를 가져오고 새 PC에서 상품 엑셀을 다시 연결합니다. 원본 엑셀 파일은 별도 보관해야 합니다.",
         ),
         (
@@ -601,13 +631,13 @@ def add_troubleshooting(doc: Document) -> None:
         (
             "지원 담당자에게 원인 확인을 요청함",
             "점검 보고서, 마지막 실행 로그, 출력 이력",
-            "라벨출력관리.exe의 설정 > 지원 패키지 생성 메뉴를 눌러 out\\customer_support_package.zip을 새로 만든 뒤 전달합니다. "
+            "라벨출력관리.exe의 도움말 > 지원 패키지 생성 메뉴를 눌러 out\\customer_support_package.zip을 새로 만든 뒤 전달합니다. "
             "ZIP 안의 environment_summary.txt, file_inventory.txt, release_manifest_summary.txt로 설치 위치와 누락 파일을 확인할 수 있고 원본 DB와 인쇄 데이터는 포함되지 않습니다.",
         ),
         (
             "PC 교체나 재설치 전 데이터 백업",
             "config.ini, DB, 인쇄 데이터, 템플릿, 도안 이미지",
-            "라벨출력관리.exe의 설정 > 고객 데이터 백업 또는 고객데이터_백업.cmd를 실행해 out\\chaeumlab_customer_backup_*.zip을 별도 보관합니다.",
+            "라벨출력관리.exe의 파일 > 고객 데이터 백업 또는 고객데이터_백업.cmd를 실행해 out\\chaeumlab_customer_backup_*.zip을 별도 보관합니다.",
         ),
         (
             "PC 교체나 재설치 후 데이터 복원",
@@ -623,14 +653,14 @@ def add_troubleshooting(doc: Document) -> None:
 
 
 def add_support(doc: Document) -> None:
-    add_heading(doc, "8. 납품 정보", 1)
-    add_body(doc, "아래 정보는 실제 판매처 정보로 수정해 고객에게 전달하면 됩니다.")
+    add_heading(doc, "8 고객 지원", 1)
+    add_body(doc, "구매처 또는 설치 담당자에게 오류 내용과 아래 점검 자료를 함께 전달합니다. 지원 패키지는 원본 상품 DB를 포함하지 않습니다.")
     table = doc.add_table(rows=4, cols=2)
     rows = [
-        ("공급사", "판매처명을 입력하세요"),
-        ("담당자", "담당자명을 입력하세요"),
-        ("연락처", "전화번호 또는 카카오톡 채널을 입력하세요"),
-        ("이메일", "support@example.com"),
+        ("프로그램", "채움랩 라벨 출력 패키지"),
+        ("문의처", "구매처 또는 설치 담당자"),
+        ("전달 자료", "버전정보.txt, 오류 화면, out/customer_support_package.zip"),
+        ("장비 확인", "프린터 모델명, 연결 방식, 라벨 크기와 DPI, 문제 발생 시간"),
     ]
     for row, (label, value) in zip(table.rows, rows):
         fill_cell(row.cells[0], label, bold=True, color=COLOR_NAVY)
@@ -644,17 +674,20 @@ def configure_document() -> Document:
     doc = Document()
     section = doc.sections[0]
     section.start_type = WD_SECTION_START.NEW_PAGE
-    section.page_width = Inches(8.5)
-    section.page_height = Inches(11)
-    section.top_margin = Inches(1)
-    section.right_margin = Inches(1)
-    section.bottom_margin = Inches(1)
-    section.left_margin = Inches(1)
+    section.page_width = Cm(21)
+    section.page_height = Cm(29.7)
+    section.top_margin = Cm(2)
+    section.right_margin = Cm(2)
+    section.bottom_margin = Cm(2)
+    section.left_margin = Cm(2)
     section.header_distance = Inches(0.492)
     section.footer_distance = Inches(0.492)
     add_footer(section)
+    header = section.header.paragraphs[0]
+    header.add_run().add_picture(str(ROOT / "assets" / "brand" / "chaeumlab_logo_header_2x.png"), width=Inches(0.85))
 
     styles = doc.styles
+    set_style_font(styles["Title"], 30, "000000", True)
     normal = styles["Normal"]
     set_style_font(normal, 11, "111827")
     normal.paragraph_format.space_after = Pt(8)
@@ -679,10 +712,14 @@ def configure_document() -> Document:
 
 
 def main() -> None:
+    capture_errors = capture_contract_errors(ROOT)
+    if capture_errors:
+        raise RuntimeError("최신 실제 화면 캡처 확인 실패: " + "; ".join(capture_errors))
     CUSTOMER_DIR.mkdir(parents=True, exist_ok=True)
     doc = configure_document()
     add_cover(doc)
     add_quick_start(doc)
+    add_product_screens(doc)
     add_file_map(doc)
     add_excel_usage(doc)
     add_daily_operation(doc)
@@ -690,11 +727,11 @@ def main() -> None:
     add_installer_settings(doc)
     add_troubleshooting(doc)
     add_support(doc)
-    doc.core_properties.title = "채움LAB 라벨 출력 패키지 고객용 프로그램 매뉴얼"
+    doc.core_properties.title = "채움랩 라벨 출력 패키지 고객용 프로그램 매뉴얼"
     doc.core_properties.subject = "Excel 기반 라벨 출력 패키지 사용 설명서"
-    doc.core_properties.author = "채움LAB"
+    doc.core_properties.author = "채움랩"
     doc.save(OUTPUT_DOCX)
-    copy2(OUTPUT_DOCX, ROOT / OUTPUT_DOCX.name)
+    copy2(OUTPUT_DOCX, CUSTOMER_DIR / OUTPUT_DOCX.name)
     copy2(OUTPUT_DOCX, ROOT.parent / OUTPUT_DOCX.name)
     print(OUTPUT_DOCX)
 

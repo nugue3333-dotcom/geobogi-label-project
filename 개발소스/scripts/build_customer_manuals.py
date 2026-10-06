@@ -9,6 +9,8 @@ and enlarged instead of being placed as small full-screen captures with labels.
 from pathlib import Path
 from shutil import copy2
 
+from verify_customer_manuals import capture_contract_errors
+
 from PIL import Image as PilImage
 from PIL import ImageDraw, ImageFilter, ImageFont, ImageOps
 from reportlab.lib import colors
@@ -47,12 +49,12 @@ CONTENT_WIDTH = PAGE_WIDTH - (MARGIN_X * 2)
 
 INK = colors.HexColor("#171D23")
 INK_SOFT = colors.HexColor("#34414B")
-TEAL = colors.HexColor("#174B4E")
-TEAL_DARK = colors.HexColor("#103A3D")
-MINT = colors.HexColor("#B7DE67")
-MINT_PALE = colors.HexColor("#F1F7E3")
-PAPER = colors.HexColor("#FCFDFC")
-WARM = colors.HexColor("#F6F7F5")
+TEAL = colors.HexColor("#143E70")
+TEAL_DARK = colors.HexColor("#143E70")
+MINT = colors.HexColor("#A3D900")
+MINT_PALE = colors.HexColor("#FFFFFF")
+PAPER = colors.HexColor("#FFFFFF")
+WARM = colors.HexColor("#F3F5F7")
 LINE = colors.HexColor("#D8DEE0")
 MUTED = colors.HexColor("#68747C")
 CAUTION = colors.HexColor("#FFF7E7")
@@ -169,7 +171,7 @@ def step(number: int, title: str, text: str, check: str | None = None) -> Table:
     ]))
     body = f'<b>{title}</b><br/>{text}'
     if check:
-        body += f'<br/><font color="#174B4E"><b>확인</b>  {check}</font>'
+        body += f'<br/><font color="#143E70"><b>확인</b>  {check}</font>'
     card = Table([[badge, p(body, "step")]], colWidths=[17 * mm, CONTENT_WIDTH - 17 * mm])
     card.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.white),
@@ -189,7 +191,12 @@ def toc(items: list[tuple[str, str]]) -> Table:
     rows = []
     for no, title in items:
         badge = Table([[p(no, "toc_no")]], colWidths=[10 * mm], rowHeights=[10 * mm])
-        badge.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), TEAL), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        badge.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), TEAL),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
         rows.append([badge, p(title, "toc")])
     table = Table(rows, colWidths=[15 * mm, CONTENT_WIDTH - 15 * mm])
     table.setStyle(TableStyle([
@@ -226,7 +233,7 @@ def save_focus(
     legend_height = 26 + (legend_rows * 54) if callouts else 22
     canvas_width = crop.width + (margin * 2)
     canvas_height = header + crop.height + legend_height + margin
-    canvas = PilImage.new("RGB", (canvas_width, canvas_height), "#F3F6F5")
+    canvas = PilImage.new("RGB", (canvas_width, canvas_height), "#F3F5F7")
     draw = ImageDraw.Draw(canvas)
     title_font = ImageFont.truetype(r"C:\Windows\Fonts\malgunbd.ttf", 30)
     body_font = ImageFont.truetype(r"C:\Windows\Fonts\malgun.ttf", 23)
@@ -236,7 +243,7 @@ def save_focus(
     draw.rounded_rectangle(
         (margin + title_width + 18, 28, canvas_width - margin, 35),
         radius=4,
-        fill="#72A91B",
+        fill="#A3D900",
     )
 
     screenshot_xy = (margin, header)
@@ -264,10 +271,10 @@ def save_focus(
         y2 = header + min(bottom - top, y2 - top) * scale
         if x2 <= x1 or y2 <= y1:
             continue
-        draw.rounded_rectangle((x1, y1, x2, y2), radius=12, outline="#72A91B", width=7)
+        draw.rounded_rectangle((x1, y1, x2, y2), radius=12, outline="#A3D900", width=7)
         badge_size = 42
         badge_box = (x1 + 10, y1 + 10, x1 + 10 + badge_size, y1 + 10 + badge_size)
-        draw.ellipse(badge_box, fill="#123F46", outline="#FFFFFF", width=3)
+        draw.ellipse(badge_box, fill="#143E70", outline="#FFFFFF", width=3)
         badge_text = str(number)
         bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
         tx = badge_box[0] + (badge_size - (bbox[2] - bbox[0])) / 2
@@ -282,7 +289,7 @@ def save_focus(
             row = index // 2
             x = margin + column * (column_width + 18)
             y = legend_top + row * 54
-            draw.rounded_rectangle((x, y, x + 38, y + 38), radius=9, fill="#123F46")
+            draw.rounded_rectangle((x, y, x + 38, y + 38), radius=9, fill="#143E70")
             badge_text = str(number)
             bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
             draw.text(
@@ -291,7 +298,7 @@ def save_focus(
                 font=badge_font,
                 fill="#FFFFFF",
             )
-            draw.text((x + 50, y + 5), text, font=body_font, fill="#23474D")
+            draw.text((x + 50, y + 5), text, font=body_font, fill="#143E70")
 
     target.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(target, format="PNG", optimize=True, dpi=(180, 180))
@@ -301,8 +308,8 @@ def save_focus(
 def screen(path: Path, max_height_mm: float, caption: str) -> list:
     image = PilImage.open(path)
     ratio = image.height / image.width
-    width = CONTENT_WIDTH
-    height = min(max_height_mm * mm, width * ratio)
+    width = min(CONTENT_WIDTH, max_height_mm * mm / ratio)
+    height = width * ratio
     return [Image(str(path), width=width, height=height), Spacer(1, 2.3 * mm), p(caption, "caption")]
 
 
@@ -312,15 +319,15 @@ def page_header(canvas, doc) -> None:
     canvas.rect(MARGIN_X, PAGE_HEIGHT - 11.5 * mm, 22 * mm, 2.2 * mm, fill=1, stroke=0)
     canvas.setFillColor(INK_SOFT)
     canvas.setFont("ManualMalgunBold", 8)
-    canvas.drawString(MARGIN_X, PAGE_HEIGHT - 17.5 * mm, "채움LAB")
+    canvas.drawImage(str(ASSETS / "chaeumlab_logo_header_2x.png"), MARGIN_X, PAGE_HEIGHT - 17.5 * mm, width=22 * mm, height=22 * mm * 309 / 960, mask="auto")
     canvas.setFont("ManualMalgun", 8)
-    canvas.drawString(MARGIN_X + 18 * mm, PAGE_HEIGHT - 17.5 * mm, doc.manual_title)
+    canvas.drawString(MARGIN_X + 27 * mm, PAGE_HEIGHT - 17.5 * mm, doc.manual_title)
     canvas.setStrokeColor(LINE)
     canvas.setLineWidth(0.5)
     canvas.line(MARGIN_X, 12 * mm, PAGE_WIDTH - MARGIN_X, 12 * mm)
     canvas.setFont("ManualMalgun", 8)
     canvas.setFillColor(MUTED)
-    canvas.drawString(MARGIN_X, 7.4 * mm, "채움LAB 고객용 사용 매뉴얼 | Rev. 2026.10.01")
+    canvas.drawString(MARGIN_X, 7.4 * mm, "채움랩 고객용 사용 매뉴얼 | 2026.10.06.01")
     canvas.drawRightString(PAGE_WIDTH - MARGIN_X, 7.4 * mm, str(doc.page))
     canvas.restoreState()
 
@@ -338,11 +345,16 @@ def cover(title: str, subtitle: str, executable: str, purpose: str) -> list:
     logo = ASSETS / "chaeumlab_logo_header_2x.png"
     story: list = [Spacer(1, 25 * mm)]
     if logo.exists():
-        story += [Image(str(logo), width=58 * mm, height=17 * mm), Spacer(1, 20 * mm)]
-    story += [p("CUSTOMER GUIDE", "eyebrow"), p(title, "cover"), Spacer(1, 5 * mm), p(subtitle, "cover_sub"), Spacer(1, 24 * mm), thin_rule(), Spacer(1, 10 * mm)]
+        story += [Image(str(logo), width=58 * mm, height=58 * mm * 309 / 960), Spacer(1, 12 * mm)]
+    icon_names = {"라벨디자이너.exe": "chaeumlab_designer_icon.png", "라벨출력관리.exe": "chaeumlab_manager_icon.png", "프린터설정.exe": "chaeumlab_settings_icon.png"}
+    icon = ASSETS / icon_names[executable]
+    if icon.exists():
+        story += [Image(str(icon), width=16 * mm, height=16 * mm), Spacer(1, 5 * mm)]
+    story += [p("채움랩 고객용 사용 매뉴얼", "eyebrow"), p(title, "cover"), Spacer(1, 5 * mm), p(subtitle, "cover_sub"), Spacer(1, 14 * mm), thin_rule(), Spacer(1, 10 * mm)]
     intro = Table([
         [p("대상 프로그램", "note_title"), p(executable, "body")],
         [p("이 문서에서 하는 일", "note_title"), p(purpose, "body")],
+        [p("프로그램에서 열기", "note_title"), p("도움말 > 고객용 매뉴얼에서 현재 프로그램의 사용 설명서를 엽니다.", "body")],
         [p("출력 전 원칙", "note_title"), p("설정을 저장한 뒤에는 반드시 수량 1로 시험 출력하고, 실제 배출 위치와 바코드 판독까지 확인합니다.", "body")],
     ], colWidths=[40 * mm, CONTENT_WIDTH - 40 * mm])
     intro.setStyle(TableStyle([
@@ -379,31 +391,31 @@ def designer_manual(images: dict[str, Path]) -> list:
         Spacer(1, 4 * mm),
         note("작업 전 확인", "라벨 가로·세로와 DPI가 실제 장비 설정과 같아야 합니다. 화면 맞춤은 실물 크기 표시가 아닙니다.", CAUTION), PageBreak(),
 
-        *heading("02", "디자인과 출력 작업을 구분합니다", "저장·상품 연결·도구·속성의 위치를 먼저 익힙니다.", "designer-screen"),
-        *screen(images["overview"], 111, "① 파일·상품·출력  ② 개체 도구  ③ 편집 캔버스  ④ 속성·상품 데이터"),
+        *heading("02", "디자인과 출력 작업을 구분합니다", "저장·상품 연결·개체 도구·상품 DB의 위치를 먼저 익힙니다.", "designer-screen"),
+        *screen(images["overview"], 111, "① 파일·상품·출력  ② 개체 도구  ③ 편집 캔버스  ④ 상품 DB"),
         Spacer(1, 3 * mm),
-        note("반복 출력 담당자", "양식을 고치지 않는다면 반복 출력 화면을 눌러 라벨 출력 관리로 이동합니다. 상품 선택, 매수, 전송에 집중할 수 있습니다."), PageBreak(),
+        note("반복 출력 담당자", "양식을 고치지 않는다면 보기 메뉴에서 반복 출력 화면을 선택해 라벨 출력 관리로 이동합니다. 상품 선택, 매수, 전송에 집중할 수 있습니다."), PageBreak(),
 
         *heading("03", "크기를 적용하고 작업 파일을 저장합니다", "파일명 옆의 별표는 아직 저장하지 않은 변경을 뜻합니다.", "designer-size-save"),
-        *screen(images["toolbar"], 72, "① 상품 엑셀·라벨 크기  ② 파일·실행취소  ③ 출력"),
+        *screen(images["toolbar"], 72, "① 파일과 변경 이력  ② 라벨 크기  ③ 정렬·설정·출력"),
         Spacer(1, 4 * mm),
         step(1, "가로와 세로를 입력합니다", "실제 라벨 한 장의 mm 값을 넣고 크기 적용을 누릅니다.", "캔버스 눈금 끝값이 입력한 크기와 같아야 합니다."),
         Spacer(1, 3 * mm),
-        step(2, "저장과 최근 라벨을 사용합니다", "저장 또는 Ctrl+S로 .gblabel을 보관합니다. 최근 라벨은 파일 메뉴에서 다시 열 수 있습니다."),
+        step(2, "저장과 최근 라벨을 사용합니다", "저장 또는 Ctrl+S로 .cllabel을 보관합니다. 최근 라벨은 파일 메뉴에서 다시 열 수 있습니다."),
         Spacer(1, 3 * mm),
         step(3, "실수를 되돌립니다", "Ctrl+Z로 실행취소, Ctrl+Y로 다시실행합니다. 비정상 종료 후 복구 제안은 저장 원본을 덮어쓰지 않는 작업 사본입니다."), PageBreak(),
 
         *heading("04", "필요한 개체를 라벨에 넣습니다", "한 번에 많이 넣기보다, 하나를 넣고 크기와 위치를 먼저 확인합니다.", "designer-objects"),
         *screen(images["canvas"], 114, "① 개체 도구  ② mm 눈금이 보이는 편집 캔버스"),
         Spacer(1, 4 * mm),
-        step(1, "텍스트 또는 여러 줄 텍스트를 넣습니다", "품명, 주소, 설명처럼 읽혀야 하는 정보를 넣고 선택 개체 편집에서 글꼴, 정렬, 위치와 크기를 바꿉니다."),
+        step(1, "텍스트 또는 여러 줄 텍스트를 넣습니다", "품명, 주소, 설명처럼 읽혀야 하는 정보를 넣고 개체를 더블클릭한 편집 창에서 글꼴, 정렬, 위치와 크기를 바꿉니다."),
         Spacer(1, 3 * mm),
         step(2, "1D 또는 2D 코드를 넣습니다", "바코드 값은 텍스트가 아닌 문자열로 입력합니다. Code128, EAN, QR, DataMatrix, PDF417 등 필요한 코드 종류를 선택합니다."),
         Spacer(1, 3 * mm),
         step(3, "그림과 표를 넣습니다", "JPG/PNG 그림, 박스, 선, 표를 넣어 양식을 구성합니다. 필요한 개체만 배치하고 인쇄파일에서 경계를 확인합니다."), PageBreak(),
 
         *heading("05", "개체 방향을 설정합니다", "텍스트와 바코드만이 아니라 그림, 박스, 선, 표에도 같은 방식으로 적용됩니다.", "designer-rotation"),
-        note("방향 설정 위치", "개체를 선택한 뒤 선택 개체 편집을 열고 방향을 고릅니다. 개체를 선택하지 않으면 방향 값을 바꿀 수 없습니다.", MINT_PALE),
+        note("방향 설정 위치", "개체를 더블클릭해 편집 창을 열고 방향을 고릅니다. 개체를 선택하지 않으면 방향 값을 바꿀 수 없습니다.", MINT_PALE),
         Spacer(1, 8 * mm),
         step(1, "0도 (기본)", "일반적인 가로 읽기 방향입니다. 새 개체는 이 방향으로 시작합니다."),
         Spacer(1, 4 * mm),
@@ -411,12 +423,12 @@ def designer_manual(images: dict[str, Path]) -> list:
         Spacer(1, 4 * mm),
         step(3, "180도", "라벨 전체가 뒤집혀 붙는 레이아웃에서 사용합니다. 미리보기와 시험 출력에서 읽는 방향을 확인합니다."),
         Spacer(1, 7 * mm),
-        note("저장과 출력", "선택한 방향은 .gblabel 파일에 저장되며, 미리보기와 인쇄파일, 실제 출력에도 같은 각도로 반영됩니다.", CAUTION), PageBreak(),
+        note("저장과 출력", "선택한 방향은 .cllabel 파일에 저장되며, 미리보기와 인쇄파일, 실제 출력에도 같은 각도로 반영됩니다.", CAUTION), PageBreak(),
 
         *heading("06", "상품 엑셀을 연결하고 행을 고릅니다", "상품 열의 실제 값과 선택 대상을 확인합니다.", "designer-db"),
         *screen(images["db"], 106, "① 상품 엑셀 연결 상태  ② 선택 개체의 상품 열 연결"),
         Spacer(1, 4 * mm),
-        step(1, "상품 엑셀 연결을 누릅니다", "상단에서 .xlsx 또는 .xlsm을 선택합니다. 연결 중 취소하면 새 결과를 적용하지 않고 기존 연결을 유지합니다."),
+        step(1, "상품 엑셀 연결을 누릅니다", "오른쪽 상품 DB 카드에서 상품 엑셀 연결을 눌러 .xlsx 또는 .xlsm을 선택합니다. 연결 중 취소하면 새 결과를 적용하지 않고 기존 연결을 유지합니다."),
         Spacer(1, 3 * mm),
         step(2, "개체에 상품 열을 지정합니다", "텍스트·1D 바코드·QR 개체의 편집 화면에서 엑셀에 실제로 있는 열을 고릅니다. 필요한 값은 필수 항목으로 지정합니다."),
         Spacer(1, 3 * mm),
@@ -434,9 +446,9 @@ def designer_manual(images: dict[str, Path]) -> list:
         note("잠긴 개체", "잠긴 로고나 바코드는 이동·삭제·속성 수정을 막습니다. 수정이 필요할 때만 잠금을 해제하세요.", CAUTION), PageBreak(),
 
         *heading("08", "도안 인식 값을 검토하고 출력합니다", "자동 인식 결과는 후보이며 사람의 확인이 필요합니다.", "designer-print"),
-        step(1, "도안을 불러옵니다", "도안 불러오기에서 PSD/JPG/PNG를 선택하고 도안 적용을 누릅니다."),
+        step(1, "도안을 불러옵니다", "왼쪽 도안 가져오기 카드의 도안 불러오기에서 PSD/JPG/PNG를 선택하고 도안 적용을 누릅니다."),
         Spacer(1, 3 * mm),
-        step(2, "원본과 인식 값을 비교합니다", "인식 값 검토에서 원본과 모든 값을 대조한 뒤 전체 값 확인을 누릅니다. 선택한 값의 수정도 함께 반영됩니다. 빈 값과 임시 바코드는 먼저 수정해야 하며 실패하면 전체 확인을 적용하지 않습니다."),
+        step(2, "원본과 인식 값을 비교합니다", "인식 값 전체 확인으로 검토창을 열고 원본과 모든 값을 대조한 뒤 전체 값 확인을 누릅니다. 선택한 값의 수정도 함께 반영됩니다. 빈 값과 임시 바코드는 먼저 수정해야 하며 실패하면 전체 확인을 적용하지 않습니다."),
         Spacer(1, 3 * mm),
         step(3, "출력 전 경고를 처리합니다", "경계 밖 개체와 빈 필수 값을 수정합니다. 글자 축소·작은 QR 경고는 첫 장 출력에서 읽힘을 확인합니다."),
         Spacer(1, 3 * mm),
@@ -445,9 +457,9 @@ def designer_manual(images: dict[str, Path]) -> list:
         note("전송이 중단된 경우", "프린터 전송 완료 안내도 실물 확인이 필요합니다. 결과가 미확인인 항목은 실물을 먼저 보고, 다시 인쇄할 때 전송됨 또는 재전송을 직접 선택합니다. 이미 나온 라벨을 다시 보내면 중복될 수 있습니다.", CAUTION), PageBreak(),
 
         *heading("09", "다른 PC로 작업을 옮깁니다", "도안 파일, 이미지와 원본 상품 엑셀의 역할을 구분합니다.", "designer-transfer"),
-        step(1, "이동용 프로젝트를 내보냅니다", "파일 메뉴에서 이동용 프로젝트 내보내기를 선택해 .gbproject를 보관합니다. 현재 도안과 필요한 이미지를 함께 옮깁니다."),
+        step(1, "이동용 프로젝트를 내보냅니다", "파일 메뉴에서 이동 프로젝트 내보내기를 선택해 .clproject를 보관합니다. 현재 도안과 필요한 이미지를 함께 옮기며 상품 엑셀은 별도로 옮깁니다. 기존 .gblabel·.gbproject도 열 수 있으며, 구형 도안 저장은 원래 파일을 유지합니다. 새 형식으로 전환하려면 다른 이름으로 저장을 사용하세요."),
         Spacer(1, 4 * mm),
-        step(2, "새 PC에서 가져옵니다", "이동용 프로젝트 가져오기 후 상품 엑셀을 다시 연결합니다. 누락된 파일·글꼴·라벨 크기와 프린터 설정을 확인합니다."),
+        step(2, "새 PC에서 가져옵니다", "이동 프로젝트 가져오기 후 상품 엑셀을 다시 연결합니다. 누락된 파일·글꼴·라벨 크기와 프린터 설정을 확인합니다."),
         Spacer(1, 4 * mm),
         step(3, "기존 BarTender 도안을 다시 만듭니다", ".btw는 직접 열 수 없습니다. 확장자를 .png로 바꾸는 것은 변환이 아닙니다. 원본 프로그램에서 실제 이미지로 내보내거나 인쇄 미리보기를 저장한 뒤 필드와 바코드를 다시 연결합니다."),
         Spacer(1, 7 * mm),
@@ -475,29 +487,29 @@ def manager_manual(images: dict[str, Path]) -> list:
         *heading("03", "DB를 연결하고 인쇄 데이터를 확인합니다", "원본 DB와 인쇄 데이터 탭을 번갈아 보며 값이 맞는지 확인합니다.", "manager-db"),
         *screen(images["data"], 106, "① 인쇄 데이터/원본 DB 탭  ② 행 선택과 데이터 표"),
         Spacer(1, 4 * mm),
-        step(1, "DB 파일 메뉴에서 DB 연결을 선택합니다", "상품 엑셀 파일을 선택합니다. 첫 행은 반드시 열 제목이어야 합니다."), Spacer(1, 3 * mm),
+        step(1, "상품 엑셀 연결을 선택합니다", "상품 엑셀 파일을 선택합니다. 첫 행은 반드시 열 제목이어야 합니다."), Spacer(1, 3 * mm),
         step(2, "불러온 열과 행 수를 확인합니다", "인쇄 데이터와 원본 DB 탭을 모두 열어 값이 누락되지 않았는지 봅니다."), Spacer(1, 3 * mm),
-        step(3, "행을 편집하고 저장합니다", "셀을 더블클릭하거나 Enter로 수정한 뒤 DB 파일 메뉴에서 저장합니다."), Spacer(1, 5 * mm),
+        step(3, "행을 편집하고 저장합니다", "셀을 더블클릭하거나 Enter로 수정한 뒤 파일 메뉴에서 저장합니다."), Spacer(1, 5 * mm),
         note("원본 DB를 바꾸기 전", "삭제나 대량 수정 전에 원본 파일을 백업합니다. 저장 후에는 인쇄 데이터의 현재 값도 다시 확인합니다.", CAUTION), PageBreak(),
 
         *heading("04", "검색 결과와 중복 행을 선택합니다", "중복 값은 자동으로 하나를 고르지 않습니다. 원하는 행을 직접 선택합니다.", "manager-search"),
-        step(1, "찾을 값을 입력하거나 스캔합니다", "상단 DB 상품조회에 바코드, 품명, 품목 코드, 가격처럼 DB에 있는 값을 입력한 뒤 조회합니다."), Spacer(1, 3 * mm),
+        step(1, "찾을 값을 입력하거나 스캔합니다", "상단 검색 입력칸에 바코드, 품명, 품목 코드, 가격처럼 DB에 있는 값을 입력한 뒤 조회합니다."), Spacer(1, 3 * mm),
         step(2, "중복 선택 창에서 필요한 행만 고릅니다", "기본 상태는 아무 행도 선택되지 않습니다. 원하는 행만 체크하거나 전체 선택을 사용합니다."), Spacer(1, 3 * mm),
         step(3, "확인을 눌러 인쇄 데이터에 반영합니다", "확인을 누르면 이번 선택이 인쇄 데이터에 적용됩니다. 취소하면 기존 선택을 유지합니다."), Spacer(1, 5 * mm),
         note("중복 선택 주의", "확인하면 기존 체크가 이번 선택으로 교체됩니다. 전체 출력이 필요하지 않다면 대상 행과 수량을 다시 확인합니다.", CAUTION), PageBreak(),
 
-        *heading("05", "선택한 항목만 인쇄합니다", "출력 작업 영역에서 대상과 수량을 마지막으로 확인합니다.", "manager-print"),
+        *heading("05", "대상과 매수를 확인하고 인쇄합니다", "출력 작업 영역에서 대상과 수량을 마지막으로 확인합니다.", "manager-print"),
         *screen(images["print"], 87, "① 인쇄 범위와 실행  ② 출력 대상 선택  ③ 점검과 설정"),
         Spacer(1, 4 * mm),
         step(1, "인쇄 데이터의 선택 칸을 체크합니다", "출력할 행만 체크하고, 라벨 크기에 맞춰 텍스트와 바코드가 자동 배치되는지 미리 확인합니다."), Spacer(1, 3 * mm),
         step(2, "실행 전 점검을 누릅니다", "DB, 프린터 설정과 오류 여부를 먼저 확인합니다."), Spacer(1, 3 * mm),
         step(3, "인쇄 매수를 선택하고 시작합니다", "인쇄를 누르면 인쇄 매수 선택 창이 열립니다. 1장부터 100장까지 입력하거나 1·3·5·10장 빠른 선택을 누른 뒤 인쇄 시작을 선택합니다."), Spacer(1, 5 * mm),
-        note("선택 항목에 같은 매수 적용", "체크한 행이 있으면 선택한 각 항목에 같은 인쇄 매수가 적용됩니다. 취소를 누르면 출력 명령을 보내지 않습니다."), Spacer(1, 3 * mm),
-        note("체크가 0개일 때", "선택 항목이 없으면 인쇄가 차단됩니다. 전체 출력이 필요할 때만 전체 선택을 누르고 대상 건수와 수량을 확인합니다.", CAUTION), PageBreak(),
+        note("선택 항목에 같은 매수 적용", "체크한 행이 있으면 선택한 각 항목에 같은 인쇄 매수가 적용됩니다. 체크가 없으면 전체 항목이 대상입니다. 취소하면 명령을 전송하지 않습니다."), Spacer(1, 3 * mm),
+        note("체크가 0개일 때", "선택 항목이 없으면 전체 항목에 같은 매수가 적용됩니다. 인쇄 매수 선택 창에서 전체 대상 건수와 총 매수를 확인하세요. 선택 매수는 임시 큐에만 반영되며 원본 DB와 기본 인쇄 데이터의 저장값은 바뀌지 않습니다.", CAUTION), PageBreak(),
 
         *heading("06", "점검 결과와 로그로 문제를 찾습니다", "출력 문제가 생기면 같은 작업을 반복하기 전에 점검 결과를 먼저 봅니다.", "manager-help"),
         step(1, "실행 전 점검 결과를 엽니다", "out/customer_preflight_report.txt에서 DB, 설정과 필수 파일 오류를 확인합니다."), Spacer(1, 3 * mm),
-        step(2, "지원 패키지를 만듭니다", "설정 메뉴의 지원 패키지 생성으로 out/customer_support_package.zip을 만듭니다. 고객 데이터 백업·복원도 설정 메뉴에 있고 라벨 디자인은 상단의 별도 버튼입니다."), Spacer(1, 3 * mm),
+        step(2, "지원 패키지를 만듭니다", "도움말 메뉴의 지원 패키지 생성으로 out/customer_support_package.zip을 만듭니다. 고객 데이터 백업·복원은 파일 메뉴에 있고 라벨 디자인은 상단의 별도 버튼입니다."), Spacer(1, 3 * mm),
         step(3, "인쇄 로그를 확인합니다", "print_log.xlsx와 last_run.log에서 마지막으로 전송한 값과 결과를 확인합니다."), Spacer(1, 5 * mm),
         note("문의할 때 준비할 내용", "프린터 모델명, 연결 방식, 오류 화면, customer_preflight_report.txt, customer_support_package.zip과 문제 발생 시간을 함께 전달합니다."),
     ]
@@ -542,7 +554,7 @@ def settings_manual(images: dict[str, Path]) -> list:
 
         *heading("06", "점검하고 1장으로 끝까지 확인합니다", "저장 성공만으로 프린터 설정이 끝난 것은 아닙니다.", "settings-help"),
         step(1, "설정 점검을 누릅니다", "브랜드, 연결 방식, 용지 유형, 간격, DPI와 바코드 기본값의 오류를 확인합니다."), Spacer(1, 3 * mm),
-        step(2, "설정 저장을 누릅니다", "오류가 없을 때 저장합니다. 고객 실행 폴더의 config.ini에 반영됩니다."), Spacer(1, 3 * mm),
+        step(2, "설정 저장을 누릅니다", "오류가 없을 때 저장합니다. 현재 사용하는 config.ini에 반영되며 폴더 쓰기가 제한된 PC는 안내된 사용자 데이터 폴더에 저장됩니다."), Spacer(1, 3 * mm),
         step(3, "라벨출력관리에서 1장을 출력합니다", "크기, 180도 방향, 농도, 커터/필러와 바코드 판독을 순서대로 확인합니다."), Spacer(1, 5 * mm),
         note("완료 기준", "연결 확인과 설정 저장 뒤 실제 라벨 1장이 정상 위치에 배출되고, 인쇄후작업과 바코드 판독까지 맞아야 설정이 완료됩니다.", CAUTION),
     ]
@@ -554,7 +566,7 @@ def build_pdf(path: Path, story: list, manual_title: str) -> None:
         str(path), pagesize=A4,
         leftMargin=MARGIN_X, rightMargin=MARGIN_X,
         topMargin=MARGIN_TOP, bottomMargin=MARGIN_BOTTOM,
-        title=path.stem, author="채움LAB",
+        title=path.stem, author="채움랩",
     )
     doc.manual_title = manual_title
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="content", showBoundary=0)
@@ -566,6 +578,9 @@ def build_pdf(path: Path, story: list, manual_title: str) -> None:
 
 
 def main() -> None:
+    capture_errors = capture_contract_errors(ROOT)
+    if capture_errors:
+        raise RuntimeError("최신 실제 화면 캡처 확인 실패: " + "; ".join(capture_errors))
     OUTPUT.mkdir(parents=True, exist_ok=True)
     generated = OUTPUT / "_generated"
     generated.mkdir(parents=True, exist_ok=True)
@@ -585,41 +600,41 @@ def main() -> None:
             (12, 8, 1468, 890),
             "라벨 디자이너 전체 화면",
             (
-                (1, "파일·상품·출력", (20, 88, 1460, 266)),
-                (2, "개체 도구", (20, 280, 356, 835)),
-                (3, "편집 캔버스", (369, 280, 1131, 835)),
-                (4, "상품 DB", (1143, 280, 1459, 835)),
+                (1, "파일·상품·출력", (12, 103, 1468, 204)),
+                (2, "개체 도구", (12, 216, 249, 839)),
+                (3, "편집 캔버스", (261, 216, 1139, 839)),
+                (4, "상품 DB", (1151, 216, 1468, 839)),
             ),
         ),
         "toolbar": save_focus(
             designer_source,
             generated / "designer-toolbar-focus.png",
-            (18, 88, 1462, 268),
-            "상품 연결 · 파일 · 출력",
+            (12, 95, 1468, 206),
+            "파일 · 라벨 크기 · 출력",
             (
-                (1, "상품 엑셀과 라벨 크기", (20, 89, 692, 265)),
-                (2, "파일과 실행취소", (693, 89, 1080, 265)),
-                (3, "출력", (1060, 89, 1458, 265)),
+                (1, "파일과 변경 이력", (12, 103, 618, 153)),
+                (2, "라벨 크기", (12, 154, 504, 202)),
+                (3, "정렬·설정·출력", (620, 103, 1248, 153)),
             ),
         ),
         "canvas": save_focus(
             designer_source,
             generated / "designer-canvas-focus.png",
-            (18, 279, 1132, 860),
+            (12, 216, 1140, 839),
             "개체 도구와 편집 캔버스",
             (
-                (1, "개체 도구", (20, 280, 356, 835)),
-                (2, "mm 편집 캔버스", (369, 280, 1131, 835)),
+                (1, "개체 도구", (12, 216, 249, 839)),
+                (2, "mm 편집 캔버스", (261, 216, 1139, 839)),
             ),
         ),
         "db": save_focus(
             designer_data_source,
             generated / "designer-db-focus.png",
-            (1141, 279, 1462, 860),
+            (1151, 216, 1468, 839),
             "상품 DB 영역",
             (
-                (1, "상품 엑셀 연결 상태", (1143, 280, 1459, 450)),
-                (2, "선택 개체의 상품 열", (1143, 451, 1459, 835)),
+                (1, "상품 엑셀 연결 상태", (1162, 227, 1442, 490)),
+                (2, "선택 개체의 상품 열", (1162, 504, 1442, 829)),
             ),
         ),
     }
@@ -630,31 +645,31 @@ def main() -> None:
             (12, 6, 1468, 890),
             "라벨 출력 관리 전체 화면",
             (
-                (1, "DB 상품조회", (20, 0, 1460, 92)),
-                (2, "메뉴와 인쇄", (20, 112, 1460, 178)),
-                (3, "인쇄 데이터", (20, 190, 1130, 858)),
-                (4, "출력 작업", (1142, 190, 1459, 858)),
+                (1, "DB 상품조회", (12, 161, 1468, 209)),
+                (2, "메뉴와 인쇄", (12, 60, 1468, 153)),
+                (3, "인쇄 데이터", (12, 217, 1163, 847)),
+                (4, "출력 작업", (1173, 217, 1468, 847)),
             ),
         ),
         "data": save_focus(
             manager_source,
             generated / "manager-data-focus.png",
-            (18, 188, 1132, 861),
+            (12, 217, 1163, 847),
             "인쇄 데이터와 원본 DB",
             (
-                (1, "인쇄 데이터 / 원본 DB", (20, 190, 1130, 228)),
-                (2, "행 선택과 데이터", (20, 228, 1130, 858)),
+                (1, "인쇄 데이터 / 원본 DB", (12, 217, 1163, 264)),
+                (2, "행 선택과 데이터", (24, 264, 1136, 820)),
             ),
         ),
         "print": save_focus(
             manager_source,
             generated / "manager-print-focus.png",
-            (18, 112, 1462, 861),
+            (12, 101, 1468, 847),
             "선택 인쇄와 출력 작업",
             (
-                (1, "인쇄 범위와 실행", (20, 112, 1460, 178)),
-                (2, "출력 대상 선택", (20, 190, 1130, 858)),
-                (3, "점검과 설정", (1142, 190, 1459, 858)),
+                (1, "인쇄 범위와 실행", (12, 60, 1468, 153)),
+                (2, "출력 대상 선택", (12, 217, 1163, 847)),
+                (3, "점검과 설정", (1173, 217, 1468, 847)),
             ),
         ),
     }
@@ -662,46 +677,46 @@ def main() -> None:
         "overview": save_focus(
             settings_source,
             generated / "settings-overview-focus.png",
-            (10, 8, 1470, 600),
+            (10, 8, 1470, 654),
             "프린터 설정 전체 화면",
             (
-                (1, "불러오기·점검·저장", (12, 92, 1468, 135)),
-                (2, "설정 흐름과 검증", (12, 144, 1468, 195)),
-                (3, "장비와 연결", (12, 204, 736, 597)),
-                (4, "용지와 바코드", (743, 204, 1468, 558)),
+                (1, "불러오기·점검·저장", (16, 101, 504, 136)),
+                (2, "설정 흐름과 검증", (13, 153, 1467, 207)),
+                (3, "장비와 연결", (12, 216, 736, 646)),
+                (4, "용지와 바코드", (744, 216, 1468, 598)),
             ),
         ),
         "printer": save_focus(
             settings_source,
             generated / "settings-printer-focus.png",
-            (10, 202, 738, 600),
+            (12, 216, 736, 646),
             "장비와 연결",
             (
-                (1, "제조사와 출력", (12, 204, 736, 403)),
-                (2, "연결 방식", (12, 410, 736, 597)),
+                (1, "제조사와 출력", (12, 216, 736, 434)),
+                (2, "연결 방식", (12, 442, 736, 646)),
             ),
         ),
         "media": save_focus(
             settings_source,
             generated / "settings-media-focus.png",
-            (741, 202, 1470, 562),
+            (744, 216, 1468, 598),
             "용지 크기와 바코드 설정",
             (
-                (1, "용지 규격", (743, 204, 1468, 358)),
-                (2, "바코드 기본값", (743, 365, 1468, 558)),
+                (1, "용지 규격", (744, 216, 1468, 381)),
+                (2, "바코드 기본값", (744, 390, 1468, 598)),
             ),
         ),
     }
 
     manuals = {
-        "채움LAB_라벨디자이너_고객용_매뉴얼.pdf": (designer_manual(designer_images), "라벨 디자이너"),
-        "채움LAB_라벨출력관리_고객용_매뉴얼.pdf": (manager_manual(manager_images), "라벨 출력 관리"),
-        "채움LAB_프린터설정_고객용_매뉴얼.pdf": (settings_manual(settings_images), "프린터 설정"),
+        "채움랩_라벨디자이너_고객용_매뉴얼.pdf": (designer_manual(designer_images), "라벨 디자이너"),
+        "채움랩_라벨출력관리_고객용_매뉴얼.pdf": (manager_manual(manager_images), "라벨 출력 관리"),
+        "채움랩_프린터설정_고객용_매뉴얼.pdf": (settings_manual(settings_images), "프린터 설정"),
     }
     for filename, (story, manual_title) in manuals.items():
         build_pdf(OUTPUT / filename, story, manual_title)
 
-    for destination in (CUSTOMER_RUNTIME / "고객용_매뉴얼", TOP_LEVEL / "고객용_매뉴얼"):
+    for destination in (CUSTOMER_RUNTIME / "docs/고객용_매뉴얼", TOP_LEVEL / "docs/고객용_매뉴얼"):
         destination.mkdir(parents=True, exist_ok=True)
         for filename in manuals:
             copy2(OUTPUT / filename, destination / filename)

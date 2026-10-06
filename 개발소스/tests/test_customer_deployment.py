@@ -16,7 +16,7 @@ from barcode_label_automation.customer_deployment import (
     next_deploy_dir,
     should_exclude,
 )
-from barcode_label_automation.release_manifest import MANIFEST_FILES, validate_release_manifest
+from barcode_label_automation.release_manifest import MANIFEST_FILES, SPEC_NAMES, validate_release_manifest, write_release_manifest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +112,23 @@ def test_create_customer_deployment_preserves_source_release_version(tmp_path: P
     manifest = json.loads((result.target_dir / "release_manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == "2026.07.15.1100"
     assert "버전: 2026.07.15.1100" in (result.target_dir / "버전정보.txt").read_text(encoding="utf-8-sig")
+
+
+def test_customer_deployment_preserves_actual_build_and_test_provenance(tmp_path: Path) -> None:
+    source = tmp_path / 'runtime'
+    code = tmp_path / 'code'
+    code.mkdir()
+    for name in SPEC_NAMES:
+        (code / name).write_text('# verified spec ' + name, encoding='utf-8')
+    _write_required_customer_files(source)
+    write_release_manifest(source, package_version='2026.10.06.01', source_root=code,
+                           build_id='verified-build', test_result='pytest: actual passing result')
+    before = json.loads((source / 'release_manifest.json').read_text(encoding='utf-8'))
+    result = create_customer_deployment(source, tmp_path / 'deploy', date_stamp='20261006')
+    after = json.loads((result.target_dir / 'release_manifest.json').read_text(encoding='utf-8'))
+    assert after['build'] == before['build']
+    assert len(after['build']['specs']) == 6
+    assert validate_release_manifest(result.target_dir)[0]
 
 
 def test_assert_clean_deploy_rejects_forbidden_customer_files(tmp_path: Path) -> None:
