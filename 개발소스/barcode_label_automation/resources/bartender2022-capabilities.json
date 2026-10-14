@@ -1,0 +1,490 @@
+{
+  "baseline": "BarTender 2022 Professional; installed build options require comparison",
+  "topics": [
+    {
+      "topic": "2D-Pharmacode",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_2DPharmacode.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Anker Plessey",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_AnkerPlessey.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Australia Post 4-State Customer Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_AustraliaPost.htm",
+      "engine_key": "australiapost",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Aztec Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Aztec.htm",
+      "engine_key": "aztec",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "BC412",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_BC412.htm",
+      "engine_key": "bc412",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "CEPNet",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_CEPNet.htm",
+      "engine_key": "cepnet",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "CODABLOCK-F",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_CODABLOCKF.htm",
+      "engine_key": "codablockf",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Channel Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_ChannelCode.htm",
+      "engine_key": "channelcode",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Circular Code 128",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Circ_Code128.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Circular Code 39",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Circ_Code39.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Circular Code 93",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Circ_Code93.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Circular Interleaved 2 of 5",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Circ_Int2of5.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Codabar (NW-7)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Codabar.htm",
+      "engine_key": "codabar",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 11 (USD-8)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code11.htm",
+      "engine_key": "code11",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 128",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code128.htm",
+      "engine_key": "code128",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 16K",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code16K.htm",
+      "engine_key": "code16k",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 32 (Italian Pharmacode)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code32.htm",
+      "engine_key": "code32",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 39 - Full ASCII",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code39_Full.htm",
+      "engine_key": "code39extended",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 39 - Regular",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code39_Regular.htm",
+      "engine_key": "code39",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 49",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code49.htm",
+      "engine_key": "code49",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 93",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code93.htm",
+      "engine_key": "code93",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Code 93i",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Code93i.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Data Matrix",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_DataMatrix.htm",
+      "engine_key": "datamatrix",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Datalogic 2 of 5 (China Post)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Datalogic2of5.htm",
+      "engine_key": "datalogic2of5",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Deutsche Post Identcode",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_DeutschePostIdentcode.htm",
+      "engine_key": "deutscheident",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Deutsche Post Leitcode",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_DeutschePostLeitcode.htm",
+      "engine_key": "deutscheleit",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "DotCode",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_DotCode.htm",
+      "engine_key": "dotcode",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "EAN/JAN-13",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_EANJAN_13.htm",
+      "engine_key": "ean13",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "EAN/JAN-8",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_EANJAN_8.htm",
+      "engine_key": "ean8",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "EAN/JAN/UPC 2-Digit Supplemental",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_EANJAN_2digitSupp.htm",
+      "engine_key": "ean2",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "EAN/JAN/UPC 5-Digit Supplemental",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_EANJAN_5digitSupp.htm",
+      "engine_key": "ean5",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "GS1 Composite",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_GS1_Composite.htm",
+      "engine_key": "gs1_composite",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "GS1 DataBar (RSS)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_GS1_DataBar.htm",
+      "engine_key": "databar",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "GS1 DataMatrix",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_GS1_DataMatrix.htm",
+      "engine_key": "gs1_datamatrix",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "GS1 QR Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_GS1_QRCode.htm",
+      "engine_key": "gs1_qr",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "GS1-128",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_GS1_128.htm",
+      "engine_key": "gs1_128",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Grid Matrix",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_GridMatrix.htm",
+      "engine_key": "gridmatrix",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Han Xin Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_HanXin.htm",
+      "engine_key": "hanxin",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "ITF-14",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_ITF14.htm",
+      "engine_key": "itf14",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Industrial 2 of 5",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Industrial2of5.htm",
+      "engine_key": "industrial2of5",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Interleaved 2 of 5",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Interleaved2of5.htm",
+      "engine_key": "itf",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Japanese Post 4-State Customer Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_JapanesePost.htm",
+      "engine_key": "japanpost",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "KIX 4-State Customer Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_KIX.htm",
+      "engine_key": "kix",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Korea Post",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_KoreaPost.htm",
+      "engine_key": "koreapost",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "MSI Plessey",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_MSIPlessey.htm",
+      "engine_key": "msi",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Matrix 2 of 5",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Matrix2of5.htm",
+      "engine_key": "standard2of5",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "MaxiCode",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_MaxiCode.htm",
+      "engine_key": "maxicode",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Micro QR Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_MicroQRCode.htm",
+      "engine_key": "microqr",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "MicroPDF417",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_MicroPDF417.htm",
+      "engine_key": "micropdf417",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "NEC 2 of 5",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_NEC2of5.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "OPC (Optical Product Code, VCA)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_OPC.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "PDF417",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_PDF417.htm",
+      "engine_key": "pdf417",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "PHARMA-CODE - One-Track",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_PHARMACODE_OneTrack.htm",
+      "engine_key": "pharmacode",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "PHARMA-CODE - Two-Track",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_PHARMACODE_TwoTrack.htm",
+      "engine_key": "pharmacode2track",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "PZN",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_PZN.htm",
+      "engine_key": "pzn",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "PosiCode",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_PosiCode.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "QR Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_QRCode.htm",
+      "engine_key": "qr",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Royal Mail 4-State Customer Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_RoyalMail4State.htm",
+      "engine_key": "royalmail",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Singapore 4-State Postal Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_SingaporePost.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "Standard 2 of 5 (IATA)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Standard2of5.htm",
+      "engine_key": "iata2of5",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "Telepen",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_Telepen.htm",
+      "engine_key": "telepen",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "UK Plessey",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_UKPlessey.htm",
+      "engine_key": "plessey",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "UPC-A",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_UPC_A.htm",
+      "engine_key": "upca",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "UPC-E",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_UPC_E.htm",
+      "engine_key": "upce",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "USPS Intelligent Mail 4-State Customer Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_USPS_Intelligent.htm",
+      "engine_key": "uspsintelligentmail",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "USPS PLANET",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_USPS_PLANET.htm",
+      "engine_key": "planet",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "USPS POSTNET (Zip, Zip+4, DPBC)",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_USPS_POSTNET.htm",
+      "engine_key": "postnet",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    },
+    {
+      "topic": "iQR Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_iQRCode.htm",
+      "engine_key": null,
+      "status": "unsupported",
+      "limitation": "동일한 규격의 검증된 오프라인 인코더 없음"
+    },
+    {
+      "topic": "rMQR Code",
+      "source": "https://help.seagullscientific.com/2022/en/Content/symb_rMQRCode.htm",
+      "engine_key": "rmqr",
+      "status": "available",
+      "limitation": "기본/노출 옵션 검증; BarTender 전체 옵션 동등성 미완료"
+    }
+  ],
+  "options_reference_count": 950,
+  "fully_equivalent": false
+}

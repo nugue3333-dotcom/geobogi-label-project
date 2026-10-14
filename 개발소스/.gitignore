@@ -33,6 +33,7 @@ assets/images/
 sales-page/assets/higgsfield/
 %SystemDrive%/
 *.exe
+!barcode_label_automation/vendor/zint/zint.exe
 *.apk
 *.keystore
 *.jks
@@ -47,3 +48,12 @@ print_queue.xlsx
 release_manifest.json
 last_run.log
 qa_designer_size_*/
+
+# OCR runtime is delivered in the customer ZIP and installed by the source setup script.
+tools/ocr/*
+!tools/ocr/*.md
+!tools/ocr/*LICENSE*
+!tools/ocr/*COPYING*
+*.pid
+63187D60
+74E87D60

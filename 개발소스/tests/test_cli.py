@@ -26,11 +26,11 @@ def test_validate_row_skips_empty_barcode():
 
 
 def test_validate_row_skips_non_positive_print_qty():
-    assert _validate_row_for_output(make_row(print_qty=0)) == "print_qty must be greater than 0"
+    assert _validate_row_for_output(make_row(print_qty=0)) == "print_qty must be greater than 0 and an integer"
 
 
-def test_validate_row_skips_print_qty_over_safety_limit():
-    assert _validate_row_for_output(make_row(print_qty=101)) == "print_qty exceeds the safety limit of 100"
+def test_validate_row_accepts_print_qty_without_application_cap():
+    assert _validate_row_for_output(make_row(print_qty=10001)) is None
 
 
 def test_print_yes_runs_without_prompt_and_writes_root_log(monkeypatch, tmp_path):
@@ -328,3 +328,25 @@ output_dir = out
     payload = (tmp_path / "out" / "label_001.zpl").read_text(encoding="utf-8")
     assert payload.startswith("^XA\n")
     assert "^FDSEWOO-001^FS" in payload
+
+
+def _write_quantity_config(tmp_path):
+    path = tmp_path / "config.ini"
+    path.write_text("[printer]\nbrand=tsc\nmode=network\nlanguage=tspl\nip=127.0.0.1\nport=9100\n[label]\nwidth_mm=60\nheight_mm=40\ndpi=203\n[data]\nexcel_file=print_queue.xlsx\noutput_dir=out\n", encoding="utf-8")
+    return path
+
+@pytest.mark.parametrize("quantity", [1, 100, 101, 1000, 1001, 10000])
+def test_cli_dry_run_preserves_exact_large_count(monkeypatch, tmp_path, quantity):
+    config = _write_quantity_config(tmp_path)
+    monkeypatch.setattr(cli, "read_labels", lambda _path: [make_row(barcode="001234")])
+    monkeypatch.setattr(cli, "_send_to_printer", lambda *_args: pytest.fail("dry-run must not transmit"))
+    assert cli.main(["--config", str(config), "--dry-run", "--force-print-qty", str(quantity)]) == 0
+    command = (tmp_path / "out" / "label_001.tspl").read_bytes()
+    assert f"PRINT 1,{quantity}".encode("ascii") in command
+    assert b"001234" in command
+    assert len(command) < 128000
+
+def test_cli_skipped_rows_cannot_report_success(monkeypatch, tmp_path):
+    config = _write_quantity_config(tmp_path)
+    monkeypatch.setattr(cli, "read_labels", lambda _path: [make_row(barcode=""), make_row()])
+    assert cli.main(["--config", str(config), "--dry-run"]) == 1

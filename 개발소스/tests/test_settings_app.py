@@ -407,7 +407,10 @@ def test_settings_app_smoke_accepts_base_dir_argument(tmp_path):
 def test_settings_ui_explains_auto_barcode_layout_locked_fields():
     source = inspect.getsource(SettingsApp._build_barcode_section)
 
-    assert "자동 배치가 켜져 있으면 X/Y" in source
+    assert "자동 가운데 배치에서는 X/Y를 사용하지 않습니다" in source
+    assert "사용자 도안의 바코드는 디자이너 개체 옵션" in source
+    assert 'X (도트)' in source and 'Y (도트)' in source
+    assert '25.4/dpi' in source and '라벨 왼쪽 위 기준' in source
 
 
 def test_settings_ui_protects_unsaved_changes_before_reload_or_close():

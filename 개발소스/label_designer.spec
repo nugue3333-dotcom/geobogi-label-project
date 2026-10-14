@@ -1,6 +1,6 @@
+from pathlib import Path
 # -*- mode: python ; coding: utf-8 -*-
 
-from pathlib import Path
 
 
 def collect_data_tree(source, target_prefix):
@@ -21,11 +21,18 @@ def collect_data_tree(source, target_prefix):
 brand_datas = collect_data_tree("assets/brand", "assets/brand")
 font_datas = collect_data_tree("assets/fonts", "assets/fonts")
 
+
+barcode_runtime_datas = [
+    (str(path), str(path.parent))
+    for directory in (Path("barcode_label_automation/resources"), Path("barcode_label_automation/vendor/zint"))
+    for path in directory.rglob("*") if path.is_file()
+]
+
 a = Analysis(
     ['label_designer_launcher.py'],
     pathex=[],
     binaries=[],
-    datas=brand_datas + font_datas,
+    datas=brand_datas + font_datas + barcode_runtime_datas,
     hiddenimports=[
         'openpyxl',
         'PIL',

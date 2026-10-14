@@ -29,6 +29,13 @@ from qrcode.constants import ERROR_CORRECT_H, ERROR_CORRECT_L, ERROR_CORRECT_M, 
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps, ImageTk
 
 from .brand_assets import apply_window_icon, load_header_logo
+from .designer_clipboard import encode_objects, decode_objects, clone_objects
+from .barcode_layout import render_barcode_first, symbol_geometry, measure_barcode_first
+from .designer_print_dispatch import PrintSendResult, send_prepared_jobs
+from .label_media import read_label_size, save_label_size, outside_elements
+from .job_profile import data_profile, describe_profile, normalize_data_profile, profile_problem, workbook_sheets, default_sheet
+from .print_quantity import parse_print_quantity
+from .tool_icons import TOOL_ICON_NAMES, render_tool_icon
 from .file_association import ensure_label_file_association, restore_file_association
 from .config import DEFAULTS
 from .config import SUPPORTED_BARCODE_TYPES as PRINT_SUPPORTED_BARCODE_TYPES
@@ -88,29 +95,22 @@ ELEMENT_ROTATION_VALUES = {label: value for value, label in ELEMENT_ROTATION_LAB
 VISIBLE_ELEMENT_TYPE_KEYS = ("text", "multiline_text", "barcode", "qr", "image", "box", "line", "table")
 TEXT_ELEMENT_TYPES = {"text", "field", "multiline_text"}
 DB_MAPPABLE_ELEMENT_TYPES = TEXT_ELEMENT_TYPES | {"barcode", "qr"}
-BARCODE_TYPES = {
-    "code128": "Code 128",
-    "gs1_128": "GS1-128",
-    "code39": "Code 39",
-    "codabar": "Codabar",
-    "ean13": "EAN-13",
-    "ean8": "EAN-8",
-    "upca": "UPC-A",
-    "itf": "ITF",
-    "pharmacode": "Pharmacode",
-    "qr": "QR",
-    "microqr": "Micro QR",
-    "datamatrix": "DataMatrix",
-    "pdf417": "PDF417",
-    "micropdf417": "MicroPDF417",
-    "aztec": "Aztec",
-    "maxicode": "MaxiCode",
-}
-BARCODE_2D_TYPES = {"qr", "microqr", "datamatrix", "pdf417", "micropdf417", "aztec", "maxicode"}
-BARCODE_2D_BITMAP_TYPES = {"qr", "microqr", "datamatrix", "pdf417", "micropdf417", "aztec", "maxicode"}
-BARCODE_1D_BITMAP_TYPES = {"code128", "gs1_128", "code39", "ean13", "ean8", "upca", "itf", "codabar", "pharmacode"}
+from .barcode_catalog import (BARCODE_TYPES, BARCODE_1D_TYPES, BARCODE_2D_TYPES,
+                              GS1_TYPES, option_definitions)
+from .barcode_engine import render_barcode as encode_barcode_image
+from .barcode_editor_preview import BarcodeEditorPreview
+from .gs1 import build_gs1, parse_gs1
+from .barcode_options_dialog import edit_barcode_options
+from .gs1_editor import edit_gs1_data, build_gs1_editor
+from .udi_editor import build_udi_editor, resolve_udi_value
+from .hibc import resolve_hibc, hibc_hri
+
+BARCODE_2D_BITMAP_TYPES = set(BARCODE_2D_TYPES)
+BARCODE_1D_BITMAP_TYPES = set(BARCODE_1D_TYPES)
 DESIGNER_PRINT_SUPPORTED_BARCODE_TYPES = BARCODE_1D_BITMAP_TYPES | BARCODE_2D_BITMAP_TYPES
-BARCODE_CHECK_DIGIT_LABELS = {"auto": "자동", "on": "사용", "off": "미사용"}
+BARCODE_CHECK_DIGIT_LABELS = {"auto": "자동", "on": "사용", "off": "미사용",
+    "none": "체크숫자 없음", "mod10": "Mod 10", "mod11": "Mod 11",
+    "mod1010": "Mod 10/10", "mod1110": "Mod 11/10", "mod43": "Mod 43", "mod16":"Mod 16", "mod11ncr":"Mod 11 NCR", "mod11ncr10":"Mod 11 NCR/10"}
 BARCODE_CHECK_DIGIT_VALUES = {label: key for key, label in BARCODE_CHECK_DIGIT_LABELS.items()}
 QR_ERROR_CORRECTION = {
     "L": ERROR_CORRECT_L,
@@ -342,8 +342,11 @@ def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _template_signature(label: object, elements: object) -> str:
-    return json.dumps({"label": label, "elements": elements}, ensure_ascii=False, sort_keys=True, default=str)
+def _template_signature(label: object, elements: object, metadata: dict | None = None) -> str:
+    payload = {"label": label, "elements": elements}
+    if metadata:
+        payload.update({key: value for key, value in metadata.items() if key in {"data_source", "value_rules", "value_profile_id"} and value})
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
 
 
 def _new_code_element_values(*, data_source_connected: bool) -> tuple[str, str]:
@@ -417,6 +420,9 @@ def _element(
     if element_type in {"barcode", "qr"}:
         element["barcode_type"] = barcode_type or ("qr" if element_type == "qr" else "code128")
         element["barcode_options"] = dict(BARCODE_OPTION_DEFAULTS)
+        if element["barcode_type"] in BARCODE_2D_TYPES:
+            element["barcode_options"].update(quiet_zone=0,human_readable=False)
+            element["barcode_layout"] = _new_barcode_layout(width, height)
     if element_type == "table":
         element["table_rows"] = 3
         element["table_cols"] = 3
@@ -425,6 +431,42 @@ def _element(
     if element_type in STROKE_ELEMENT_TYPES:
         element["stroke_width"] = DEFAULT_STROKE_WIDTH_MM
     return element
+
+
+def _new_barcode_layout(width: float, height: float) -> dict[str, object]:
+    return {"version": 2, "size_mode": "size",
+            "symbol_width_mm": width, "symbol_height_mm": height,
+            "hri_position": "right", "hri_gap_mm": 1.0, "hri_font_mode": "auto"}
+
+
+def _normalize_barcode_layout(raw: object) -> dict[str, object]:
+    if not isinstance(raw, dict) or raw.get("version") != 2:
+        raise ValueError("2D 바코드 배치 정보의 버전을 확인하세요.")
+    result = {"version": 2}
+    for key, default, allowed in (("size_mode", "size", {"size", "module"}),
+                                  ("hri_position", "right", {"right", "below"}),
+                                  ("hri_font_mode", "auto", {"auto", "fixed"})):
+        value = raw.get(key, default)
+        if value not in allowed:
+            raise ValueError(f"2D 바코드 {key} 설정이 올바르지 않습니다.")
+        result[key] = value
+    for key, default in (("symbol_width_mm", 0), ("symbol_height_mm", 0), ("hri_gap_mm", 1)):
+        try:
+            value = float(raw.get(key, default))
+        except (ValueError, TypeError) as exc:
+            raise ValueError("바코드 크기와 문자 간격은 숫자로 입력하세요.") from exc
+        if not math.isfinite(value) or value < 0:
+            raise ValueError("바코드 크기와 문자 간격은 0 이상으로 입력하세요.")
+        result[key] = value
+    if raw.get("auto_bounds"):
+        result["auto_bounds"] = True
+    return result
+
+
+def _barcode_first(element: dict[str, object]) -> bool:
+    return (_barcode_type(element) in BARCODE_2D_TYPES
+            and isinstance(element.get("barcode_layout"), dict)
+            and element["barcode_layout"].get("version") == 2)
 
 
 def render_template_text(template_text: str, row: dict[str, str]) -> str:
@@ -440,6 +482,12 @@ def render_element_text(element: dict[str, object], row: dict[str, str]) -> str:
 
 
 def _designer_code_value(element: dict[str, object], row: dict[str, str]) -> str:
+    if isinstance(element.get("udi_data"), dict) and element["udi_data"].get("profile") == "HIBC":
+        return resolve_udi_value(element, row)
+    if element.get("gs1_elements"):
+        if _barcode_type(element) not in GS1_TYPES:
+            raise ValueError("GS1 데이터 구성은 GS1 기호에서만 사용할 수 있습니다.")
+        return build_gs1(element["gs1_elements"], row=row).hri
     template_text = str(element.get("text", ""))
     field = str(element.get("field", "")).strip()
     if template_text or field:
@@ -579,6 +627,16 @@ def normalize_template(template: dict[str, object]) -> dict[str, object]:
     elements = template.get("elements") if isinstance(template.get("elements"), list) else []
     normalized = default_template(width_mm, height_mm)
     normalized["elements"] = [_normalize_element(element) for element in elements if isinstance(element, dict)]
+    if template.get("data_source"):
+        normalized["data_source"] = normalize_data_profile(template["data_source"])
+    if template.get("value_rules"):
+        from .value_rules import validate_value_rules
+        normalized["value_rules"] = validate_value_rules(template["value_rules"])
+    if template.get("value_profile_id"):
+        value_id = str(template["value_profile_id"])
+        if not re.fullmatch(r"[a-f0-9]{32}", value_id):
+            raise ValueError("값 발급 프로파일 ID가 올바르지 않습니다.")
+        normalized["value_profile_id"] = value_id
     return normalized
 
 
@@ -619,10 +677,13 @@ def _normalize_element(element: dict[str, object]) -> dict[str, object]:
     normalized["arrange"] = arrange if arrange in ARRANGE_MODES else ("behind" if element_type == "table" else "normal")
     if element_type in {"barcode", "qr"}:
         barcode_type = str(element.get("barcode_type") or ("qr" if element_type == "qr" else "code128"))
-        if barcode_type not in BARCODE_TYPES:
-            barcode_type = "qr" if element_type == "qr" else "code128"
         normalized["barcode_type"] = barcode_type
         normalized["barcode_options"] = _normalize_barcode_options(element.get("barcode_options"))
+        if barcode_type in BARCODE_2D_TYPES and "barcode_layout" in element:
+            normalized["barcode_layout"] = _normalize_barcode_layout(element["barcode_layout"])
+        for metadata_key in ("gs1_elements", "barcode_recognition", "recognition_error", "udi_profile", "barcode_purpose", "udi_data", "udi_market", "udi_packaging"):
+            if metadata_key in element:
+                normalized[metadata_key] = copy.deepcopy(element[metadata_key])
     if element_type == "table":
         normalized["table_rows"] = max(1, min(20, int(_float_value(element.get("table_rows"), 3))))
         normalized["table_cols"] = max(1, min(20, int(_float_value(element.get("table_cols"), 3))))
@@ -926,7 +987,22 @@ def _decoded_barcode_elements_from_image(
             continue
         x_mm, y_mm, w_mm, h_mm = _pixel_box_to_label_mm(box, image.size, label, pad_mm=0.8)
         barcode_type = _barcode_type_from_zxing_format(getattr(result, "format", ""))
+        identifier = str(getattr(result, "symbology_identifier", "") or "")
+        raw_bytes = bytes(getattr(result, "bytes", b""))
+        if identifier in {" ]C1".strip(), "]d2", "]Q3"}:
+            barcode_type = {"code128":"gs1_128", "datamatrix":"gs1_datamatrix", "qr":"gs1_qr"}.get(barcode_type, barcode_type)
         element = _element("barcode", text, x_mm, y_mm, w_mm, h_mm, font_size=8, align="center", barcode_type=barcode_type)
+        element["barcode_recognition"] = {"aim":identifier,"raw_hex":raw_bytes.hex(),
+                                          "content_type":str(getattr(result,"content_type",""))}
+        if barcode_type in GS1_TYPES:
+            try:
+                parsed = parse_gs1(raw_bytes.decode("ascii") if raw_bytes else text)
+                element["gs1_elements"] = [{"ai":x.ai,"value":x.value,"source_field":""} for x in parsed]
+                element["text"] = build_gs1(parsed).hri
+            except (ValueError, UnicodeError) as exc:
+                element["review_source"] = "barcode"
+                element["review_confirmed"] = False
+                element["recognition_error"] = str(exc)
         elements.append(element)
         boxes.append(box)
     return elements, boxes
@@ -2159,31 +2235,21 @@ def _dark_axis_groups(
 
 
 def _normalize_barcode_options(raw_options: object) -> dict[str, object]:
+    # Preserve explicit values; the encoder validates type/range before output.
+    # Clamping here used to silently print a different setting from the saved file.
     source = raw_options if isinstance(raw_options, dict) else {}
-    options: dict[str, object] = dict(BARCODE_OPTION_DEFAULTS)
-    options["module_width"] = max(0, min(12, int(_float_value(source.get("module_width"), BARCODE_OPTION_DEFAULTS["module_width"]))))
-    options["wide_ratio"] = max(2.0, min(4.0, _float_value(source.get("wide_ratio"), BARCODE_OPTION_DEFAULTS["wide_ratio"])))
-    options["quiet_zone"] = max(0, min(40, int(_float_value(source.get("quiet_zone"), BARCODE_OPTION_DEFAULTS["quiet_zone"]))))
-    options["human_readable"] = bool(source.get("human_readable", BARCODE_OPTION_DEFAULTS["human_readable"]))
-    check_digit = str(source.get("check_digit", BARCODE_OPTION_DEFAULTS["check_digit"])).lower()
-    options["check_digit"] = check_digit if check_digit in BARCODE_CHECK_DIGIT_LABELS else "auto"
-    options["cell_size"] = max(0, min(20, int(_float_value(source.get("cell_size"), BARCODE_OPTION_DEFAULTS["cell_size"]))))
-    qr_ecc = str(source.get("qr_ecc", BARCODE_OPTION_DEFAULTS["qr_ecc"])).upper()
-    options["qr_ecc"] = qr_ecc if qr_ecc in {"L", "M", "Q", "H"} else "M"
-    options["pdf417_rows"] = max(0, min(90, int(_float_value(source.get("pdf417_rows"), BARCODE_OPTION_DEFAULTS["pdf417_rows"]))))
-    options["pdf417_columns"] = max(0, min(30, int(_float_value(source.get("pdf417_columns"), BARCODE_OPTION_DEFAULTS["pdf417_columns"]))))
-    options["pdf417_security"] = max(0, min(8, int(_float_value(source.get("pdf417_security"), BARCODE_OPTION_DEFAULTS["pdf417_security"]))))
-    return options
+    return {**BARCODE_OPTION_DEFAULTS, **source}
 
 
 def _barcode_type(element: dict[str, object]) -> str:
     value = str(element.get("barcode_type") or ("qr" if str(element.get("type")) == "qr" else "code128"))
-    return value if value in BARCODE_TYPES else "code128"
+    return value
 
 
 def _barcode_key_from_label(label: str) -> str:
     reverse = {value: key for key, value in BARCODE_TYPES.items()}
-    return reverse.get(label, label if label in BARCODE_TYPES else "code128")
+    aliases={"QR":"qr","DataMatrix":"datamatrix"}
+    return reverse.get(label, aliases.get(label,label if label in BARCODE_TYPES else "code128"))
 
 
 def _is_code_element(element: dict[str, object]) -> bool:
@@ -2247,6 +2313,19 @@ class LabelDesignerApp(tk.Tk):
         self._initial_template_error: str | None = None
         self._initial_template_notice: str | None = None
         self.config_path = base_dir / "config.ini"
+        self._recovery_prompt_pending = True
+        self._startup_recovery_error = None
+        self._startup_recovery_path = self._recovery_path()
+        try:
+            self._startup_recovery_bytes = self._startup_recovery_path.read_bytes() if self._startup_recovery_path.is_file() else None
+        except OSError as exc:
+            self._startup_recovery_bytes = None
+            self._startup_recovery_error = str(exc)
+        self._media_watch_enabled = True
+        self._last_media_signature = self._media_signature()
+        self._media_poll_after_id: str | None = None
+        self._clipboard_paste_count = 0
+        self._clipboard_last_value = ""
         self.db_path = base_dir / "barcode_db.xlsx"
         self.data_source_path: Path | None = None
         self.scale = DESIGNER_MAX_SCALE
@@ -2367,7 +2446,9 @@ class LabelDesignerApp(tk.Tk):
         self.bind_all("<Control-z>", self._on_undo_shortcut)
         self.bind_all("<Control-y>", self._on_redo_shortcut)
         self.bind_all("<Control-Shift-Z>", self._on_redo_shortcut)
-        self.bind_all("<Control-d>", lambda _event: self._run_menu_command(self.duplicate_selected))
+        self.bind_all("<Control-c>", self._on_copy_shortcut)
+        self.bind_all("<Control-v>", self._on_paste_shortcut)
+        self.bind_all("<Control-d>", self._on_duplicate_shortcut)
         self.protocol("WM_DELETE_WINDOW", self.request_close)
         self.redraw()
         self.after(400, self._offer_recovery)
@@ -2380,6 +2461,11 @@ class LabelDesignerApp(tk.Tk):
         elif self.print_on_open:
             self.after(450, lambda: self.run_output_test(send_to_printer=True))
         self._initial_raise_after_id = self.after(150, self._raise_initial_window)
+        self._media_poll_after_id = self.after(800, self._poll_printer_media)
+        if initial_template_path is not None and not print_on_open:
+            self.after(950, self._check_initial_document_media)
+        if self.template.get("data_source"):
+            self.after(600, self._restore_saved_data_source)
 
     def _window_title(self) -> str:
         if self.template_path:
@@ -2489,6 +2575,7 @@ class LabelDesignerApp(tk.Tk):
                       ("반복 출력 화면", self.open_output_workspace))),
             ("도구", (("상품 엑셀 연결", self.connect_data_source_async), ("상품 선택", self.open_data_source_window),
                       ("연결 해제", self.disconnect_data_source), ("엑셀 새로고침", self.reload_db), (None, None),
+                      ("값 생성 규칙", self.edit_value_rules), ("번호 발급 초기화", self.reset_value_sequence), ("전체 데이터 검증", self.validate_all_data), (None, None),
                       ("프린터 설정", self.open_printer_settings), ("도안 가져오기 안내", self.show_bartender_migration_help),
                       ("빈 라벨로 초기화", self.reset_template))),
             ("도움말", (("고객용 매뉴얼", self.open_customer_manual),)),
@@ -2668,8 +2755,10 @@ class LabelDesignerApp(tk.Tk):
             ("그림", self.add_image_element), ("박스", lambda: self.add_element("box")),
             ("선", lambda: self.add_element("line")), ("표", lambda: self.add_element("table")),
         )
-        for row, (label, command) in enumerate(tools, 1):
-            ttk.Button(parent, text=label, command=command, style="Tool.TButton").grid(row=row, column=0, sticky="ew", pady=3)
+        size = max(20, round(24 * self.winfo_fpixels("1i") / 96))
+        self._tool_icons = {name: ImageTk.PhotoImage(render_tool_icon(name, size), master=self) for name in TOOL_ICON_NAMES}
+        for row, ((label, command), name) in enumerate(zip(tools, TOOL_ICON_NAMES), 1):
+            ttk.Button(parent, text=label, image=self._tool_icons[name], compound="left", command=command, style="Tool.TButton").grid(row=row, column=0, sticky="ew", pady=3)
         ttk.Label(parent, text="도안 가져오기", style="SidePanelTitle.TLabel").grid(row=9, column=0, sticky="ew", pady=(16, 8))
         for row, (label, command, style) in enumerate((
             ("도안 불러오기", self.add_label_image_element, "Tool.TButton"),
@@ -2679,27 +2768,25 @@ class LabelDesignerApp(tk.Tk):
             ttk.Button(parent, text=label, command=command, style=style).grid(row=row, column=0, sticky="ew", pady=3)
 
     def _build_canvas_toolbar(self, parent: ttk.Frame) -> None:
-        commands = (
-            ("새 라벨", self.new_label, "Ribbon.TButton"),
-            ("열기", self.open_template, "Ribbon.TButton"),
-            ("저장", self.save_template, "Ribbon.TButton"),
-            ("되돌리기", self.undo, "Ribbon.TButton"),
-            ("다시실행", self.redo, "Ribbon.TButton"),
-            ("좌우 가운데 정렬", self.center_selected, "Ribbon.TButton"),
-            ("상하 가운데 정렬", self.center_selected_vertically, "Ribbon.TButton"),
-            ("프린터 설정", self.open_printer_settings, "Ribbon.TButton"),
-            ("인쇄파일 생성", lambda: self.run_output_test(send_to_printer=False), "Blue.TButton"),
-            ("인쇄", self.run_primary_print, "Primary.TButton"),
+        from .ui_style import build_grouped_command_bar
+        groups = (
+            ("문서", (("새 라벨", self.new_label, "Ribbon.TButton"), ("열기", self.open_template, "Ribbon.TButton"), ("저장", self.save_template, "Ribbon.TButton"))),
+            ("편집", (("되돌리기", self.undo, "Ribbon.TButton"), ("다시실행", self.redo, "Ribbon.TButton"))),
+            ("정렬", (("좌우 가운데 정렬", self.center_selected, "Ribbon.TButton"), ("상하 가운데 정렬", self.center_selected_vertically, "Ribbon.TButton"))),
+            ("출력", (("전체 데이터 검증", self.validate_all_data, "Ribbon.TButton"), ("인쇄파일 생성", lambda: self.run_output_test(send_to_printer=False), "Ribbon.TButton"), ("반복 출력", self.open_output_workspace, "Blue.TButton"), ("인쇄", self.run_primary_print, "Primary.TButton"))),
         )
-        build_command_bar(parent, commands).grid(row=0, column=0, sticky="ew")
+        build_grouped_command_bar(parent, groups).grid(row=0, column=0, sticky="ew")
         size_row = ttk.Frame(parent, style="Toolbar.TFrame", padding=(0, 5, 0, 0))
         size_row.grid(row=1, column=0, sticky="ew")
         ttk.Label(size_row, text="라벨 크기").pack(side="left", padx=(0, 12))
-        ttk.Label(size_row, text="가로(mm)").pack(side="left")
-        ttk.Spinbox(size_row, textvariable=self.width_var, from_=20, to=120, width=5, command=self.update_label_size).pack(side="left", padx=(5, 12))
-        ttk.Label(size_row, text="세로(mm)").pack(side="left")
-        ttk.Spinbox(size_row, textvariable=self.height_var, from_=15, to=120, width=5, command=self.update_label_size).pack(side="left", padx=(5, 12))
-        ttk.Button(size_row, text="크기 적용", command=self.update_label_size, style="Ribbon.TButton").pack(side="left")
+        self.media_summary_var = tk.StringVar()
+        ttk.Label(size_row, textvariable=self.media_summary_var, style="StatusPill.TLabel").pack(side="left", padx=(0, 12))
+        ttk.Button(size_row, text="용지 설정", command=self.open_printer_settings, style="Ribbon.TButton").pack(side="left")
+        self.selection_hint_var = tk.StringVar(value="개체를 선택하세요 · 더블클릭하여 편집")
+        ttk.Label(size_row, textvariable=self.selection_hint_var, style="Status.TLabel", wraplength=300).pack(side="left", padx=12)
+        build_command_bar(parent, (("선택 개체 편집", self.open_element_editor, "Ribbon.TButton"),
+                                  ("복제", self.duplicate_selected, "Ribbon.TButton"),
+                                  ("잠금/해제", self.toggle_selected_lock, "Ribbon.TButton"))).grid(row=2, column=0, sticky="ew", pady=(4, 0))
 
     def _build_data_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -2806,13 +2893,6 @@ class LabelDesignerApp(tk.Tk):
     def _build_property_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
         ttk.Label(parent, text="상품 DB", style="SidePanelTitle.TLabel").grid(row=0, column=0, sticky="ew")
-        ttk.Label(
-            parent,
-            text="상품 엑셀 연결 상태와 선택 개체의 열을 확인합니다.",
-            style="SidePanelBody.TLabel",
-            wraplength=240,
-            justify="left",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 12))
 
         connection_group = ttk.Frame(parent, style="PropertyGroup.TFrame")
         connection_group.grid(row=2, column=0, sticky="ew", pady=(0, 14))
@@ -2828,10 +2908,10 @@ class LabelDesignerApp(tk.Tk):
             justify="left",
             anchor="w",
             wraplength=240,
-        ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
-        ttk.Button(connection_group, text="상품 엑셀 연결", command=self.connect_data_source_async, style="Tool.TButton").grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        ttk.Button(connection_group, text="상품 엑셀 연결", command=self.connect_data_source_async, style="Tool.TButton").grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
         self.data_source_button = ttk.Button(connection_group, text="상품 선택", command=self.open_data_source_window, style="Blue.TButton", state="disabled")
-        self.data_source_button.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        self.data_source_button.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 6))
         self.disconnect_button = ttk.Button(connection_group, text="연결 해제", command=self.disconnect_data_source, style="Secondary.TButton")
         self.disconnect_button.grid(row=4, column=0, sticky="ew", padx=(0, 4))
         self.reload_button = ttk.Button(connection_group, text="엑셀 새로고침", command=self.reload_db, style="Tool.TButton")
@@ -2920,7 +3000,7 @@ class LabelDesignerApp(tk.Tk):
             pass
 
     def _current_payload_signature(self) -> str:
-        return _template_signature(self.template.get("label", {}), self.elements)
+        return _template_signature(self.template.get("label", {}), self.elements, self.template)
 
     def _history_snapshot(self) -> dict[str, object]:
         return {
@@ -2928,6 +3008,9 @@ class LabelDesignerApp(tk.Tk):
             "elements": copy.deepcopy(self.elements),
             "selected_id": self.selected_id if hasattr(self, "selected_id") else None,
             "selected_ids": sorted(self.__dict__.get("selected_ids", set())),
+            "value_rules": copy.deepcopy(self.template.get("value_rules", [])),
+            "data_source": copy.deepcopy(self.template.get("data_source", {})),
+            "value_profile_id": self.template.get("value_profile_id", ""),
         }
 
     def _reset_history(self) -> None:
@@ -2939,7 +3022,7 @@ class LabelDesignerApp(tk.Tk):
             return
         snapshot = self._history_snapshot()
         current = self._history[self._history_index]
-        if _template_signature(snapshot["label"], snapshot["elements"]) == _template_signature(current["label"], current["elements"]):
+        if _template_signature(snapshot["label"], snapshot["elements"], snapshot) == _template_signature(current["label"], current["elements"], current):
             return
         del self._history[self._history_index + 1:]
         self._history.append(snapshot)
@@ -2955,11 +3038,25 @@ class LabelDesignerApp(tk.Tk):
         try:
             self._history_index = index
             snapshot = self._history[index]
+            previous_profile = copy.deepcopy(self.template.get("data_source", {}))
             self.template["label"] = copy.deepcopy(snapshot["label"])
             self.elements = copy.deepcopy(snapshot["elements"])  # type: ignore[assignment]
+            for key in ("value_rules", "data_source", "value_profile_id"):
+                if snapshot.get(key):
+                    self.template[key] = copy.deepcopy(snapshot[key])
+                else:
+                    self.template.pop(key, None)
             self.selected_id = snapshot["selected_id"]  # type: ignore[assignment]
             self.selected_ids = set(snapshot.get("selected_ids", []))  # type: ignore[arg-type]
             self._load_values_to_controls()
+            if previous_profile != self.template.get("data_source", {}) and self.__dict__.get("tk") is not None:
+                self.data_source_path = None
+                self.db_rows = []
+                self.preview_row = {}
+                self.selected_data_indexes.clear()
+                if self.template.get("data_source"):
+                    self._restore_saved_data_source()
+                self.refresh_data_panel()
             self.load_selected_properties()
             self.redraw()
         finally:
@@ -2989,6 +3086,180 @@ class LabelDesignerApp(tk.Tk):
         self.redo()
         return "break"
 
+    def _on_object_shortcut(self, event: tk.Event, command: Callable[[], object]) -> str | None:
+        if event.widget.winfo_toplevel() is not self:
+            return None
+        if str(event.widget.winfo_class()) in {"Entry", "TEntry", "TSpinbox", "TCombobox", "Spinbox", "Text"}:
+            return None
+        command()
+        return "break"
+
+    def _on_copy_shortcut(self, event: tk.Event) -> str | None:
+        return self._on_object_shortcut(event, self.copy_selected)
+
+    def _on_paste_shortcut(self, event: tk.Event) -> str | None:
+        return self._on_object_shortcut(event, self.paste_objects)
+
+    def _on_duplicate_shortcut(self, event: tk.Event) -> str | None:
+        return self._on_object_shortcut(event, self.duplicate_selected)
+
+    def copy_selected(self) -> None:
+        selected = self._selected_elements()
+        if not selected:
+            self.status_var.set("복사할 개체를 먼저 선택하세요.")
+            return
+        try:
+            value = encode_objects(selected, self.base_dir)
+            self.clipboard_clear()
+            self.clipboard_append(value)
+        except (tk.TclError, ValueError, TypeError) as exc:
+            messagebox.showwarning("개체 복사", f"복사하지 못했습니다. 다시 시도하세요.\n{exc}", parent=self)
+            return
+        self._clipboard_last_value = value
+        self._clipboard_paste_count = 0
+        self.status_var.set(f"개체 {len(selected)}개를 복사했습니다. Ctrl+V로 붙여넣으세요.")
+
+    def paste_objects(self) -> None:
+        try:
+            value = self.clipboard_get()
+            elements = decode_objects(value)
+            count = self.__dict__.get("_clipboard_paste_count", 0) if value == self.__dict__.get("_clipboard_last_value") else 0
+            label = self.template["label"]
+            copies = clone_objects(elements, float(label["width_mm"]), float(label["height_mm"]), 2 * (count + 1))
+            copies = [_normalize_element(e) for e in copies]
+        except (tk.TclError, ValueError, TypeError, OverflowError) as exc:
+            self.status_var.set(str(exc))
+            messagebox.showwarning("개체 붙여넣기", str(exc), parent=self)
+            return
+        self._record_history()
+        self.elements.extend(copies)
+        self.selected_ids = {str(e["id"]) for e in copies}
+        self.selected_id = str(copies[-1]["id"])
+        self._clipboard_last_value = value
+        self._clipboard_paste_count = count + 1
+        self.load_selected_properties()
+        self.redraw()
+        missing = []
+        for e in copies:
+            if e.get("image_path") and not Path(str(e["image_path"])).is_file():
+                missing.append("이미지 파일")
+            if e.get("field") and str(e["field"]) not in self.__dict__.get("data_source_headers", ()):
+                missing.append("DB 열 연결")
+        self.status_var.set(f"개체 {len(copies)}개를 붙여넣었습니다." + (" 확인 필요: " + ", ".join(sorted(set(missing))) if missing else ""))
+
+    def _media_signature(self) -> str:
+        try:
+            return hashlib.sha256(self.config_path.read_bytes()).hexdigest()
+        except OSError:
+            return ""
+
+    def _poll_printer_media(self) -> None:
+        self._media_poll_after_id = None
+        if self.__dict__.get("_active_background_job") is None:
+            signature = self._media_signature()
+            if signature and signature != self.__dict__.get("_last_media_signature"):
+                self._last_media_signature = signature
+                try:
+                    width, height = read_label_size(self.config_path)
+                    self._apply_shared_media_size(width, height)
+                except (OSError, ValueError) as exc:
+                    self.status_var.set(f"용지 설정 확인 필요: {exc}")
+        self._media_poll_after_id = self.after(800, self._poll_printer_media)
+
+    def _apply_shared_media_size(self, width: int | float, height: int | float) -> bool:
+        label = self.template["label"]
+        if float(label["width_mm"]) == float(width) and float(label["height_mm"]) == float(height):
+            return True
+        outside = outside_elements(self.elements, float(width), float(height))
+        self._record_history()
+        previous = copy.deepcopy(label)
+        self._history_suspended += 1
+        accepted = False
+        try:
+            self.template["label"] = {"width_mm": width, "height_mm": height}
+            self._load_values_to_controls()
+            self.redraw()
+            self.update_idletasks()
+            accepted = not outside or messagebox.askyesno(
+                "라벨 크기 변경 확인",
+                f"새 규격 {width:g} × {height:g}mm 미리보기입니다.\n"
+                f"개체 {len(outside)}개가 용지 밖으로 나갑니다. 위치와 크기는 유지됩니다.\n"
+                "이 규격을 적용한 뒤 개체를 수정하시겠습니까?\n취소하면 기존 도안 규격을 유지합니다.", parent=self)
+            if not accepted:
+                self.template["label"] = previous
+                self._load_values_to_controls()
+                self.redraw()
+        finally:
+            self._history_suspended -= 1
+        self.redraw()
+        self.status_var.set(f"용지 규격 {width:g} × {height:g}mm를 적용했습니다." if accepted else "용지 규격 적용 취소 · 현재 설정과 도안 규격이 달라 인쇄 전 확인이 필요합니다.")
+        return accepted
+
+    def _resolve_document_media(self, template: dict[str, object]) -> dict[str, object] | None:
+        if not self.__dict__.get("_media_watch_enabled") or not self.config_path.is_file():
+            return template
+        width, height = read_label_size(self.config_path)
+        label = template["label"]
+        if float(label["width_mm"]) == width and float(label["height_mm"]) == height:
+            return template
+        choice = messagebox.askyesnocancel(
+            "도안과 용지 규격 확인",
+            f"도안: {label['width_mm']} × {label['height_mm']}mm\n현재 용지: {width} × {height}mm\n\n"
+            "예: 도안 규격으로 공통 용지 설정 적용\n아니오: 현재 용지 규격 사용\n취소: 도안 열기 취소", parent=self)
+        if choice is None:
+            return None
+        if choice:
+            save_label_size(self.config_path, label["width_mm"], label["height_mm"])
+            self._last_media_signature = self._media_signature()
+        else:
+            result = copy.deepcopy(template)
+            result["label"] = {"width_mm": width, "height_mm": height}
+            outside = outside_elements(list(result["elements"]), width, height)
+            if outside and not self._preview_outside_document(result, len(outside)):
+                return None
+            return result
+        return template
+
+    def _preview_outside_document(self, candidate: dict[str, object], count: int) -> bool:
+        previous_template, previous_elements = self.template, self.elements
+        self._history_suspended += 1
+        try:
+            self.template = candidate
+            self.elements = list(candidate["elements"])
+            self._load_values_to_controls()
+            self.redraw()
+            self.update_idletasks()
+            return messagebox.askyesno("용지 규격 확인",
+                f"현재 용지로 연 도안의 미리보기입니다. 개체 {count}개가 용지 밖으로 나갑니다.\n"
+                "이 상태로 열어 개체를 수정하시겠습니까?\n아니오를 누르면 도안 열기를 취소합니다.", parent=self)
+        finally:
+            self.template, self.elements = previous_template, previous_elements
+            self._load_values_to_controls()
+            self.redraw()
+            self._history_suspended -= 1
+
+    def _check_initial_document_media(self) -> None:
+        try:
+            original = copy.deepcopy(self.template)
+            template = self._resolve_document_media(original)
+            if template is None:
+                self.status_var.set("도안 규격 적용 취소 · 용지 설정을 확인한 뒤 인쇄하세요.")
+                return
+            size = template["label"]
+            self._apply_shared_media_size(size["width_mm"], size["height_mm"])
+        except (OSError, ValueError) as exc:
+            messagebox.showwarning("용지 설정", str(exc), parent=self)
+
+    def _ensure_media_before_output(self) -> bool:
+        if not self.__dict__.get("_media_watch_enabled"):
+            return True
+        try:
+            width, height = read_label_size(self.config_path)
+            return self._apply_shared_media_size(width, height)
+        except (OSError, ValueError) as exc:
+            messagebox.showwarning("용지 설정 확인", str(exc), parent=self)
+            return False
+
     def _recovery_path(self, template_path: Path | None = None) -> Path:
         identity = hashlib.sha256(str((template_path or self.template_path).resolve()).encode("utf-8")).hexdigest()[:16]
         return self.base_dir / "out" / f".designer_recovery_{identity}.json"
@@ -2999,6 +3270,8 @@ class LabelDesignerApp(tk.Tk):
         self._recovery_path(template_path).unlink(missing_ok=True)
 
     def _save_recovery(self) -> None:
+        if self.__dict__.get("_recovery_prompt_pending", False) or self.__dict__.get("_startup_recovery_error"):
+            return  # Keep the previous session intact until the startup prompt.
         if not self._has_unsaved_changes():
             self._clear_recovery()
             return
@@ -3016,18 +3289,31 @@ class LabelDesignerApp(tk.Tk):
         if "base_dir" not in self.__dict__ or "template_path" not in self.__dict__:
             return
         path = self._recovery_path()
+        startup = self.__dict__.get("_recovery_prompt_pending", False)
+        self._recovery_prompt_pending = False
+        if startup:
+            if self.__dict__.get("_startup_recovery_error"):
+                messagebox.showwarning("자동 복구 파일 접근 오류", "이전 복구 파일을 읽지 못했습니다. 해당 파일을 보존하기 위해 자동 복구 저장을 중지했습니다. 작업은 다른 이름으로 직접 저장하고 파일 권한을 확인한 뒤 프로그램을 다시 여세요.", parent=self)
+                return
+            if path != self._startup_recovery_path:
+                self._save_recovery()
+                return
+            content = self._startup_recovery_bytes
+            if content is None:
+                self._save_recovery()
+                return
         if not path.exists():
             return
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload = json.loads(content.decode("utf-8") if startup else path.read_text(encoding="utf-8"))
             if payload.get("template_path") != str(self.template_path.resolve()):
                 return
             snapshot = payload["snapshot"]
-            recovered = normalize_template({"label": snapshot["label"], "elements": snapshot["elements"]})
+            recovered = normalize_template(snapshot)
         except (OSError, ValueError, KeyError, TypeError) as exc:
             messagebox.showwarning("자동 복구 파일 오류", f"복구 파일을 읽을 수 없습니다. 기존 라벨은 유지됩니다.\n{exc}", parent=self)
             return
-        if _template_signature(snapshot["label"], snapshot["elements"]) == self._saved_payload_signature:
+        if _template_signature(snapshot["label"], snapshot["elements"], snapshot) == self._saved_payload_signature:
             self._clear_recovery()
             return
         if not messagebox.askyesno(
@@ -3066,6 +3352,11 @@ class LabelDesignerApp(tk.Tk):
         return self.save_template()
 
     def request_close(self) -> None:
+        active = self.__dict__.get("_active_background_job")
+        if active is not None and active.get("print_cancel") is not None:
+            active["print_cancel"].set()
+            self.status_var.set("미전송 작업 중단 요청 · 전송 작업이 끝난 뒤 종료하세요.")
+            return
         if self._confirm_save_changes("프로그램을 종료하기 전에"):
             self._clear_recovery()
             self.destroy()
@@ -3085,6 +3376,9 @@ class LabelDesignerApp(tk.Tk):
         total = len(self.__dict__.get("db_rows", []))
         visible = len(self._visible_data_indexes())
         count = f"{visible}/{total}건" if visible != total else f"{total}건"
+        profile = self.__dict__.get("template", {}).get("data_source", {})
+        if profile:
+            return describe_profile(profile) + f"\n{count}"
         return f"DB · {name} · {count}"
 
     def _visible_data_indexes(self) -> list[int]:
@@ -3122,7 +3416,7 @@ class LabelDesignerApp(tk.Tk):
         self.refresh_data_panel()
 
     def _refresh_field_options(self) -> None:
-        headers = tuple(getattr(self, "data_source_headers", ()))
+        headers = tuple(getattr(self, "data_source_headers", ())) + tuple(str(rule["name"]) for rule in self.template.get("value_rules", []))
         option_to_key, key_to_option = _data_field_option_maps(headers)
         self.field_option_to_key = option_to_key
         self.field_key_to_option = key_to_option
@@ -3143,13 +3437,15 @@ class LabelDesignerApp(tk.Tk):
             return
         element = self.selected_element()
         element_type = str(element.get("type", "")) if element is not None else ""
+        element_name = (BARCODE_TYPES.get(_barcode_type(element), "바코드") if element is not None and _is_code_element(element)
+                        else ELEMENT_TYPES.get(element_type, "개체"))
         connected = self.data_source_path is not None and bool(self.db_rows)
         object_status_var = getattr(self, "db_object_status_var", None)
         mapping_help_var = getattr(self, "db_mapping_help_var", None)
         if connected and element_type in DB_MAPPABLE_ELEMENT_TYPES:
             combo.configure(state="readonly")
             if object_status_var is not None:
-                object_status_var.set(f"{ELEMENT_TYPES.get(element_type, '개체')} 개체 선택됨")
+                object_status_var.set(f"{element_name} 개체 선택됨")
             if mapping_help_var is not None:
                 mapping_help_var.set("DB 열을 선택하면 이 개체가 해당 열의 문자열 값으로 출력됩니다.")
             return
@@ -3158,7 +3454,7 @@ class LabelDesignerApp(tk.Tk):
             if element is None:
                 object_status_var.set("개체를 선택하세요.")
             else:
-                object_status_var.set(f"{ELEMENT_TYPES.get(element_type, '개체')} 개체 선택됨")
+                object_status_var.set(f"{element_name} 개체 선택됨")
         if mapping_help_var is not None:
             if not connected:
                 mapping_help_var.set("DB를 연결하면 텍스트·바코드·QR 개체에 열을 지정할 수 있습니다.")
@@ -3327,6 +3623,9 @@ class LabelDesignerApp(tk.Tk):
         if not source:
             return
         candidate = Path(source)
+        sheet = self._choose_data_sheet(candidate)
+        if sheet is None:
+            return
         document_path = self.__dict__.get("template_path")
         document_signature = (
             self._current_payload_signature()
@@ -3341,7 +3640,7 @@ class LabelDesignerApp(tk.Tk):
         def read_excel() -> object:
             if not candidate.is_file():
                 raise FileNotFoundError(f"상품 엑셀을 찾을 수 없습니다: {candidate.name}")
-            return load_db_source(candidate)
+            return load_db_source(candidate, sheet_name=sheet)
 
         def apply_rows(result: object) -> None:
             current_signature = (
@@ -3361,20 +3660,28 @@ class LabelDesignerApp(tk.Tk):
                 return
             rows, headers = result  # type: ignore[misc]
             self.data_source_path = candidate
+            self.__dict__.setdefault("template", {})["data_source"] = data_profile(candidate, sheet=sheet, headers=headers)
             self._data_context_version = context_version + 1
             width, height = self._apply_loaded_db_rows(rows, headers)
             self.status_var.set(f"상품 엑셀 연결 완료: {candidate.name} · 라벨 {width:g}×{height:g}mm")
 
         self._start_background_job("상품 엑셀 읽기", read_excel, apply_rows)
 
-    def connect_data_source_path(self, candidate: Path) -> bool:
+    def connect_data_source_path(self, candidate: Path, *, sheet: str | None = None) -> bool:
         try:
-            rows, headers = load_db_source(candidate)
+            if not candidate.is_file():
+                raise FileNotFoundError(f"상품 엑셀을 찾을 수 없습니다: {candidate.name}")
+            if sheet:
+                rows, headers = load_db_source(candidate, sheet_name=sheet)
+            else:
+                rows, headers = load_db_source(candidate)
+            profile = data_profile(candidate, sheet=sheet, headers=headers)
         except Exception as exc:
             messagebox.showerror("상품 엑셀 연결 실패", str(exc))
             self.status_var.set("상품 엑셀 연결 실패 · 기존 데이터는 유지합니다.")
             return False
         self.data_source_path = candidate
+        self.template["data_source"] = profile
         self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
         width, height = self._apply_loaded_db_rows(rows, headers)
         self.status_var.set(
@@ -3382,10 +3689,105 @@ class LabelDesignerApp(tk.Tk):
         )
         return True
 
+    def _choose_data_sheet(self, path: Path) -> str | None:
+        if self.__dict__.get("tk") is None:
+            return default_sheet(path) if path.is_file() else ""
+        from .profile_dialogs import choose_sheet
+        return choose_sheet(self, path)
+
+    def _restore_saved_data_source(self) -> None:
+        profile = self.template.get("data_source", {})
+        if not profile:
+            return
+        problem = profile_problem(profile)
+        if problem:
+            self.data_source_path = None
+            self.status_var.set(problem)
+            messagebox.showwarning("상품 엑셀 재연결 필요", problem, parent=self)
+            return
+        saved = copy.deepcopy(profile)
+        if self.connect_data_source_path(Path(profile["path"]), sheet=profile.get("sheet") or None):
+            self.template["data_source"] = saved
+            self.refresh_data_panel()
+
+    def edit_value_rules(self) -> None:
+        from .value_rules_dialog import edit_value_rules
+        def apply(rules):
+            self.template["value_rules"] = rules
+            if rules and not self.template.get("value_profile_id"):
+                self.template["value_profile_id"] = uuid4().hex
+            self._record_history()
+            self._update_document_state()
+            self.refresh_sample_options()
+            self.redraw()
+            self.status_var.set("값 생성 규칙을 변경했습니다. 도안을 저장하고 전체 데이터를 검증하세요.")
+        edit_value_rules(self, self.template.get("value_rules", []), self.data_source_headers, apply, sample_row=self.preview_row)
+
+    def toggle_selected_lock(self) -> None:
+        elements = self._selected_elements()
+        if not elements:
+            return
+        locked = not all(bool(element.get("locked", False)) for element in elements)
+        for element in elements:
+            element["locked"] = locked
+        self._record_history()
+        self.redraw()
+        self.status_var.set("선택 개체 잠금" if locked else "선택 개체 잠금 해제")
+
+    def reset_value_sequence(self):
+        from .value_jobs import ValueJobStore
+        rules = [rule for rule in self.template.get("value_rules", []) if rule.get("kind") == "serial" and rule.get("reset") == "continue"]
+        if not rules:
+            messagebox.showinfo("번호 발급 초기화", "계속 발급하는 일련번호 규칙이 없습니다. 값 생성 규칙에서 먼저 설정하세요.", parent=self)
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("번호 발급 초기화")
+        dialog.transient(self)
+        frame = ttk.Frame(dialog, padding=22)
+        frame.pack(fill="both", expand=True)
+        name = tk.StringVar(value=rules[0]["name"])
+        ttk.Label(frame, text="초기화할 일련번호", style="Title.TLabel").pack(anchor="w")
+        ttk.Combobox(frame, values=[rule["name"] for rule in rules], textvariable=name, state="readonly").pack(fill="x", pady=12)
+        ttk.Label(frame, text="초기화하면 이미 발급한 번호와 중복될 수 있습니다. 다른 LOT/번호 범위인지 확인하세요. 이전 재인쇄 기록은 유지됩니다.", wraplength=420, style="Hint.TLabel").pack(fill="x")
+        def reset():
+            if not messagebox.askyesno("번호 중복 확인", f"'{name.get()}'를 규칙의 시작 번호부터 다시 발급할까요? 이전 번호와 중복 가능성을 확인했습니다.", parent=dialog):
+                return
+            try:
+                ValueJobStore(self.base_dir).reset_sequence(str(self.template.get("value_profile_id") or self.template_path.resolve()), name.get(), confirmed=True)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("초기화 실패", str(exc), parent=dialog)
+                return
+            self.status_var.set("번호 발급을 초기화했습니다. 미리보기와 실제 시작 번호를 확인하세요.")
+            dialog.destroy()
+        ttk.Button(frame, text="취소", command=dialog.destroy).pack(side="right", pady=18)
+        ttk.Button(frame, text="선택 번호 초기화", command=reset).pack(side="right", padx=8, pady=18)
+
+    def validate_all_data(self) -> None:
+        from .profile_dialogs import show_data_issues
+        from .template_output import validate_rows
+        try:
+            rows = self.db_rows if self.data_source_path else [self.preview_row]
+            rows, _job = self._generated_output_rows(rows, [1] * len(rows), reserve=False)
+            issues = validate_rows(self.template_payload(), rows, self.base_dir, dpi=load_config(self.config_path).label.dpi)
+        except (ValueError, OSError) as exc:
+            messagebox.showerror("전체 데이터 검증", str(exc), parent=self)
+            return
+        def navigate(issue):
+            if self.data_source_path and 0 < issue.row <= len(self.db_rows):
+                self._select_data_index(issue.row - 1, update_tree=True)
+            if 0 < issue.element <= len(self.elements):
+                self.selected_id = str(self.elements[issue.element - 1]["id"])
+                self.selected_ids = {self.selected_id}
+                self.redraw()
+                self.load_selected_properties()
+                self.open_element_editor(self.selected_element())
+        show_data_issues(self, issues, len(rows), navigate=navigate)
+
     def disconnect_data_source(self) -> None:
         if getattr(self, "data_source_window", None) is not None:
             self.close_data_source_window()
         self.data_source_path = None
+        self.__dict__.get("template", {}).pop("data_source", None)
         self._data_context_version = self.__dict__.get("_data_context_version", 0) + 1
         self.db_rows = []
         self.data_source_headers = ()
@@ -3415,8 +3817,13 @@ class LabelDesignerApp(tk.Tk):
         previous_preview = self.preview_row
         previous_label = dict(self.template.get("label", {})) if isinstance(self.template.get("label"), dict) else None
         try:
-            rows, headers = load_db_source(source_path)
+            profile = self.template.get("data_source", {})
+            if profile.get("sheet"):
+                rows, headers = load_db_source(source_path, sheet_name=profile["sheet"])
+            else:
+                rows, headers = load_db_source(source_path)
             width, height = self._apply_loaded_db_rows(rows, headers)
+            self.template["data_source"] = data_profile(source_path, sheet=profile.get("sheet") or None, headers=headers)
         except Exception as exc:
             self.db_rows = previous_rows
             self.data_source_headers = previous_headers
@@ -3650,6 +4057,8 @@ class LabelDesignerApp(tk.Tk):
         label = self.template["label"]  # type: ignore[index]
         self.width_var.set(_format_mm_value(label["width_mm"]))  # type: ignore[index]
         self.height_var.set(_format_mm_value(label["height_mm"]))  # type: ignore[index]
+        if self.__dict__.get("media_summary_var") is not None:
+            self.media_summary_var.set(f"{label['width_mm']:g} × {label['height_mm']:g} mm · 공통 용지 설정")
 
     def redraw(self) -> None:
         self._record_history()
@@ -3698,8 +4107,15 @@ class LabelDesignerApp(tk.Tk):
         )
         self._draw_grid(origin_x, origin_y, width, height)
 
-        for element in self._drawing_elements():
-            self.draw_element(element)
+        original_row = self.preview_row
+        try:
+            self.preview_row = self._preview_generated_row()
+            for element in self._drawing_elements():
+                self.draw_element(element)
+        except ValueError as exc:
+            self.status_var.set(f"미리보기 값 확인: {exc}")
+        finally:
+            self.preview_row = original_row
         if callable(getattr(self.canvas, "configure", None)):
             self.canvas.configure(scrollregion=(
                 0, 0,
@@ -3721,9 +4137,17 @@ class LabelDesignerApp(tk.Tk):
         self.redraw()
 
     def _drawing_elements(self) -> list[dict[str, object]]:
-        behind = [element for element in self.elements if str(element.get("arrange", "normal")) == "behind"]
-        normal = [element for element in self.elements if str(element.get("arrange", "normal")) not in {"behind", "front"}]
-        front = [element for element in self.elements if str(element.get("arrange", "normal")) == "front"]
+        elements = list(self.elements)
+        preview = self.__dict__.get("_editor_preview_element")
+        target_id = self.__dict__.get("_editor_preview_target_id")
+        if isinstance(preview, dict) and target_id:
+            for index, current in enumerate(elements):
+                if str(current.get("id", "")) == str(target_id):
+                    elements[index] = preview
+                    break
+        behind = [element for element in elements if str(element.get("arrange", "normal")) == "behind"]
+        normal = [element for element in elements if str(element.get("arrange", "normal")) not in {"behind", "front"}]
+        front = [element for element in elements if str(element.get("arrange", "normal")) == "front"]
         return behind + normal + front
 
     def _fit_canvas_scale(self, width_mm: float, height_mm: float) -> float:
@@ -3836,7 +4260,8 @@ class LabelDesignerApp(tk.Tk):
                 self.canvas.create_line(x1, line_y, x2, line_y, fill=outline, width=stroke_width, tags=(tag,))
         elif _element_rotation(element):
             try:
-                rotated_image = self._render_element_bitmap(
+                renderer = self._render_2d_preview_bitmap if _barcode_first(element) else self._render_element_bitmap
+                rotated_image = renderer(
                     element,
                     self.preview_row,
                     max(1, round(x2 - x1)),
@@ -3860,11 +4285,15 @@ class LabelDesignerApp(tk.Tk):
             self.canvas.create_image(x1, y1, image=photo, anchor="nw", tags=(tag,))
         elif element_type in {"barcode", "qr"}:
             code_type = "qr" if element_type == "qr" else _barcode_type(element)
-            value = _preview_code_value(
-                render_template_text(str(element.get("text", "{{barcode}}")), self.preview_row) or str(self.preview_row.get("barcode", "")),
-            )
+            try:
+                value = _designer_code_value(element, self.preview_row)
+            except ValueError as exc:
+                self._draw_barcode_message(x1, y1, x2, y2, str(exc), tag, fill="#b42318")
+                return
             if selected:
-                self.canvas.create_rectangle(x1, y1, x2, y2, outline=outline, width=line_width, tags=(tag,))
+                self.canvas.create_rectangle(x1, y1, x2, y2, outline=ELEMENT_GUIDE_COLOR if _barcode_first(element) else outline,
+                                             width=1 if _barcode_first(element) else line_width,
+                                             dash=(4, 3) if _barcode_first(element) else (), tags=(tag,))
             if code_type in BARCODE_2D_TYPES:
                 self._draw_2d_code_preview(x1, y1, x2, y2, value, code_type, element, tag)
             elif code_type in BARCODE_1D_BITMAP_TYPES:
@@ -3879,9 +4308,15 @@ class LabelDesignerApp(tk.Tk):
             self._draw_image_on_canvas(x1, y1, x2, y2, outline, tag, element)
 
         if selected:
+            if _barcode_first(element):
+                self.canvas.create_rectangle(x1 - 4, y1 - 4, x2 + 4, y2 + 4, outline=ELEMENT_GUIDE_COLOR, dash=(4, 3))
+                bounds = self._barcode_canvas_bounds(element)
+                if bounds is not None:
+                    x1, y1, x2, y2 = bounds
             self.canvas.create_rectangle(x1 - 4, y1 - 4, x2 + 4, y2 + 4, outline=SELECT_COLOR, width=2)
             if element_id == self.selected_id and not element.get("locked"):
-                self._draw_resize_handles(x1, y1, x2, y2, tag)
+                if not _barcode_first(element) or (bounds is not None and element["barcode_layout"]["size_mode"] == "size"):
+                    self._draw_resize_handles(x1, y1, x2, y2, tag)
 
     def _draw_resize_handles(self, x1: float, y1: float, x2: float, y2: float, tag: str) -> None:
         for _handle, hx, hy in self._resize_handle_points(x1, y1, x2, y2):
@@ -3967,6 +4402,8 @@ class LabelDesignerApp(tk.Tk):
         text, codes, pictures, lines, boxes, and tables visually identical
         without relying on unverified brand-specific rotation commands.
         """
+        if _barcode_first(element) and "_render_dpi" not in element:
+            element = dict(element, _render_dpi=self._validation_dpi())
         rotation = _element_rotation(element)
         source_width, source_height = _rotation_source_size(width, height, rotation)
         element_type = str(element.get("type", "text"))
@@ -4030,6 +4467,22 @@ class LabelDesignerApp(tk.Tk):
 
         return _rotate_element_bitmap(image, rotation)
 
+    def _render_2d_preview_bitmap(self, element: dict[str, object], row: dict[str, str],
+                                 width: int, height: int, *, transparent: bool = False) -> Image.Image:
+        """Scale a print-DPI bitmap only for display; never recompute its modules."""
+        dpi = self._validation_dpi()
+        canonical = self._render_element_bitmap(
+            dict(element, _render_dpi=dpi, _preview_only=True), row,
+            mm_to_dots(float(element["width"]), dpi),
+            mm_to_dots(float(element["height"]), dpi), transparent=transparent)
+        base_width = max(1, mm_to_dots(float(element["width"]), dpi))
+        base_height = max(1, mm_to_dots(float(element["height"]), dpi))
+        displayed = canonical.resize((max(1, round(canonical.width * width / base_width)),
+                                      max(1, round(canonical.height * height / base_height))), Image.Resampling.NEAREST)
+        displayed.info.update(canonical.info)
+        displayed.info["print_bitmap_size"] = canonical.size
+        return displayed
+
     def _element_bitmap_stroke_width(self, element: dict[str, object], width: int, height: int, rotation: int) -> int:
         logical_width_mm = float(element.get("height" if rotation in {90, 270} else "width", 1))
         logical_height_mm = float(element.get("width" if rotation in {90, 270} else "height", 1))
@@ -4075,10 +4528,123 @@ class LabelDesignerApp(tk.Tk):
             ("se", x2, y2),
         ]
 
+    def _barcode_canvas_bounds(self, element: dict[str, object]) -> tuple[float, float, float, float] | None:
+        try:
+            dpi = self._validation_dpi()
+            width, height = mm_to_dots(float(element["width"]), dpi), mm_to_dots(float(element["height"]), dpi)
+            rotation = _element_rotation(element)
+            sw, sh = _rotation_source_size(width, height, rotation)
+            source = encode_barcode_image(_barcode_type(element), _designer_code_value(element, self.preview_row),
+                                          dict(_barcode_options(element), cell_size=1))
+            left, top, right, bottom = symbol_geometry(source, element, sw, sh, dpi, check_bounds=False).bounds
+            if rotation == 90:
+                left, top, right, bottom = sh-bottom, left, sh-top, right
+            elif rotation == 180:
+                left, top, right, bottom = sw-right, sh-bottom, sw-left, sh-top
+            elif rotation == 270:
+                left, top, right, bottom = top, sw-right, bottom, sw-left
+            x, y, _, _ = self.element_bbox(element)
+            ratio = self.scale * 25.4 / dpi
+            return x+left*ratio, y+top*ratio, x+right*ratio, y+bottom*ratio
+        except ValueError:
+            # Invalid data must remain selectable and correctable.
+            if _barcode_first(element):
+                x, y, _, _ = self.element_bbox(element)
+                layout = element["barcode_layout"]
+                return (x, y, x + max(1, float(layout["symbol_width_mm"])) * self.scale,
+                        y + max(1, float(layout["symbol_height_mm"])) * self.scale)
+            return None
+
+    def _reflow_barcode_element(self, element: dict[str, object]) -> Image.Image:
+        """Compute complete bounds from the code first; never alter the payload."""
+        dpi = self._validation_dpi()
+        kind = _barcode_type(element)
+        value = _designer_code_value(element, self.preview_row)
+        source = encode_barcode_image(kind, value, dict(_barcode_options(element), cell_size=1))
+        layout = element["barcode_layout"]
+        if layout["size_mode"] == "size" and float(layout["symbol_width_mm"]) > 0 and float(layout["symbol_height_mm"]) > 0:
+            target = min(float(layout["symbol_width_mm"]) / source.width, float(layout["symbol_height_mm"]) / source.height)
+            layout.update(symbol_width_mm=target * source.width, symbol_height_mm=target * source.height)
+        if layout["size_mode"] == "size" and float(layout["symbol_width_mm"]) == float(layout["symbol_height_mm"]) == 0:
+            seed = symbol_geometry(source, element, max(1, mm_to_dots(float(element["width"]), dpi)),
+                                   max(1, mm_to_dots(float(element["height"]), dpi)), dpi, check_bounds=False)
+            layout.update(symbol_width_mm=seed.actual_symbol_mm[0] + 1e-6,
+                          symbol_height_mm=seed.actual_symbol_mm[1] + 1e-6)
+        display = source.info.get("hri_value", value)
+        if kind in GS1_TYPES:
+            display = [f"({item.ai}){item.value}" for item in build_gs1(parse_gs1(value)).elements]
+        rotation = _element_rotation(element)
+        label = self.template["label"]
+        budget = float(label["height_mm"] if rotation in {90, 270} else label["width_mm"])
+        budget -= max(0, float(element["y"] if rotation in {90, 270} else element["x"]))
+        image = measure_barcode_first(source, element, display, dpi, _load_font, max_width_mm=max(0.1, budget))
+        width, height = image.size
+        if rotation in {90, 270}:
+            width, height = height, width
+        element["width"], element["height"] = width * 25.4 / dpi, height * 25.4 / dpi
+        element["barcode_layout"]["auto_bounds"] = True
+        return image
+
+    def _barcode_fit_candidate(self, element: dict[str, object]) -> dict[str, object]:
+        if not _barcode_first(element):
+            raise ValueError("2D 크기 방식에서 바코드 크기 우선 또는 모듈 크기 고정을 선택하세요.")
+        value = _designer_code_value(element, self.preview_row)
+        source = encode_barcode_image(_barcode_type(element), value, dict(_barcode_options(element), cell_size=1))
+        dpi = self._validation_dpi()
+        label = self.template["label"]
+        current = symbol_geometry(source, element, max(1, mm_to_dots(float(element["width"]), dpi)),
+                                  max(1, mm_to_dots(float(element["height"]), dpi)), dpi, check_bounds=False)
+        scales = [current.module_dots] if element["barcode_layout"]["size_mode"] == "module" else range(current.module_dots, 0, -1)
+        positions = [element["barcode_layout"]["hri_position"]]
+        positions.append("below" if positions[0] == "right" else "right")
+        for scale in scales:
+            for position in positions:
+                candidate = copy.deepcopy(element)
+                candidate["x"] = candidate["y"] = 0.0
+                candidate["barcode_layout"].update(symbol_width_mm=source.width * scale * 25.4 / dpi + 1e-6,
+                    symbol_height_mm=source.height * scale * 25.4 / dpi + 1e-6, hri_position=position)
+                image = self._reflow_barcode_element(candidate)
+                if image.info.get("layout_error"):
+                    continue
+                if float(candidate["width"]) <= float(label["width_mm"]) + 1e-7 and float(candidate["height"]) <= float(label["height_mm"]) + 1e-7:
+                    candidate["x"] = min(max(0, float(element["x"])), float(label["width_mm"]) - float(candidate["width"]))
+                    candidate["y"] = min(max(0, float(element["y"])), float(label["height_mm"]) - float(candidate["height"]))
+                    return candidate
+        raise ValueError("현재 라벨에 원문과 표시문자를 함께 배치할 공간이 없습니다. 라벨 크기·문자 위치를 확인하세요. 고정 모듈과 필수 여백은 유지합니다.")
+
+    def fit_selected_barcode(self) -> None:
+        element = self.selected_element()
+        if element is None or element.get("locked"):
+            return
+        try:
+            candidate = self._barcode_fit_candidate(element)
+        except ValueError as exc:
+            messagebox.showerror("현재 라벨에 맞추기", str(exc), parent=self)
+            return
+        layout = candidate["barcode_layout"]
+        if not messagebox.askyesno("라벨 맞춤 미리보기",
+            f"현재 라벨: {self.template['label']['width_mm']} × {self.template['label']['height_mm']} mm\n"
+            f"전체 크기: {element['width']:.2f} × {element['height']:.2f} → {candidate['width']:.2f} × {candidate['height']:.2f} mm\n"
+            f"문자 위치: {'아래' if layout['hri_position'] == 'below' else '오른쪽'}\n원문은 유지합니다. 적용 후 실행취소할 수 있습니다.", parent=self):
+            return
+        element.clear()
+        element.update(candidate)
+        self.redraw()
+        self._record_history()
+        self._save_recovery()
+        self.status_var.set("현재 라벨에 맞췄습니다. 전체 데이터 검증에서 데이터와 실제 크기를 확인하세요.")
+
     def resize_handle_at(self, x: float, y: float, element: dict[str, object] | None) -> str | None:
         if element is None:
             return None
         x1, y1, x2, y2 = self.element_bbox(element)
+        if _barcode_first(element):
+            if element["barcode_layout"]["size_mode"] == "module":
+                return None
+            bounds = self._barcode_canvas_bounds(element)
+            if bounds is None:
+                return None
+            x1, y1, x2, y2 = bounds
         hit_size = HANDLE_SIZE + 5
         for handle, hx, hy in self._resize_handle_points(x1, y1, x2, y2):
             if abs(x - hx) <= hit_size and abs(y - hy) <= hit_size:
@@ -4162,7 +4728,9 @@ class LabelDesignerApp(tk.Tk):
         height = max(1, round(y2 - y1))
         if code_type in BARCODE_2D_BITMAP_TYPES:
             try:
-                image = _render_2d_barcode_image(code_type, value, width, height, element)
+                image = (self._render_2d_preview_bitmap(element, self.preview_row, width, height)
+                         if _barcode_first(element) else
+                         _render_2d_barcode_image(code_type, value, width, height, element))
             except ValueError as exc:
                 self._draw_barcode_message(x1, y1, x2, y2, str(exc), tag, fill="#b42318")
                 return
@@ -4596,6 +5164,8 @@ class LabelDesignerApp(tk.Tk):
     def add_barcode_element(self, barcode_type: str = "code128") -> None:
         width = 18 if barcode_type in BARCODE_2D_TYPES else 36
         height = 18 if barcode_type in BARCODE_2D_TYPES else 12
+        if barcode_type in {"gs1_composite", "maxicode"}:
+            width = height = 32
         text, field = _new_code_element_values(data_source_connected=self.__dict__.get("data_source_path") is not None)
         element = _element(
             "barcode",
@@ -4642,6 +5212,9 @@ class LabelDesignerApp(tk.Tk):
                 "element_w": float(selected.get("width", 1)),
                 "element_h": float(selected.get("height", 1)),
             }
+            if _barcode_first(selected):
+                self.drag_state["barcode_layout"] = dict(selected["barcode_layout"])
+                self.drag_state["symbol_bounds"] = self._barcode_canvas_bounds(selected)
             return
         table_divider = self.table_divider_at(pointer_x, pointer_y, selected) if selected is not None and not selected.get("locked") else None
         if selected is not None and table_divider is not None:
@@ -4726,6 +5299,46 @@ class LabelDesignerApp(tk.Tk):
             return
         if self.drag_state.get("mode") == "resize":
             handle = str(self.drag_state.get("handle", "se"))
+            if "barcode_layout" in self.drag_state:
+                layout = dict(self.drag_state["barcode_layout"])
+                dw = dx if "e" in handle else -dx
+                dh = dy if "s" in handle else -dy
+                if _element_rotation(element) in {90, 270}:
+                    dw, dh = dh, dw
+                start_w = max(0.1, float(layout["symbol_width_mm"]))
+                start_h = max(0.1, float(layout["symbol_height_mm"]))
+                # One-axis and diagonal gestures use one common aspect scale.
+                ratio = 1 + (dw / start_w if abs(dw / start_w) >= abs(dh / start_h) else dh / start_h)
+                try:
+                    source = encode_barcode_image(_barcode_type(element), _designer_code_value(element, self.preview_row),
+                                                  dict(_barcode_options(element), cell_size=1))
+                    dpi = self._validation_dpi()
+                    minimum = max(source.width * 25.4 / dpi / start_w, source.height * 25.4 / dpi / start_h)
+                    ratio = max(minimum, ratio)
+                except ValueError:
+                    ratio = max(0.05, ratio)
+                layout["symbol_width_mm"] = round(start_w * ratio, 6)
+                layout["symbol_height_mm"] = round(start_h * ratio, 6)
+                candidate = dict(element, barcode_layout=layout)
+                candidate["x"] = float(self.drag_state["element_x"])
+                candidate["y"] = float(self.drag_state["element_y"])
+                try:
+                    image = self._reflow_barcode_element(candidate)
+                    sw, sh = image.info["actual_symbol_mm"]
+                    self.status_var.set(f"실제 바코드 {sw:.3f} × {sh:.3f} mm · {image.info['module_dots']} dot · 오류 중에도 편집 가능합니다.")
+                except ValueError as exc:
+                    self.status_var.set(f"데이터 확인 필요: {exc} · 크기 조절 내용은 유지합니다.")
+                before = self.drag_state.get("symbol_bounds")
+                after = self._barcode_canvas_bounds(candidate)
+                if before is not None and after is not None:
+                    # Opposite corner remains fixed, including rotated groups.
+                    anchor_x = 2 if "w" in handle else 0
+                    anchor_y = 3 if "n" in handle else 1
+                    candidate["x"] += (before[anchor_x] - after[anchor_x]) / self.scale
+                    candidate["y"] += (before[anchor_y] - after[anchor_y]) / self.scale
+                element.update(candidate)
+                self.redraw()
+                return
             start_x = float(self.drag_state["element_x"])
             start_y = float(self.drag_state["element_y"])
             start_w = float(self.drag_state["element_w"])
@@ -4806,21 +5419,114 @@ class LabelDesignerApp(tk.Tk):
             messagebox.showwarning("요소 편집", "잠긴 개체입니다. 잠금/해제 버튼으로 해제한 뒤 편집하세요.")
             return
 
+        target_element = element
+        editor_before = copy.deepcopy(target_element)
+        is_barcode_editor = _is_code_element(target_element)
+        if is_barcode_editor:
+            element = copy.deepcopy(target_element)
+            self._editor_preview_element = element
+            self._editor_preview_target_id = str(target_element.get("id", ""))
+            editor_original_row = self.preview_row
+            editor_row = dict(self.preview_row)
+            self.preview_row = editor_row
+
         editor = tk.Toplevel(self)
-        editor.title("요소 편집")
+        editor.title("바코드 속성" if is_barcode_editor else "요소 편집")
         set_initial_window_size(
             editor,
-            preferred_width=680,
-            preferred_height=820,
-            minimum_width=540,
-            minimum_height=560,
+            preferred_width=1280 if is_barcode_editor else 1040,
+            preferred_height=800 if is_barcode_editor else 820,
+            minimum_width=840 if is_barcode_editor else 760,
+            minimum_height=620 if is_barcode_editor else 560,
         )
         editor.configure(bg=COLORS.surface)
         editor.transient(self)
-        editor.columnconfigure(0, weight=1)
-        editor.rowconfigure(0, weight=1)
-
-        editor_body = ttk.Frame(editor, style="Surface.TFrame")
+        editor.columnconfigure(0, weight=0 if is_barcode_editor else 1)
+        editor.rowconfigure(0, weight=0 if is_barcode_editor else 1)
+        if is_barcode_editor:
+            editor.columnconfigure(1, weight=1)
+            editor.rowconfigure(1, weight=1)
+            editor.rowconfigure(2, weight=0)
+            header = ttk.Frame(editor, style="Surface.TFrame", padding=(18, 10))
+            header.grid(row=0, column=0, columnspan=2, sticky="ew")
+            heading = ttk.Frame(header, style="Surface.TFrame")
+            heading.pack(fill="x")
+            editor._brand_logo = load_header_logo(editor, base_dir=self.base_dir, install_dir=self.install_dir, max_width=150, max_height=34)
+            if editor._brand_logo is not None:
+                ttk.Label(heading, image=editor._brand_logo).pack(side="left", padx=(0, 18))
+            ttk.Label(heading, text="바코드 속성", style="PanelTitle.TLabel").pack(side="left")
+            apply_window_icon(editor, base_dir=self.base_dir, install_dir=self.install_dir, app_role="designer")
+            symbol_strip = ttk.Frame(header, style="Surface.TFrame")
+            symbol_strip.pack(fill="x", pady=(8, 0))
+            symbol_strip.columnconfigure(1, weight=1)
+            ttk.Label(symbol_strip, text="바코드 종류").grid(row=0, column=0, sticky="w", padx=(0, 12))
+            body_host = ttk.Frame(editor, style="Surface.TFrame")
+            body_host.grid(row=1, column=0, columnspan=2, sticky="nsew")
+            body_host.columnconfigure(1, weight=1)
+            body_host.rowconfigure(0, weight=1)
+            preview_panel = BarcodeEditorPreview(body_host)
+            preview_panel.grid(row=0, column=2, sticky="nsew", padx=(0, 10))
+            preview_canvas = preview_panel.canvas
+            editor._barcode_preview_canvas = preview_canvas
+            editor._barcode_preview_panel = preview_panel
+            sidebar = ttk.Frame(body_host, style="Surface.TFrame", padding=(10, 8, 8, 8))
+            sidebar.grid(row=0, column=0, rowspan=2, sticky="nsw")
+            ttk.Label(sidebar, text="속성", style="HeaderTitle.TLabel").pack(anchor="w", padx=4, pady=(0, 8))
+            navigation = ttk.Treeview(sidebar, show="tree", selectmode="browse", height=5, style="EditorNav.Treeview")
+            navigation.pack(fill="y", expand=True)
+            navigation.column("#0", width=165, minwidth=150, stretch=False)
+            navigation.insert("", "end", iid="data", text="데이터 원본")
+            navigation.insert("", "end", iid="size", text="바코드 종류·크기")
+            navigation.insert("", "end", iid="hri", text="표시문자")
+            style = ttk.Style(editor)
+            style.configure("EditorNav.Treeview", rowheight=34, background=COLORS.surface,
+                            foreground=COLORS.text_primary, fieldbackground=COLORS.surface,
+                            borderwidth=0, font=TYPOGRAPHY.body)
+            style.map("EditorNav.Treeview", background=[("selected", COLORS.primary)],
+                      foreground=[("selected", "#ffffff")])
+            page_host = ttk.Frame(body_host, style="Surface.TFrame")
+            page_host.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=(8, 0))
+            page_host.columnconfigure(0, weight=1)
+            page_host.rowconfigure(0, weight=1)
+            content_tab = ttk.Frame(page_host, style="Surface.TFrame")
+            size_tab = ttk.Frame(page_host, style="Surface.TFrame")
+            hri_tab = ttk.Frame(page_host, style="Surface.TFrame")
+            advanced_tab = ttk.Frame(page_host, style="Surface.TFrame")
+            for panel in (content_tab, size_tab, hri_tab, advanced_tab):
+                panel.grid(row=0, column=0, sticky="nsew")
+                panel.grid_remove()
+                panel.columnconfigure(0, weight=1)
+                panel.rowconfigure(0, weight=1)
+            pages = {"data": content_tab, "size": size_tab, "hri": hri_tab, "advanced": advanced_tab}
+            active_editor_page = "data"
+            def layout_editor(_event=None):
+                preview_panel.grid_remove()
+            ttk.Button(symbol_strip, text="미리보기", command=preview_panel.open_large).grid(row=0, column=2, padx=(10, 0))
+            body_host.bind("<Configure>", layout_editor)
+            def show_editor_page(key: str) -> None:
+                nonlocal active_editor_page
+                active_editor_page = key
+                for panel in pages.values():
+                    panel.grid_remove()
+                pages[key].grid()
+                if key in {"data", "size", "hri"} and navigation.selection() != (key,):
+                    navigation.selection_set(key)
+                if key == "advanced" and navigation.exists("advanced") and navigation.selection() != (key,):
+                    navigation.selection_set("advanced")
+                layout_editor()
+            def select_editor_page(_event: tk.Event | None = None) -> None:
+                selection = navigation.selection()
+                if selection:
+                    show_editor_page(str(selection[0]))
+            navigation.bind("<<TreeviewSelect>>", select_editor_page)
+            editor._barcode_nav = navigation
+            editor._barcode_pages = pages
+            editor._barcode_show_page = show_editor_page
+            preview_status = ttk.Label(heading, style="Hint.TLabel")
+            preview_status.pack(side="right")
+        else:
+            content_tab = editor
+        editor_body = ttk.Frame(content_tab, style="Surface.TFrame")
         editor_body.grid(row=0, column=0, sticky="nsew")
         editor_body.columnconfigure(0, weight=1)
         editor_body.rowconfigure(0, weight=1)
@@ -4839,6 +5545,25 @@ class LabelDesignerApp(tk.Tk):
         frame = ttk.Frame(editor_canvas, style="Surface.TFrame", padding=(18, 14, 18, 16))
         editor_window = editor_canvas.create_window((0, 0), window=frame, anchor="nw")
         frame.columnconfigure(1, weight=1)
+        size_frame = frame
+        hri_frame = frame
+        if is_barcode_editor:
+            def make_scroll_page(tab):
+                canvas = tk.Canvas(tab, bg=COLORS.surface, highlightthickness=0)
+                canvas.grid(row=0, column=0, sticky="nsew")
+                scroll = ttk.Scrollbar(tab, orient="vertical", command=canvas.yview)
+                scroll.grid(row=0, column=1, sticky="ns")
+                canvas.configure(yscrollcommand=scroll.set)
+                body = ttk.Frame(canvas, style="Surface.TFrame", padding=12)
+                body.columnconfigure(0, weight=1)
+                body.columnconfigure(1, weight=1)
+                handle = canvas.create_window((0, 0), window=body, anchor="nw")
+                body.bind("<Configure>", lambda _e:canvas.configure(scrollregion=canvas.bbox("all")))
+                canvas.bind("<Configure>", lambda e:canvas.itemconfigure(handle, width=e.width))
+                canvas.bind("<MouseWheel>", lambda e:canvas.yview_scroll(-1 if e.delta > 0 else 1, "units"))
+                return canvas, body
+            size_canvas, size_frame = make_scroll_page(size_tab)
+            hri_canvas, hri_frame = make_scroll_page(hri_tab)
 
         def sync_editor_scrollregion(_event: tk.Event | None = None) -> None:
             editor_canvas.configure(scrollregion=editor_canvas.bbox("all"))
@@ -4848,18 +5573,48 @@ class LabelDesignerApp(tk.Tk):
 
         def scroll_editor(event: tk.Event) -> str:
             delta = -1 if event.delta > 0 else 1
-            editor_canvas.yview_scroll(delta, "units")
+            if is_barcode_editor and active_editor_page == "advanced":
+                controller = controllers.get("active")
+                if controller is not None and hasattr(controller, "scroll_canvas"):
+                    controller.scroll_canvas.yview_scroll(delta, "units")
+                return "break"
+            canvas = ({"size": size_canvas, "hri": hri_canvas}.get(active_editor_page, editor_canvas)
+                      if is_barcode_editor else editor_canvas)
+            if not is_barcode_editor or active_editor_page != "advanced":
+                canvas.yview_scroll(delta, "units")
             return "break"
 
         frame.bind("<Configure>", sync_editor_scrollregion)
         editor_canvas.bind("<Configure>", sync_editor_width)
         editor.bind("<MouseWheel>", scroll_editor)
+        def reveal_focused_input(event):
+            if not is_barcode_editor or active_editor_page != "advanced":
+                return
+            controller = controllers.get("active")
+            if controller is None or not hasattr(controller, "scroll_canvas"):
+                return
+            canvas = controller.scroll_canvas
+            widget = event.widget
+            ancestor = widget.master
+            while ancestor is not None and ancestor is not canvas:
+                ancestor = ancestor.master
+            if ancestor is not canvas:
+                return
+            region = canvas.bbox("all")
+            if not region:
+                return
+            top = widget.winfo_rooty() - canvas.winfo_rooty()
+            bottom = top + widget.winfo_height()
+            shift = top if top < 0 else bottom - canvas.winfo_height() if bottom > canvas.winfo_height() else 0
+            if shift:
+                canvas.yview_moveto(max(0, canvas.yview()[0] + shift / max(1, region[3]-region[1])))
+        editor.bind("<FocusIn>", reveal_focused_input, add="+")
 
         type_var = tk.StringVar(value=ELEMENT_TYPES.get(str(element.get("type")), "텍스트"))
         code_var = tk.StringVar(value=BARCODE_TYPES.get(_barcode_type(element), "Code 128"))
         text_var = tk.StringVar(value=str(element.get("text", "")))
         field_var = tk.StringVar(value=str(element.get("field", "")))
-        editor_headers = tuple(getattr(self, "data_source_headers", ())) if self.data_source_path is not None and self.db_rows else ()
+        editor_headers = (tuple(getattr(self, "data_source_headers", ())) if self.data_source_path is not None and self.db_rows else ()) + tuple(str(rule["name"]) for rule in self.template.get("value_rules", []))
         editor_option_to_key, editor_key_to_option = _data_field_option_maps(editor_headers)
         selected_field = field_var.get()
         if selected_field not in editor_key_to_option:
@@ -4868,6 +5623,7 @@ class LabelDesignerApp(tk.Tk):
                 "",
             )
         editor_field_option_var = tk.StringVar(value=editor_key_to_option.get(selected_field, "연결 안 함"))
+        general_mode_var = tk.StringVar(value="db" if selected_field else "fixed")
         align_var = tk.StringVar(value=ALIGNMENTS.get(str(element.get("align", "left")), "왼쪽"))
         arrange_var = tk.StringVar(value=ARRANGE_MODES.get(str(element.get("arrange", "normal")), "일반"))
         rotation_var = tk.StringVar(value=ELEMENT_ROTATION_LABELS[_element_rotation(element)])
@@ -4889,18 +5645,31 @@ class LabelDesignerApp(tk.Tk):
         human_readable_var = tk.BooleanVar(value=bool(barcode_options.get("human_readable", True)))
         check_digit_var = tk.StringVar(value=BARCODE_CHECK_DIGIT_LABELS.get(str(barcode_options.get("check_digit", "auto")), "자동"))
         cell_size_var = tk.StringVar(value=str(barcode_options.get("cell_size", 0)))
+        initial_layout = element.get("barcode_layout") or _new_barcode_layout(float(element["width"]), float(element["height"]))
+        layout_modes = {"기존 배치": "legacy", "바코드 크기 우선": "size", "모듈 크기 고정": "module"}
+        layout_mode_var = tk.StringVar(value=("기존 배치" if "barcode_layout" not in element else
+            next(label for label, key in layout_modes.items() if key == initial_layout["size_mode"])))
+        symbol_w_var = tk.StringVar(value=str(initial_layout["symbol_width_mm"]))
+        symbol_h_var = tk.StringVar(value=str(initial_layout["symbol_height_mm"]))
+        hri_position_var = tk.StringVar(value="오른쪽" if initial_layout["hri_position"] == "right" else "아래")
+        hri_gap_var = tk.StringVar(value=str(initial_layout["hri_gap_mm"]))
+        hri_font_mode_var = tk.StringVar(value="자동 맞춤" if initial_layout["hri_font_mode"] == "auto" else "지정 크기")
+        actual_size_var = tk.StringVar()
         qr_ecc_var = tk.StringVar(value=str(barcode_options.get("qr_ecc", "M")))
         pdf417_rows_var = tk.StringVar(value=str(barcode_options.get("pdf417_rows", 0)))
         pdf417_columns_var = tk.StringVar(value=str(barcode_options.get("pdf417_columns", 0)))
         pdf417_security_var = tk.StringVar(value=str(barcode_options.get("pdf417_security", 2)))
+        editor_advanced_options = dict(barcode_options)
+        last_editor_code_type = _barcode_type(element)
+        type_option_cache = {last_editor_code_type:dict(barcode_options)}
         applying = False
 
-        def add_row(row: int, label: str, widget: tk.Widget) -> None:
-            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=6)
+        def add_row(row: int, label: str, widget: tk.Widget, parent=None) -> None:
+            ttk.Label(parent or frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=6)
             widget.grid(row=row, column=1, sticky="ew", pady=6)
 
         type_combo = ttk.Combobox(frame, textvariable=type_var, values=[ELEMENT_TYPES[key] for key in VISIBLE_ELEMENT_TYPE_KEYS], state="readonly")
-        code_combo = ttk.Combobox(frame, textvariable=code_var, values=list(BARCODE_TYPES.values()), state="readonly")
+        code_combo = ttk.Combobox(symbol_strip if is_barcode_editor else frame, textvariable=code_var, values=list(BARCODE_TYPES.values()), state="readonly")
         text_editor = tk.Text(
             frame,
             height=4,
@@ -4919,26 +5688,42 @@ class LabelDesignerApp(tk.Tk):
             values=list(editor_option_to_key),
             state="readonly",
         )
-        align_combo = ttk.Combobox(frame, textvariable=align_var, values=list(ALIGNMENTS.values()), state="readonly")
-        arrange_combo = ttk.Combobox(frame, textvariable=arrange_var, values=list(ARRANGE_MODES.values()), state="readonly")
-        rotation_combo = ttk.Combobox(frame, textvariable=rotation_var, values=list(ELEMENT_ROTATION_LABELS.values()), state="readonly")
-        font_combo = ttk.Combobox(frame, textvariable=font_name_var, values=self.font_choices, state="readonly")
-        add_row(0, "종류", type_combo)
-        add_row(1, "코드 종류", code_combo)
-        add_row(2, "텍스트/데이터", text_editor)
+        align_combo = ttk.Combobox(size_frame, textvariable=align_var, values=list(ALIGNMENTS.values()), state="readonly")
+        arrange_combo = ttk.Combobox(size_frame, textvariable=arrange_var, values=list(ARRANGE_MODES.values()), state="readonly")
+        rotation_combo = ttk.Combobox(size_frame, textvariable=rotation_var, values=list(ELEMENT_ROTATION_LABELS.values()), state="readonly")
+        font_combo = ttk.Combobox(hri_frame, textvariable=font_name_var, values=self.font_choices, state="readonly")
+        if is_barcode_editor:
+            code_combo.grid(row=0, column=1, sticky="ew")
+            ttk.Label(frame, text="데이터 원본", style="HeaderTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+            input_modes = ttk.Frame(frame, style="Surface.TFrame")
+            input_modes.grid(row=2, column=0, columnspan=2, sticky="ew", pady=8)
+            ttk.Radiobutton(input_modes, text="직접 입력", value="fixed", variable=general_mode_var,
+                            command=lambda: change_general_input()).pack(side="left")
+            ttk.Radiobutton(input_modes, text="DB / 엑셀 연결", value="db", variable=general_mode_var,
+                            command=lambda: change_general_input()).pack(side="left", padx=12)
+        else:
+            add_row(0, "종류", type_combo)
+            add_row(1, "코드 종류", code_combo)
+        add_row(3 if is_barcode_editor else 2, "바코드 데이터" if is_barcode_editor else "텍스트/데이터", text_editor)
         editor_field_label = ttk.Label(frame, text="DB 열")
-        editor_field_label.grid(row=3, column=0, sticky="w", padx=(0, 10), pady=6)
-        editor_field_combo.grid(row=3, column=1, sticky="ew", pady=6)
-        add_row(4, "정렬", align_combo)
-        add_row(5, "배치", arrange_combo)
-        add_row(6, "방향", rotation_combo)
-        add_row(7, "글꼴", font_combo)
+        editor_field_label.grid(row=4 if is_barcode_editor else 3, column=0, sticky="w", padx=(0, 10), pady=6)
+        editor_field_combo.grid(row=4 if is_barcode_editor else 3, column=1, sticky="ew", pady=6)
+        add_row(4, "정렬", align_combo, size_frame)
+        add_row(5, "배치", arrange_combo, size_frame)
+        add_row(6, "방향", rotation_combo, size_frame)
+        add_row(7, "글꼴", font_combo, hri_frame)
+        if is_barcode_editor:
+            actual_value_var = tk.StringVar()
+            ttk.Label(frame, text="현재 읽은 값", style="Hint.TLabel").grid(row=5, column=0, sticky="w", pady=(12,4))
+            ttk.Label(frame, textvariable=actual_value_var, wraplength=480).grid(row=5, column=1, sticky="ew", pady=(12,4))
+            ttk.Label(hri_frame, text="표시문자", style="HeaderTitle.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+            add_row(8, "글자크기(pt)", ttk.Entry(hri_frame, textvariable=font_var), hri_frame)
 
-        numeric = ttk.Frame(frame, style="Surface.TFrame")
-        numeric.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        numeric = ttk.Frame(size_frame, style="Surface.TFrame")
+        numeric.grid(row=0 if is_barcode_editor else 8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         for column in range(5):
             numeric.columnconfigure(column, weight=1)
-        for column, (label, variable) in enumerate((("왼쪽 위치(mm)", x_var), ("위쪽 위치(mm)", y_var), ("가로(mm)", w_var), ("세로(mm)", h_var), ("글자크기(pt)", font_var))):
+        for column, (label, variable) in enumerate((("왼쪽 위치(mm)", x_var), ("위쪽 위치(mm)", y_var), ("전체 가로(mm)", w_var), ("전체 세로(mm)", h_var), ("글자크기(pt)", font_var))):
             ttk.Label(numeric, text=label).grid(row=0, column=column, sticky="w", padx=(0 if column == 0 else 6, 0))
             ttk.Entry(numeric, textvariable=variable, width=7).grid(row=1, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0), pady=(4, 0))
         ttk.Checkbutton(numeric, text="텍스트 반전", variable=reverse_var).grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
@@ -4953,9 +5738,18 @@ class LabelDesignerApp(tk.Tk):
         stroke_width_label.grid(row=2, column=4, sticky="w", padx=(6, 0), pady=(8, 0))
         stroke_width_entry = ttk.Entry(numeric, textvariable=stroke_width_var, width=7)
         stroke_width_entry.grid(row=3, column=4, sticky="ew", padx=(6, 0), pady=(4, 0))
+        if is_barcode_editor:
+            for widget in numeric.winfo_children():
+                info = widget.grid_info()
+                if int(info.get("column", -1)) == 4:
+                    widget.grid_remove()
+            numeric.columnconfigure(4, weight=0)
 
-        barcode_frame = ttk.Frame(frame, style="Surface.TFrame")
-        barcode_frame.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        if is_barcode_editor:
+            ttk.Label(size_frame, text="전체 개체 크기에는 바코드, 필수 여백과 표시문자가 포함됩니다.",
+                      style="Hint.TLabel", wraplength=620).grid(row=11, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        barcode_frame = ttk.Frame(size_frame, style="Surface.TFrame")
+        barcode_frame.grid(row=2 if is_barcode_editor else 9, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         for column in range(4):
             barcode_frame.columnconfigure(column, weight=1)
         ttk.Label(barcode_frame, text="바코드 옵션", style="PanelTitle.TLabel").grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 6))
@@ -4970,15 +5764,15 @@ class LabelDesignerApp(tk.Tk):
 
         option_entry(1, 0, "좁은 막대 폭(dot, 0=자동)", module_width_var)
         option_entry(1, 1, "굵은 비율", wide_ratio_var)
-        option_entry(1, 2, "바코드 좌우 여백(dot)", quiet_zone_var)
+        option_entry(1, 2, "추가 여백(모듈)", quiet_zone_var)
         check_combo = ttk.Combobox(barcode_frame, textvariable=check_digit_var, values=list(BARCODE_CHECK_DIGIT_LABELS.values()), state="readonly", width=8)
         ttk.Label(barcode_frame, text="체크디지트").grid(row=1, column=3, sticky="w", padx=(8, 0), pady=(4, 2))
         check_combo.grid(row=2, column=3, sticky="ew", padx=(8, 0))
         option_widgets.append(check_combo)
-        hri_check = ttk.Checkbutton(barcode_frame, text="하단 숫자 표시", variable=human_readable_var)
-        hri_check.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        hri_check = ttk.Checkbutton(hri_frame if is_barcode_editor else barcode_frame, text="바코드 값 표시" if is_barcode_editor else "데이터 표시 (HRI)", variable=human_readable_var)
+        hri_check.grid(row=1 if is_barcode_editor else 3, column=0, columnspan=2, sticky="w", pady=(8, 0))
         option_widgets.append(hri_check)
-        option_entry(4, 0, "셀 크기(네이티브)", cell_size_var)
+        option_entry(4, 0, "셀 크기(dot, 0=자동)", cell_size_var)
         qr_ecc_combo = ttk.Combobox(barcode_frame, textvariable=qr_ecc_var, values=["L", "M", "Q", "H"], state="readonly", width=7)
         ttk.Label(barcode_frame, text="QR 오류 복원 수준").grid(row=4, column=1, sticky="w", padx=(8, 0), pady=(4, 2))
         qr_ecc_combo.grid(row=5, column=1, sticky="ew", padx=(8, 0))
@@ -4987,9 +5781,172 @@ class LabelDesignerApp(tk.Tk):
         option_entry(4, 3, "PDF 열", pdf417_columns_var)
         option_entry(6, 0, "PDF 보안", pdf417_security_var)
 
+        def set_advanced_options(options: dict[str, object]) -> None:
+            nonlocal editor_advanced_options, applying
+            was_applying = applying
+            applying = True
+            editor_advanced_options = dict(options)
+            for key, variable in (("module_width",module_width_var),("cell_size",cell_size_var),
+                                  ("quiet_zone",quiet_zone_var),("human_readable",human_readable_var),
+                                  ("qr_ecc",qr_ecc_var),("pdf417_rows",pdf417_rows_var),
+                                  ("pdf417_columns",pdf417_columns_var),("pdf417_security",pdf417_security_var)):
+                variable.set(options.get(key,BARCODE_OPTION_DEFAULTS[key]))
+            check_digit_var.set(BARCODE_CHECK_DIGIT_LABELS.get(str(options.get("check_digit","auto")),"자동"))
+            applying = was_applying
+            if not was_applying:
+                apply_live()
+
+        def open_advanced_options() -> None:
+            value = _designer_code_value(element, self.preview_row)
+            dpi = load_config(self.config_path).label.dpi
+            width, height = _rotation_source_size(mm_to_dots(float(element.get("width", 1)), dpi), mm_to_dots(float(element.get("height", 1)), dpi), _element_rotation(element))
+            def preview(options):
+                candidate = dict(element, barcode_options=options, _render_dpi=dpi)
+                return _render_engine_barcode_box(_barcode_key_from_label(code_var.get()), value, width, height, candidate)
+            edit_barcode_options(editor,_barcode_key_from_label(code_var.get()),_barcode_options(element),set_advanced_options,
+                                 preview_value=value, preview_renderer=preview, dpi=dpi)
+
+        def set_gs1_items(items: list[dict[str, str]], hri: str) -> None:
+            element["gs1_elements"] = items
+            text_editor.delete("1.0","end"); text_editor.insert("1.0",hri)
+            text_editor.edit_modified(False); text_var.set(hri); field_var.set("")
+            apply_live()
+
+        def open_gs1_items() -> None:
+            edit_gs1_data(editor,element.get("gs1_elements",[]),self.preview_row,editor_headers,set_gs1_items,
+                          value=text_var.get())
+
+        advanced_button = ttk.Button(barcode_frame,text="바코드 세부 옵션",command=open_advanced_options)
+        advanced_button.grid(row=8,column=0,columnspan=4,sticky="ew",pady=(10,0))
+        data_actions = ttk.Frame(frame, style="Surface.TFrame")
+        data_actions.grid(row=1 if is_barcode_editor else 6,column=0,columnspan=2,sticky="ew",pady=(8,0))
+        data_actions.columnconfigure(0,weight=1)
+        data_actions.columnconfigure(1,weight=1)
+        gs1_button = ttk.Button(data_actions, text="GS1 데이터로 설정…", command=lambda:open_advanced_editor("gs1"))
+        gs1_button.grid(row=0,column=0,sticky="ew")
+        data_option_button = ttk.Menubutton(data_actions, text="기타 데이터 옵션…")
+        data_option_menu = tk.Menu(data_option_button, tearoff=False)
+        data_option_menu.add_command(label="의료기기 UDI 구성", command=lambda: open_advanced_editor("udi"))
+        data_option_button.configure(menu=data_option_menu)
+        data_option_button.grid(row=0,column=1,sticky="ew",padx=(8,0))
+
+        layout_frame = ttk.LabelFrame(size_frame, text="2D 크기·문자 배치", padding=10)
+        layout_frame.grid(row=1 if is_barcode_editor else 10, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        layout_frame.columnconfigure(1, weight=1)
+        layout_frame.columnconfigure(3, weight=1)
+        hri_layout = ttk.Frame(hri_frame if is_barcode_editor else layout_frame, style="Surface.TFrame")
+        hri_layout.grid(row=2, column=0, columnspan=2, sticky="ew", pady=8)
+        hri_layout.columnconfigure(1,weight=1)
+        def layout_control(row, column, label, variable, choices=None, parent=None):
+            host = parent or layout_frame
+            ttk.Label(host, text=label).grid(row=row, column=column, sticky="w", padx=(0, 8), pady=5)
+            widget = (ttk.Combobox(host, textvariable=variable, values=choices, state="readonly", width=16)
+                       if choices else ttk.Entry(host, textvariable=variable, width=10))
+            widget.grid(row=row, column=column+1, sticky="ew", padx=(0, 12), pady=5)
+            return widget
+        layout_control(0, 0, "크기 방식", layout_mode_var, list(layout_modes))
+        layout_control(0, 0, "문자 위치", hri_position_var, ["오른쪽", "아래"], hri_layout)
+        symbol_w_entry = layout_control(1, 0, "바코드 가로(mm)", symbol_w_var)
+        symbol_h_entry = layout_control(1, 2, "바코드 세로(mm)", symbol_h_var)
+        layout_control(1, 0, "문자 간격(mm)", hri_gap_var, parent=hri_layout)
+        layout_control(2, 0, "문자 크기", hri_font_mode_var, ["자동 맞춤", "지정 크기"], hri_layout)
+        ttk.Label(layout_frame, text="바코드 목표 크기는 필수 여백을 포함하며 문자는 제외합니다.\n크기 조절 시 전체 영역은 코드와 표시문자에 맞춰 계산합니다.",
+                  wraplength=550).grid(row=3, column=0, columnspan=4, sticky="w", pady=6)
+        ttk.Label(layout_frame, textvariable=actual_size_var, wraplength=550).grid(row=4, column=0, columnspan=4, sticky="w", pady=6)
+
+        def refresh_editor_preview() -> None:
+            if not is_barcode_editor:
+                return
+            try:
+                validate_source_symbol()
+                controller = controllers.get(source_kind_var.get())
+                if controller is not None:
+                    controller.set_symbol(_barcode_type(element))
+                if controller is not None and not (controller.preview() if hasattr(controller, "preview") else controller.validate(True)):
+                    raise ValueError(controller.status_var.get())
+                value = _designer_code_value(element, self.preview_row)
+                actual_value_var.set(f"현재 읽힌 값: {value}" if value else "현재 읽힌 값이 없습니다.")
+                if not value or "{{" in value:
+                    raise ValueError("미리보기 행에 바코드 값이 없습니다.")
+                dpi = self._validation_dpi()
+                bitmap = self._render_element_bitmap(dict(element, _preview_only=True, _render_dpi=dpi), self.preview_row,
+                    mm_to_dots(float(element.get("width", 1)), dpi),
+                    mm_to_dots(float(element.get("height", 1)), dpi), transparent=False)
+                sw, sh = bitmap.info.get("actual_symbol_mm", (float(element.get("width", 1)), float(element.get("height", 1))))
+                encoded = build_gs1(parse_gs1(value)).payload if _barcode_type(element) in GS1_TYPES else value
+                preview_panel.set_result(bitmap, value=encoded, hri=str(bitmap.info.get("hri_value", value)),
+                    metrics=f"{dpi} dpi · 전체 {float(element['width']):.2f} × {float(element['height']):.2f} mm\n바코드 {sw:.2f} × {sh:.2f} mm",
+                    warning=str(bitmap.info.get("layout_error", "")))
+                editor._barcode_preview_image = preview_panel.photo
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                editor._barcode_preview_image = None
+                actual_value_var.set("현재 읽힌 값: 입력 확인 필요")
+                preview_panel.set_error(str(exc))
+
+        def refresh_actual_size():
+            if not _barcode_first(element):
+                actual_size_var.set("기존 도안 배치 유지 · 크기 방식을 선택하면 새 배치로 전환됩니다.")
+                return
+            try:
+                dpi = self._validation_dpi()
+                bitmap = self._render_element_bitmap(dict(element, _render_dpi=dpi), self.preview_row,
+                    mm_to_dots(float(element["width"]), dpi), mm_to_dots(float(element["height"]), dpi), transparent=False)
+                sw, sh = bitmap.info["actual_symbol_mm"]
+                actual_size_var.set(f"실제 바코드 {sw:.3f} × {sh:.3f} mm · 모듈 {bitmap.info['module_dots']} dot · {dpi} dpi\n"
+                    "정수 도트로 출력하므로 목표 mm보다 작을 수 있습니다.")
+            except (ValueError, KeyError) as exc:
+                actual_size_var.set(f"출력 전 조정 필요: {exc}")
+        ttk.Button(layout_frame, text="실제 크기 확인", command=refresh_actual_size).grid(row=5, column=0, columnspan=4, sticky="w", pady=4)
+
+        def fit_draft_to_label() -> None:
+            try:
+                candidate = self._barcode_fit_candidate(element)
+            except ValueError as exc:
+                messagebox.showerror("현재 라벨에 맞추기", str(exc), parent=editor)
+                return
+            layout = candidate["barcode_layout"]
+            if not messagebox.askyesno("라벨 맞춤 미리보기",
+                    f"현재 라벨: {self.template['label']['width_mm']} × {self.template['label']['height_mm']} mm\n"
+                    f"전체 크기: {element['width']:.2f} × {element['height']:.2f} → "
+                    f"{candidate['width']:.2f} × {candidate['height']:.2f} mm\n"
+                    f"표시문자 위치: {'아래' if layout['hri_position'] == 'below' else '오른쪽'}\n"
+                    "원문은 유지하며 편집 초안만 조정합니다. 확인 또는 적용 전까지 원본은 바뀌지 않습니다.", parent=editor):
+                return
+            nonlocal applying
+            was_applying = applying
+            applying = True
+            element.clear()
+            element.update(candidate)
+            layout = element.get("barcode_layout", initial_layout)
+            symbol_w_var.set(str(layout["symbol_width_mm"]))
+            symbol_h_var.set(str(layout["symbol_height_mm"]))
+            hri_position_var.set("아래" if layout["hri_position"] == "below" else "오른쪽")
+            for variable, key in ((x_var, "x"), (y_var, "y"), (w_var, "width"), (h_var, "height")):
+                variable.set(str(element[key]))
+            applying = was_applying
+            apply_live()
+            actual_size_var.set(f"전체 크기 {element['width']:.3f} × {element['height']:.3f} mm · 라벨에 맞춤")
+
+        ttk.Button(layout_frame, text="현재 라벨에 맞추기", command=fit_draft_to_label).grid(
+            row=6, column=0, columnspan=4, sticky="w", pady=(4, 0))
+
+        row_fields = {(1,0):"module_width",(1,1):"wide_ratio",(1,2):"quiet_zone",(1,3):"check_digit",
+                      (3,0):"human_readable",(4,0):"cell_size",(4,1):"qr_ecc",
+                      (4,2):"pdf417_rows",(4,3):"pdf417_columns",(6,0):"pdf417_security"}
+        basic_option_fields = {}
+        for widget in barcode_frame.winfo_children():
+            if isinstance(widget, (ttk.Button, ttk.Menubutton)):
+                continue
+            info=widget.grid_info()
+            cell=(int(info.get("row",0)),int(info.get("column",0)))
+            field=row_fields.get(cell) or row_fields.get((cell[0]-1,cell[1]))
+            if field:
+                basic_option_fields[widget]=field
+
         def sync_data_field_state() -> None:
             element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
-            visible = bool(editor_headers) and element_type in DB_MAPPABLE_ELEMENT_TYPES
+            visible = (bool(editor_headers) and element_type in DB_MAPPABLE_ELEMENT_TYPES
+                       and (not is_barcode_editor or (source_kind_var.get() == "general" and general_mode_var.get() == "db")))
             if visible:
                 editor_field_label.grid()
                 editor_field_combo.grid()
@@ -5000,9 +5957,13 @@ class LabelDesignerApp(tk.Tk):
 
         def apply_editor_data_field(*_args: object) -> None:
             element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
-            if element_type not in DB_MAPPABLE_ELEMENT_TYPES:
+            if element_type not in DB_MAPPABLE_ELEMENT_TYPES or (is_barcode_editor and source_kind_var.get() != "general"):
                 return
             field = editor_option_to_key.get(editor_field_option_var.get(), "")
+            element.pop("gs1_elements",None)
+            element.pop("udi_data",None)
+            element.pop("udi_profile",None)
+            element.pop("barcode_purpose",None)
             previous_field = field_var.get()
             previous_token = "{{" + previous_field + "}}" if previous_field else ""
             if field:
@@ -5023,25 +5984,56 @@ class LabelDesignerApp(tk.Tk):
             field_var.set("")
 
         def sync_code_state() -> None:
+            nonlocal last_editor_code_type, editor_advanced_options, applying
             element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
             if element_type == "qr":
-                code_var.set("QR")
+                code_var.set(BARCODE_TYPES["qr"])
                 code_combo.configure(state="disabled")
             elif element_type == "barcode":
                 code_combo.configure(state="readonly")
             else:
                 code_combo.configure(state="disabled")
-            option_state = "normal" if element_type in {"barcode", "qr"} else "disabled"
-            for widget in option_widgets:
-                try:
-                    widget.configure(state=option_state)
-                except tk.TclError:
-                    pass
-            if element_type in {"barcode", "qr"}:
-                if isinstance(check_combo, ttk.Combobox):
-                    check_combo.configure(state="readonly")
-                if isinstance(qr_ecc_combo, ttk.Combobox):
-                    qr_ecc_combo.configure(state="readonly")
+            active = element_type in {"barcode", "qr"}
+            specs = option_definitions("qr" if element_type == "qr" else _barcode_key_from_label(code_var.get())) if active else {}
+            allowed = set(specs)
+            current_type = "qr" if element_type == "qr" else _barcode_key_from_label(code_var.get())
+            if active and current_type != last_editor_code_type:
+                type_option_cache[last_editor_code_type] = dict(_barcode_options(element))
+                previous = type_option_cache.get(current_type,{})
+                candidate = {key:previous.get(key,spec["default"]) for key,spec in specs.items()}
+                was_linear = last_editor_code_type not in BARCODE_2D_TYPES
+                last_editor_code_type = current_type
+                was_applying = applying
+                applying = True
+                if current_type in BARCODE_2D_TYPES and was_linear:
+                    layout_mode_var.set("바코드 크기 우선")
+                set_advanced_options(candidate)
+                applying = was_applying
+            if "check_digit" in specs:
+                check_combo.configure(values=[BARCODE_CHECK_DIGIT_LABELS.get(str(x),str(x)) for x in specs["check_digit"]["choices"]])
+            if "qr_ecc" in specs:
+                qr_ecc_combo.configure(values=specs["qr_ecc"]["choices"])
+            for widget, field in basic_option_fields.items():
+                visible = field in allowed and not (field == "cell_size" and layout_mode_var.get() == "바코드 크기 우선")
+                widget.grid() if visible else widget.grid_remove()
+            barcode_frame.grid() if active else barcode_frame.grid_remove()
+            advanced_button.grid() if active else advanced_button.grid_remove()
+            advanced_button.configure(state="normal" if active else "disabled")
+            current_kind = _barcode_key_from_label(code_var.get())
+            data_actions.grid() if active else data_actions.grid_remove()
+            hri_layout.grid() if active and current_type in BARCODE_2D_TYPES else hri_layout.grid_remove()
+            layout_frame.grid() if active and current_type in BARCODE_2D_TYPES else layout_frame.grid_remove()
+            symbol_w_entry.configure(state="normal" if layout_mode_var.get() == "바코드 크기 우선" else "disabled")
+            symbol_h_entry.configure(state="normal" if layout_mode_var.get() == "바코드 크기 우선" else "disabled")
+            for widget in numeric.winfo_children():
+                info = widget.grid_info()
+                row = int(info.get("row", -1))
+                column = int(info.get("column", -1))
+                if isinstance(widget, ttk.Entry) and row == 1 and column in (2, 3):
+                    widget.configure(state="readonly" if active and current_type in BARCODE_2D_TYPES and layout_mode_var.get() != "기존 배치" else "normal")
+                if active and row in (2, 3, 4):
+                    widget.grid_remove()
+
 
         def sync_stroke_state() -> None:
             element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
@@ -5055,66 +6047,133 @@ class LabelDesignerApp(tk.Tk):
             nonlocal applying
             if applying:
                 return
+            current_code = "qr" if type_var.get() == ELEMENT_TYPES["qr"] else _barcode_key_from_label(code_var.get())
+            if current_code in BARCODE_2D_TYPES and _args and str(_args[0]) in (str(symbol_w_var), str(symbol_h_var)):
+                try:
+                    source = encode_barcode_image(current_code, _designer_code_value(element, self.preview_row),
+                                                  dict(_barcode_options(element), cell_size=1))
+                    edited_width = str(_args[0]) == str(symbol_w_var)
+                    value = float(symbol_w_var.get() if edited_width else symbol_h_var.get())
+                    if math.isfinite(value) and value > 0:
+                        applying = True
+                        if edited_width:
+                            symbol_h_var.set(f"{value * source.height / source.width:.6f}")
+                        else:
+                            symbol_w_var.set(f"{value * source.width / source.height:.6f}")
+                except ValueError as exc:
+                    actual_size_var.set(f"크기 또는 데이터 확인: {exc}")
+                finally:
+                    applying = False
+            candidate_layout = None
+            if current_code in BARCODE_2D_TYPES and layout_mode_var.get() != "기존 배치":
+                try:
+                    candidate_layout = _normalize_barcode_layout({"version": 2,
+                        "size_mode": layout_modes[layout_mode_var.get()],
+                        "symbol_width_mm": symbol_w_var.get(), "symbol_height_mm": symbol_h_var.get(),
+                        "hri_position": "right" if hri_position_var.get() == "오른쪽" else "below",
+                        "hri_gap_mm": hri_gap_var.get(),
+                        "hri_font_mode": "auto" if hri_font_mode_var.get() == "자동 맞춤" else "fixed"})
+                except ValueError as exc:
+                    actual_size_var.set(str(exc))
+                    return
+                if candidate_layout["size_mode"] == "module":
+                    try:
+                        module_value = float(cell_size_var.get())
+                    except ValueError:
+                        actual_size_var.set("모듈 크기는 1 이상의 정수 도트로 입력하세요.")
+                        return
+                    if not math.isfinite(module_value) or module_value < 0 or not module_value.is_integer():
+                        actual_size_var.set("모듈 크기는 1 이상의 정수 도트로 입력하세요.")
+                        return
             applying = True
-            reverse_align = {label: key for key, label in ALIGNMENTS.items()}
-            reverse_arrange = {label: key for key, label in ARRANGE_MODES.items()}
-            element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
-            element["type"] = element_type
-            element["text"] = text_var.get()
-            element["field"] = field_var.get()
-            element["align"] = reverse_align.get(align_var.get(), str(element.get("align", "left")))
-            element["arrange"] = reverse_arrange.get(arrange_var.get(), str(element.get("arrange", "normal")))
-            element["rotation"] = ELEMENT_ROTATION_VALUES.get(rotation_var.get(), 0)
-            if element_type in {"barcode", "qr"}:
-                element["barcode_type"] = "qr" if element_type == "qr" else _barcode_key_from_label(code_var.get())
-                element["barcode_options"] = _normalize_barcode_options(
-                    {
-                        "module_width": module_width_var.get(),
-                        "wide_ratio": wide_ratio_var.get(),
-                        "quiet_zone": quiet_zone_var.get(),
-                        "human_readable": human_readable_var.get(),
-                        "check_digit": BARCODE_CHECK_DIGIT_VALUES.get(check_digit_var.get(), "auto"),
-                        "cell_size": cell_size_var.get(),
-                        "qr_ecc": qr_ecc_var.get(),
-                        "pdf417_rows": pdf417_rows_var.get(),
-                        "pdf417_columns": pdf417_columns_var.get(),
-                        "pdf417_security": pdf417_security_var.get(),
-                    }
-                )
-            else:
-                element.pop("barcode_type", None)
-                element.pop("barcode_options", None)
-            element["x"] = _float_value(x_var.get(), float(element.get("x", 0)))
-            element["y"] = _float_value(y_var.get(), float(element.get("y", 0)))
-            element["width"] = max(1.0, _float_value(w_var.get(), float(element.get("width", 1))))
-            element["height"] = max(0.5, _float_value(h_var.get(), float(element.get("height", 1))))
-            element["font_size"] = max(6, min(48, int(_float_value(font_var.get(), float(element.get("font_size", 10))))))
-            element["font_name"] = font_name_var.get() or DEFAULT_FONT_NAME
-            element["reverse"] = bool(reverse_var.get())
-            if element_type in TEXT_ELEMENT_TYPES:
-                element["required"] = bool(required_var.get())
-            else:
-                element.pop("required", None)
-            if element_type == "table":
-                _apply_table_shape(
-                    element,
-                    max(1, min(20, int(_float_value(table_rows_var.get(), 3)))),
-                    max(1, min(20, int(_float_value(table_cols_var.get(), 3)))),
-                )
-            else:
-                element.pop("table_rows", None)
-                element.pop("table_cols", None)
-                element.pop("table_row_positions", None)
-                element.pop("table_col_positions", None)
-            if element_type in STROKE_ELEMENT_TYPES:
-                element["stroke_width"] = _normalize_stroke_width(stroke_width_var.get())
-            else:
-                element.pop("stroke_width", None)
-            self.selected_id = str(element["id"])
-            self.redraw()
-            self._save_recovery()
-            self.status_var.set("편집 내용을 미리보기에 반영했습니다.")
-            applying = False
+            try:
+                reverse_align = {label: key for key, label in ALIGNMENTS.items()}
+                reverse_arrange = {label: key for key, label in ARRANGE_MODES.items()}
+                element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
+                element["type"] = element_type
+                element["text"] = text_var.get()
+                element["field"] = field_var.get()
+                element["align"] = reverse_align.get(align_var.get(), str(element.get("align", "left")))
+                element["arrange"] = reverse_arrange.get(arrange_var.get(), str(element.get("arrange", "normal")))
+                element["rotation"] = ELEMENT_ROTATION_VALUES.get(rotation_var.get(), 0)
+                if element_type in {"barcode", "qr"}:
+                    element["barcode_type"] = "qr" if element_type == "qr" else _barcode_key_from_label(code_var.get())
+                    element["barcode_options"] = _normalize_barcode_options(
+                        {
+                            **editor_advanced_options,
+                            "module_width": module_width_var.get(),
+                            "wide_ratio": wide_ratio_var.get(),
+                            "quiet_zone": quiet_zone_var.get(),
+                            "human_readable": human_readable_var.get(),
+                            "check_digit": BARCODE_CHECK_DIGIT_VALUES.get(check_digit_var.get(), "auto"),
+                            "cell_size": cell_size_var.get(),
+                            "qr_ecc": qr_ecc_var.get(),
+                            "pdf417_rows": pdf417_rows_var.get(),
+                            "pdf417_columns": pdf417_columns_var.get(),
+                            "pdf417_security": pdf417_security_var.get(),
+                        }
+                    )
+                    active_specs = option_definitions(str(element["barcode_type"]))
+                    element["barcode_options"] = {key: value for key, value in element["barcode_options"].items() if key in active_specs}
+                    if candidate_layout is not None:
+                        element["barcode_layout"] = candidate_layout
+                        if candidate_layout["size_mode"] == "module":
+                            element["barcode_options"]["cell_size"] = int(module_value)
+                        if candidate_layout["size_mode"] == "module" and int(element["barcode_options"].get("cell_size", 0)) < 1:
+                            element["barcode_options"]["cell_size"] = 1
+                            cell_size_var.set("1")
+                    else:
+                        element.pop("barcode_layout", None)
+                else:
+                    element.pop("barcode_type", None)
+                    element.pop("barcode_options", None)
+                    element.pop("barcode_layout", None)
+                element["x"] = _float_value(x_var.get(), float(element.get("x", 0)))
+                element["y"] = _float_value(y_var.get(), float(element.get("y", 0)))
+                element["width"] = max(1.0, _float_value(w_var.get(), float(element.get("width", 1))))
+                element["height"] = max(0.5, _float_value(h_var.get(), float(element.get("height", 1))))
+                element["font_size"] = max(6, min(48, int(_float_value(font_var.get(), float(element.get("font_size", 10))))))
+                element["font_name"] = font_name_var.get() or DEFAULT_FONT_NAME
+                element["reverse"] = bool(reverse_var.get())
+                if element_type in TEXT_ELEMENT_TYPES:
+                    element["required"] = bool(required_var.get())
+                else:
+                    element.pop("required", None)
+                if element_type == "table":
+                    _apply_table_shape(
+                        element,
+                        max(1, min(20, int(_float_value(table_rows_var.get(), 3)))),
+                        max(1, min(20, int(_float_value(table_cols_var.get(), 3)))),
+                    )
+                else:
+                    element.pop("table_rows", None)
+                    element.pop("table_cols", None)
+                    element.pop("table_row_positions", None)
+                    element.pop("table_col_positions", None)
+                if element_type in STROKE_ELEMENT_TYPES:
+                    element["stroke_width"] = _normalize_stroke_width(stroke_width_var.get())
+                else:
+                    element.pop("stroke_width", None)
+                if _barcode_first(element):
+                    try:
+                        self._reflow_barcode_element(element)
+                        w_var.set(f"{element['width']:.3f}")
+                        h_var.set(f"{element['height']:.3f}")
+                        symbol_w_var.set(f"{element['barcode_layout']['symbol_width_mm']:.6f}")
+                        symbol_h_var.set(f"{element['barcode_layout']['symbol_height_mm']:.6f}")
+                    except ValueError as exc:
+                        actual_size_var.set(f"데이터 확인 필요: {exc}")
+                self.selected_id = str(element["id"])
+                self.redraw()
+                if is_barcode_editor:
+                    editor.after_idle(refresh_editor_preview)
+                    self.status_var.set("바코드 편집 초안을 미리보기에 반영했습니다. 확인 또는 적용 전까지 저장값은 그대로입니다.")
+                else:
+                    self._save_recovery()
+                    self.status_var.set("편집 내용을 미리보기에 반영했습니다.")
+            finally:
+                applying = False
+            refresh_actual_size()
 
         def on_type_change(*_args: object) -> None:
             sync_code_state()
@@ -5149,23 +6208,262 @@ class LabelDesignerApp(tk.Tk):
             pdf417_rows_var,
             pdf417_columns_var,
             pdf417_security_var,
+            layout_mode_var, symbol_w_var, symbol_h_var, hri_position_var, hri_gap_var, hri_font_mode_var,
         ):
             variable.trace_add("write", apply_live)
         type_var.trace_add("write", on_type_change)
+        code_var.trace_add("write", lambda *_args:sync_code_state())
+        layout_mode_var.trace_add("write", lambda *_args:sync_code_state())
 
         def on_text_modified(_event: tk.Event) -> None:
             if not text_editor.edit_modified():
                 return
             text_editor.edit_modified(False)
+            if is_barcode_editor and source_kind_var.get() != "general":
+                return
             value = text_editor.get("1.0", "end-1c")
             if text_var.get() != value:
+                element.pop("gs1_elements",None)
+                element.pop("udi_data",None)
+                element.pop("udi_profile",None)
+                element.pop("barcode_purpose",None)
                 text_var.set(value)
 
         text_editor.bind("<<Modified>>", on_text_modified)
         editor_field_combo.bind("<<ComboboxSelected>>", apply_editor_data_field)
+        controllers = {}
+        source_kind = "udi" if element.get("udi_profile") or element.get("udi_data") else (
+            "gs1" if element.get("gs1_elements") or element.get("barcode_purpose") in {"GS1", "물류 SSCC"} else "general")
+        source_kind_var = tk.StringVar(value=source_kind)
+        source_status_var = tk.StringVar(value={"general":"현재 원본: 고정값 또는 DB 열", "gs1":"현재 원본: GS1 응용식별자(AI)", "udi":"현재 원본: 의료기기 UDI"}[source_kind])
+        purpose_frame = ttk.Frame(frame, style="Surface.TFrame")
+        purpose_frame.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(12, 4))
+        purpose_frame.columnconfigure(1, weight=1)
+        ttk.Label(purpose_frame, textvariable=source_status_var, style="Hint.TLabel").grid(row=0, column=0, sticky="w")
+        builder_host = ttk.Frame(advanced_tab if is_barcode_editor else frame, style="Surface.TFrame", padding=8)
+        builder_host.columnconfigure(0, weight=1)
+        builder_host.rowconfigure(0, weight=1)
+        if is_barcode_editor:
+            advanced_tab.rowconfigure(0, weight=0)
+            advanced_tab.rowconfigure(1, weight=1)
+            builder_host.grid(row=1, column=0, sticky="nsew")
+        option_host = ttk.Frame(advanced_tab if is_barcode_editor else frame, style="Surface.TFrame")
+        if is_barcode_editor:
+            option_host.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 0))
+            option_host.columnconfigure(1, weight=1)
+        source_keys = ("text", "field", "gs1_elements", "udi_data", "udi_profile", "barcode_purpose", "barcode_type", "type")
+        source_drafts = {source_kind: {key: copy.deepcopy(element[key]) for key in source_keys if key in element}}
+        general_fixed_text = text_var.get() if not field_var.get() else ""
+        general_db_field = field_var.get()
+        editor._barcode_controllers = controllers
+        editor._barcode_source_kind_var = source_kind_var
+
+        def validate_source_symbol() -> None:
+            kind = source_kind_var.get()
+            code = _barcode_type(element)
+            if kind == "gs1" and code not in GS1_TYPES:
+                raise ValueError("GS1 데이터에는 GS1 바코드 종류를 선택하세요. 일반 코드는 일반 데이터 원본으로 전환한 뒤 사용하세요.")
+            if kind == "udi" and code not in GS1_TYPES and not code.startswith("hibc"):
+                raise ValueError("UDI 데이터에는 GS1 또는 HIBC 바코드를 선택하세요.")
+
+        def sync_source_controls() -> None:
+            kind = source_kind_var.get()
+            labels = {"general":"현재 원본: 고정값 또는 DB 열", "gs1":"현재 원본: GS1 응용식별자(AI)", "udi":"현재 원본: 의료기기 UDI"}
+            source_status_var.set(labels.get(kind, labels["general"]))
+            if kind == "general":
+                text_editor.configure(state="normal")
+                sync_data_field_state()
+                general_source_button.grid_remove()
+                gs1_button.configure(text="GS1 데이터로 설정…")
+            else:
+                text_editor.configure(state="disabled")
+                editor_field_label.grid_remove()
+                editor_field_combo.grid_remove()
+                general_source_button.grid()
+                gs1_button.configure(text="GS1 데이터 수정…" if kind == "gs1" else "GS1 데이터로 설정…")
+
+        def change_general_input() -> None:
+            nonlocal general_fixed_text, general_db_field
+            if source_kind_var.get() != "general":
+                switch_to_general_source(confirmed=True)
+            if general_mode_var.get() == "fixed":
+                general_db_field = field_var.get() or general_db_field
+                field_var.set("")
+                text_var.set(general_fixed_text)
+            else:
+                general_fixed_text = text_var.get()
+                field_var.set(general_db_field)
+                text_var.set("{{" + general_db_field + "}}" if general_db_field else "")
+            text_editor.configure(state="normal")
+            text_editor.delete("1.0", "end")
+            text_editor.insert("1.0", text_var.get())
+            text_editor.edit_modified(False)
+            sync_data_field_state()
+            apply_live()
+
+        def switch_source(kind: str) -> None:
+            nonlocal applying
+            current = source_kind_var.get()
+            if current == kind:
+                return
+            source_drafts[current] = {key: copy.deepcopy(element[key]) for key in source_keys if key in element}
+            if kind not in source_drafts:
+                code = _barcode_key_from_label(code_var.get())
+                source_drafts[kind] = {"type": "barcode", "field": "", "text": "",
+                    "barcode_type": "code128" if kind == "general" else
+                        "gs1_datamatrix" if code in BARCODE_2D_TYPES else "gs1_128"}
+            was_applying = applying
+            applying = True
+            for key in source_keys:
+                element.pop(key, None)
+            element.update(copy.deepcopy(source_drafts[kind]))
+            source_kind_var.set(kind)
+            type_var.set(ELEMENT_TYPES[element.get("type", "barcode")])
+            code_var.set(BARCODE_TYPES[element.get("barcode_type", "code128")])
+            field_var.set(element.get("field", ""))
+            editor_field_option_var.set(editor_key_to_option.get(field_var.get(), "연결 안 함"))
+            text_var.set(element.get("text", ""))
+            text_editor.configure(state="normal")
+            text_editor.delete("1.0", "end")
+            text_editor.insert("1.0", text_var.get())
+            text_editor.edit_modified(False)
+            applying = was_applying
+            sync_code_state()
+            sync_source_controls()
+
+        def switch_to_general_source(*, confirmed: bool = False) -> bool:
+            switch_source("general")
+            general_mode_var.set("db" if field_var.get() else "fixed")
+            sync_source_controls()
+            apply_live()
+            show_editor_page("data")
+            return True
+
+        general_source_button = ttk.Button(purpose_frame, text="일반 데이터 원본으로 전환",
+                                           command=switch_to_general_source)
+        general_source_button.grid(row=0, column=1, sticky="e", padx=(12, 0))
+        general_source_button.grid_remove()
+
+        def change_symbol(kind):
+            if kind not in GS1_TYPES and not kind.startswith("hibc"):
+                element.pop("gs1_elements", None)
+                element.pop("udi_data", None)
+            type_var.set(ELEMENT_TYPES["barcode"])
+            code_var.set(BARCODE_TYPES[kind])
+            active = controllers.get("active")
+            if active is not None and hasattr(active, "set_symbol"):
+                active.set_symbol(kind)
+
+        def set_gs1_items(items: list[dict[str, str]], hri: str) -> None:
+            nonlocal applying
+            if source_kind_var.get() != "gs1" or (element.get("gs1_elements") == items and text_var.get() == hri):
+                return
+            was_applying = applying
+            applying = True
+            element["gs1_elements"] = copy.deepcopy(items)
+            element["barcode_purpose"] = "GS1"
+            source_kind_var.set("gs1")
+            text_editor.configure(state="normal")
+            text_editor.delete("1.0", "end")
+            text_editor.insert("1.0", hri)
+            text_editor.edit_modified(False)
+            text_var.set(hri)
+            field_var.set("")
+            applying = was_applying
+            sync_source_controls()
+            apply_live()
+
+        def set_udi_patch(patch):
+            nonlocal applying
+            if source_kind_var.get() != "udi" or all(element.get(key) == value for key, value in patch.items()):
+                return
+            was_applying = applying
+            applying = True
+            if patch.get("barcode_type"):
+                change_symbol(str(patch["barcode_type"]))
+            element.update(copy.deepcopy(patch))
+            element["barcode_purpose"] = "의료기기 UDI"
+            source_kind_var.set("udi")
+            if "barcode_options" in patch:
+                set_advanced_options(dict(patch["barcode_options"]))
+            text_editor.configure(state="normal")
+            text_editor.delete("1.0", "end")
+            text_editor.insert("1.0", str(patch["text"]))
+            text_editor.edit_modified(False)
+            text_var.set(str(patch["text"]))
+            field_var.set("")
+            applying = was_applying
+            sync_source_controls()
+            apply_live()
+
+        def open_advanced_editor(kind: str):
+            switch_source(kind)
+            current_kind = _barcode_key_from_label(code_var.get())
+            if kind not in controllers:
+                if kind == "udi":
+                    controller = build_udi_editor(builder_host, element, self.preview_row, editor_headers,
+                                                  set_udi_patch, change_symbol, show_apply_button=False)
+                else:
+                    controller = build_gs1_editor(builder_host, element.get("gs1_elements", []), self.preview_row,
+                        editor_headers, set_gs1_items, value=text_var.get(), code_type=current_kind,
+                        on_symbol_change=change_symbol, show_apply_button=False,
+                        example_profile="sscc" if element.get("barcode_purpose") == "물류 SSCC" else None)
+                controller.grid(row=0, column=0, sticky="nsew")
+                controllers[kind] = controller
+            for existing in (controllers.get("gs1"), controllers.get("udi")):
+                if isinstance(existing, tk.Widget):
+                    existing.grid_remove()
+            controllers[kind].grid()
+            controllers["active"] = controllers[kind]
+            controllers["active_kind"] = kind
+            def preview_changed(_event=None):
+                editor.after_idle(refresh_editor_preview)
+            controllers[kind].bind("<<BarcodeDraftChanged>>", preview_changed)
+            bind_escape_tree(controllers[kind])
+            for child in option_host.winfo_children():
+                child.destroy()
+            title = "GS1 데이터 설정" if kind == "gs1" else "의료기기 UDI"
+            ttk.Label(option_host, text=f"{title} · 편집 초안", style="HeaderTitle.TLabel").grid(row=0, column=0, sticky="w")
+            ttk.Button(option_host, text="데이터 원본으로 돌아가기", command=lambda: show_editor_page("data")).grid(row=0, column=1, sticky="e")
+            bind_escape_tree(option_host)
+            if navigation.exists("advanced"):
+                navigation.item("advanced", text=title)
+            else:
+                navigation.insert("", "end", iid="advanced", text=title)
+            show_editor_page("advanced")
+            editor._barcode_controllers = controllers
+            return controllers[kind]
+
+        def open_gs1_items() -> None:
+            open_advanced_editor("gs1")
+
+        if is_barcode_editor:
+            editor._barcode_open_advanced = open_advanced_editor
+            editor._barcode_code_var = code_var
+            editor._barcode_code_combo = code_combo
+            editor._barcode_text_editor = text_editor
+            editor._barcode_draft = element
+            editor._barcode_option_menu = data_option_menu
+            editor._barcode_source_status_var = source_status_var
+            editor._barcode_editor_status_var = tk.StringVar(value="편집 초안 · 적용 전")
+            preview_status.configure(textvariable=editor._barcode_editor_status_var)
+            def change_preview_row(index):
+                editor_row.clear()
+                editor_row.update(self.db_rows[index])
+                refresh_editor_preview()
+                refresh_actual_size()
+                self.redraw()
+            preview_panel.on_row_change = change_preview_row
+            preview_panel.set_rows(len(self.db_rows))
+            navigation.selection_set("data")
+            show_editor_page("data")
+            sync_source_controls()
         sync_code_state()
         sync_data_field_state()
         sync_stroke_state()
+        refresh_actual_size()
+        if is_barcode_editor:
+            editor.after_idle(refresh_editor_preview)
         self._history_suspended += 1
 
         def record_editor_close(event: tk.Event) -> None:
@@ -5176,17 +6474,136 @@ class LabelDesignerApp(tk.Tk):
         editor.bind("<Destroy>", record_editor_close, add="+")
 
         buttons = ttk.Frame(editor, style="Surface.TFrame", padding=(18, 10, 18, 14))
-        buttons.grid(row=1, column=0, sticky="ew")
+        buttons.grid(row=2 if is_barcode_editor else 1, column=0,
+                     columnspan=2 if is_barcode_editor else 1, sticky="ew")
         buttons.columnconfigure(0, weight=1)
-        close_button = ttk.Button(buttons, text="닫기", command=editor.destroy, style="Primary.TButton")
-        close_button.grid(row=0, column=1, sticky="e")
+        def sync_pending_text() -> None:
+            if is_barcode_editor and source_kind_var.get() == "general":
+                value = text_editor.get("1.0", "end-1c")
+                if text_var.get() != value:
+                    element.pop("gs1_elements", None)
+                    element.pop("udi_data", None)
+                    element.pop("udi_profile", None)
+                    element.pop("barcode_purpose", None)
+                    text_var.set(value)
 
-        def on_close() -> None:
+        def validate_pending_values() -> None:
+            for label, variable, minimum in (("왼쪽 위치", x_var, None), ("위쪽 위치", y_var, None),
+                                             ("전체 가로", w_var, 0.0), ("전체 세로", h_var, 0.0),
+                                             ("글자 크기", font_var, 0.0)):
+                try:
+                    value = float(variable.get().strip())
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"{label} 값을 숫자로 입력하세요.") from exc
+                if not math.isfinite(value) or (minimum is not None and value <= minimum):
+                    raise ValueError(f"{label} 값이 올바르지 않습니다.")
+            if _element_type_from_label(type_var.get(), str(element.get("type", "text"))) in {"barcode", "qr"}:
+                _normalize_barcode_options({
+                    **editor_advanced_options, "module_width":module_width_var.get(),
+                    "wide_ratio":wide_ratio_var.get(), "quiet_zone":quiet_zone_var.get(),
+                    "human_readable":human_readable_var.get(),
+                    "check_digit":BARCODE_CHECK_DIGIT_VALUES.get(check_digit_var.get(), "auto"),
+                    "cell_size":cell_size_var.get(), "qr_ecc":qr_ecc_var.get(),
+                    "pdf417_rows":pdf417_rows_var.get(), "pdf417_columns":pdf417_columns_var.get(),
+                    "pdf417_security":pdf417_security_var.get(),
+                })
+                code = "qr" if type_var.get() == ELEMENT_TYPES["qr"] else _barcode_key_from_label(code_var.get())
+                if code in BARCODE_2D_TYPES and layout_mode_var.get() != "기존 배치":
+                    _normalize_barcode_layout({"version":2, "size_mode":layout_modes[layout_mode_var.get()],
+                        "symbol_width_mm":symbol_w_var.get(), "symbol_height_mm":symbol_h_var.get(),
+                        "hri_position":"right" if hri_position_var.get() == "오른쪽" else "below",
+                        "hri_gap_mm":hri_gap_var.get(),
+                        "hri_font_mode":"auto" if hri_font_mode_var.get() == "자동 맞춤" else "fixed"})
+
+        def commit_barcode_draft() -> bool:
+            if not is_barcode_editor:
+                return True
+            sync_pending_text()
+            try:
+                validate_pending_values()
+                validate_source_symbol()
+                active_kind = source_kind_var.get()
+                controller = controllers.get(active_kind)
+                if active_kind in {"gs1", "udi"} and controller is not None:
+                    controller.set_symbol(_barcode_type(element))
+                    if not controller.validate(True):
+                        show_editor_page("advanced")
+                        editor._barcode_editor_status_var.set("추가 데이터 입력을 확인하세요.")
+                        return False
+                apply_live()
+                if _barcode_first(element):
+                    self._reflow_barcode_element(element)
+                value = _designer_code_value(element, self.preview_row)
+                if not value or "{{" in value:
+                    raise ValueError("바코드 값을 입력하거나 DB 열과 미리보기 행을 확인하세요.")
+                dpi = self._validation_dpi()
+                self._render_element_bitmap(dict(element, _render_dpi=dpi), self.preview_row,
+                    mm_to_dots(float(element["width"]), dpi),
+                    mm_to_dots(float(element["height"]), dpi), transparent=False)
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                editor._barcode_editor_status_var.set(f"입력 확인: {exc}")
+                return False
+
+            committed = copy.deepcopy(element)
+            suspension = self._history_suspended
+            if suspension:
+                self._history_suspended -= 1
+            try:
+                target_element.clear()
+                target_element.update(committed)
+                element.clear()
+                element.update(copy.deepcopy(committed))
+                self.selected_id = str(target_element["id"])
+                self.redraw()
+            finally:
+                if suspension:
+                    self._history_suspended = suspension
+            self._barcode_last_applied = copy.deepcopy(target_element)
+            editor._barcode_last_applied = copy.deepcopy(target_element)
+            self.load_selected_properties()
+            editor._barcode_editor_status_var.set("적용됨 · 전체 DB 행 검증은 메인 화면에서 실행하세요.")
+            editor.after_idle(refresh_editor_preview)
+            return True
+
+        def close_editor() -> None:
+            if is_barcode_editor and self.__dict__.get("_editor_preview_element") is element:
+                self.__dict__.pop("_editor_preview_element", None)
+                self.__dict__.pop("_editor_preview_target_id", None)
+                self.preview_row = editor_original_row
+                self.redraw()
+            if editor.grab_current() is editor:
+                editor.grab_release()
             self.load_selected_properties()
             editor.destroy()
 
-        close_button.configure(command=on_close)
-        editor.protocol("WM_DELETE_WINDOW", on_close)
+        def cancel_editor() -> None:
+            if not is_barcode_editor:
+                target_element.clear()
+                target_element.update(copy.deepcopy(editor_before))
+                self.redraw()
+                self._save_recovery()
+            close_editor()
+
+        def confirm_editor() -> None:
+            if commit_barcode_draft():
+                close_editor()
+
+        def bind_escape_tree(widget: tk.Misc) -> None:
+            widget.bind("<Escape>", lambda _event: (cancel_editor(), "break")[1], add="+")
+            for child in widget.winfo_children():
+                bind_escape_tree(child)
+
+        if is_barcode_editor:
+            ttk.Button(buttons, text="취소", command=cancel_editor).grid(row=0, column=0, sticky="w")
+            ttk.Button(buttons, text="적용", command=commit_barcode_draft).grid(row=0, column=1, sticky="e", padx=(0, 8))
+            ttk.Button(buttons, text="확인", command=confirm_editor, style="Primary.TButton").grid(row=0, column=2, sticky="e")
+        else:
+            ttk.Button(buttons, text="취소", command=cancel_editor).grid(row=0, column=0, sticky="w")
+            ttk.Button(buttons, text="확인", command=close_editor, style="Primary.TButton").grid(row=0, column=1, sticky="e")
+        bind_escape_tree(editor)
+        editor.protocol("WM_DELETE_WINDOW", cancel_editor)
+        if is_barcode_editor:
+            editor.grab_set()
         text_editor.focus_set()
 
     def find_element_at(self, x: float, y: float) -> dict[str, object] | None:
@@ -5235,6 +6652,11 @@ class LabelDesignerApp(tk.Tk):
 
     def load_selected_properties(self) -> None:
         element = self.selected_element()
+        hint = self.__dict__.get("selection_hint_var")
+        if hint is not None:
+            name = (BARCODE_TYPES.get(_barcode_type(element), "바코드") if element and _is_code_element(element)
+                    else ELEMENT_TYPES.get(str(element.get("type")), "개체") if element else "개체")
+            hint.set(f"{name} 선택 · 더블클릭하여 편집" if element else "개체를 선택하세요 · 더블클릭하여 편집")
         if element is None:
             self.clear_property_panel()
             return
@@ -5382,22 +6804,11 @@ class LabelDesignerApp(tk.Tk):
         if not selected:
             return
         label = self.template["label"]
-        label_width = float(label["width_mm"])  # type: ignore[index]
-        label_height = float(label["height_mm"])  # type: ignore[index]
-        source_group_ids = {str(element.get("group_id", "")) for element in selected}
-        new_group_id = uuid4().hex if len(source_group_ids) == 1 and "" not in source_group_ids else ""
-        copies: list[dict[str, object]] = []
-        for element in selected:
-            duplicate = copy.deepcopy(element)
-            duplicate["id"] = uuid4().hex
-            duplicate["locked"] = False
-            duplicate["x"] = round(min(label_width - float(duplicate.get("width", 1)), float(element.get("x", 0)) + 2), 1)
-            duplicate["y"] = round(min(label_height - float(duplicate.get("height", 1)), float(element.get("y", 0)) + 2), 1)
-            if new_group_id:
-                duplicate["group_id"] = new_group_id
-            else:
-                duplicate.pop("group_id", None)
-            copies.append(duplicate)
+        try:
+            copies = clone_objects(selected, float(label["width_mm"]), float(label["height_mm"]))
+        except ValueError as exc:
+            self.status_var.set(str(exc))
+            return
         self.elements.extend(copies)
         self.selected_ids = {str(element["id"]) for element in copies}
         self.selected_id = str(copies[-1]["id"])
@@ -5676,6 +7087,14 @@ class LabelDesignerApp(tk.Tk):
         dialog.bind("<Escape>", lambda _event: dialog.destroy())
 
     def open_output_workspace(self) -> None:
+        if not self.elements:
+            messagebox.showwarning("반복 출력 화면", "출력할 도안을 먼저 만드세요.", parent=self)
+            return
+        if self._is_default_template_path() or self._has_unsaved_changes():
+            if not messagebox.askyesno("반복 출력 도안 저장", "현재 도안을 저장한 뒤 반복 출력 화면에 연결합니다. 저장하고 계속할까요?", parent=self):
+                return
+            if not self.save_template():
+                return
         manager_exe = self.install_dir / "라벨출력관리.exe"
         if manager_exe.is_file():
             command = [str(manager_exe), "--base-dir", str(self.base_dir)]
@@ -5684,6 +7103,7 @@ class LabelDesignerApp(tk.Tk):
         else:
             messagebox.showerror("반복 출력 화면", "라벨출력관리.exe를 찾을 수 없습니다. 고객 배포 폴더 전체를 확인하세요.", parent=self)
             return
+        command.extend(["--template", str(self.template_path.resolve())])
         try:
             subprocess.Popen(command, cwd=str(self.base_dir))
         except OSError as exc:
@@ -5805,8 +7225,13 @@ class LabelDesignerApp(tk.Tk):
         dialog.destroy()
 
     def template_payload(self) -> dict[str, object]:
-        self.update_label_size()
-        return {"version": 1, "label": self.template["label"], "elements": self.elements}
+        if "width_var" in self.__dict__ and "height_var" in self.__dict__:
+            self.update_label_size()
+        payload = {"version": 1, "label": self.template["label"], "elements": self.elements}
+        for key in ("data_source", "value_rules", "value_profile_id"):
+            if self.template.get(key):
+                payload[key] = copy.deepcopy(self.template[key])
+        return payload
 
     def export_project(self) -> None:
         target = filedialog.asksaveasfilename(
@@ -5884,7 +7309,7 @@ class LabelDesignerApp(tk.Tk):
         except Exception as exc:
             messagebox.showerror("템플릿 저장 실패", str(exc))
             return False
-        self._saved_payload_signature = _template_signature(payload.get("label", {}), payload.get("elements", []))
+        self._saved_payload_signature = _template_signature(payload.get("label", {}), payload.get("elements", []), payload)
         self._clear_recovery()
         self._remember_template()
         self._update_document_state()
@@ -5956,13 +7381,18 @@ class LabelDesignerApp(tk.Tk):
         else:
             template = load_template_file(source_path)
             recovery_path = None
+        original_template = copy.deepcopy(template)
+        template = self._resolve_document_media(template)
+        if template is None:
+            self.status_var.set("도안 열기를 취소했습니다.")
+            return
         elements = list(template["elements"])  # type: ignore[arg-type]
         previous_path = self.__dict__.get("template_path")
         was_dirty = self._has_unsaved_changes()
         self.template_path = source_path
         self.template = template
         self.elements = elements
-        self._saved_payload_signature = self._current_payload_signature()
+        self._saved_payload_signature = _template_signature(original_template["label"], original_template["elements"], original_template)
         self.selected_id = None
         self.selected_ids = set()
         self.selected_data_indexes = set()
@@ -5970,6 +7400,11 @@ class LabelDesignerApp(tk.Tk):
         if (source_path.parent / "project_profile.json").is_file():
             self.disconnect_data_source()
         self._reset_history()
+        if original_template["label"] != template["label"]:
+            original_snapshot = self._history_snapshot()
+            original_snapshot["label"] = copy.deepcopy(original_template["label"])
+            self._history.insert(0, original_snapshot)
+            self._history_index = 1
         self._remember_template()
         self.title(self._window_title())
         if hasattr(self, "template_path_var"):
@@ -5988,6 +7423,8 @@ class LabelDesignerApp(tk.Tk):
             else f"라벨 파일을 불러왔습니다: {self.template_path}"
         )
         self._update_document_state()
+        if self.template.get("data_source"):
+            self._restore_saved_data_source()
         if recovery_path is not None:
             messagebox.showinfo(
                 "기본 템플릿 복구",
@@ -6017,6 +7454,49 @@ class LabelDesignerApp(tk.Tk):
             self.run_output_test(send_to_printer=True)
             return
         self.run_selected_output(send_to_printer=True)
+
+    def _generated_output_rows(self, rows: list[dict], quantities: list[int], *, reserve: bool):
+        rules = self.template.get("value_rules", [])
+        if not rules:
+            return [dict(row, print_qty=str(quantity)) for row, quantity in zip(rows, quantities)], None
+        from .value_rules import compile_generated_labels
+        from .value_jobs import ValueJobStore
+        store = ValueJobStore(self.base_dir)
+        key = str(self.template.get("value_profile_id") or self.template_path.resolve())
+        request_key = hashlib.sha256(json.dumps({"template": self.template_payload(), "rows": rows, "quantities": quantities,
+                                                "printer": _designer_print_job_context(load_config(self.config_path))},
+                                               sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+        job = None
+        latest = store.latest_job(key)
+        progress_path = self.base_dir / "out" / DESIGNER_PROGRESS_FILE_NAME
+        if latest and latest.request_key == request_key:
+            if not progress_path.exists():
+                job = latest
+            else:
+                progress = PrintProgress.load(progress_path)
+                if (progress.pending_indexes or progress.unknown_indexes) and progress.context.get("snapshot_id") == latest.snapshot_id:
+                    job = latest
+        if reserve:
+            if job is None:
+                from .template_output import template_digest
+                job = store.prepare_job(rows, quantities, rules, template_key=key, context={"request_key": request_key,
+                                      "template_digest": template_digest(self.template_payload())})
+            labels = job.labels
+        else:
+            labels = job.labels if job else compile_generated_labels(rows, quantities, rules, start_overrides=store.peek_start_overrides(key, rules))
+        return [dict(label.row, print_qty=str(label.copies)) for label in labels], job
+
+    def _show_output_issues(self, issues, count):
+        if self.__dict__.get("tk") is None:
+            messagebox.showwarning("인쇄할 내용 확인", "\n".join(issue.message for issue in issues))
+            return
+        from .profile_dialogs import show_data_issues
+        show_data_issues(self, issues, count)
+
+    def _validation_dpi(self):
+        config_path = self.__dict__.get("config_path")
+        return (load_config(config_path).label.dpi if config_path is not None and config_path.is_file()
+                else int(self.template.get("label", {}).get("dpi", 203)))
 
     def _validate_output_row(self, row: dict[str, str], *, row_number: int) -> None:
         printable_elements = [element for element in self._drawing_elements() if bool(element.get("printable", True))]
@@ -6061,7 +7541,17 @@ class LabelDesignerApp(tk.Tk):
                     has_renderable_content = True
                 continue
             if element_type in {"barcode", "qr"}:
-                _designer_code_value(element, row)
+                value = _designer_code_value(element, row)
+                code_type = _barcode_type(element)
+                dpi = self._validation_dpi()
+                source_w, source_h = _rotation_source_size(mm_to_dots(width_mm,dpi),mm_to_dots(height_mm,dpi),_element_rotation(element))
+                try:
+                    if code_type in BARCODE_2D_TYPES:
+                        _render_2d_barcode_image(code_type,value,source_w,source_h,dict(element, _render_dpi=dpi))
+                    else:
+                        _render_1d_barcode_image(code_type,value,source_w,source_h,element)
+                except ValueError as exc:
+                    raise ValueError(f"{row_number}행 · {element_index}번 바코드: {exc}") from exc
                 if element_type == "barcode" and _barcode_type(element) in BARCODE_1D_BITMAP_TYPES:
                     _load_font(10, str(element.get("font_name") or DEFAULT_FONT_NAME))
                 has_renderable_content = True
@@ -6126,13 +7616,25 @@ class LabelDesignerApp(tk.Tk):
             title = str(active_job.get("title", "백그라운드 작업"))
             messagebox.showwarning("작업 진행 중", f"{title} 완료 후 출력 대상을 다시 확인하세요.", parent=self)
             return
+        if not self._ensure_media_before_output():
+            return
+        problem = profile_problem(self.template.get("data_source", {}))
+        if problem:
+            messagebox.showwarning("상품 엑셀 확인", problem, parent=self)
+            return
         source_rows = self.selected_data_rows(only_selected=selected_only)
         if selected_only and not source_rows:
             messagebox.showwarning("선택 인쇄", "데이터 소스에서 선택한 출력 대상이 없습니다.")
             return
         try:
-            for row_number, source_row in enumerate(source_rows, start=1):
-                self._validate_output_row(source_row, row_number=row_number)
+            validation_rows, _job = self._generated_output_rows(source_rows, [1] * len(source_rows), reserve=False)
+            from .template_output import validate_rows
+            from .profile_dialogs import show_data_issues
+            issues = validate_rows(self.template_payload(), validation_rows, self.base_dir, dpi=self._validation_dpi())
+            if issues:
+                self._show_output_issues(issues, len(source_rows))
+                self.status_var.set(f"출력 전 검증: 수정할 항목 {len(issues)}건 · 전송하지 않았습니다.")
+                return
         except ValueError as exc:
             messagebox.showwarning("인쇄할 내용 확인", str(exc))
             return
@@ -6157,7 +7659,13 @@ class LabelDesignerApp(tk.Tk):
             self._write_output_test_config(config_path, out_dir, barcode_type)
             config = load_config(config_path)
             dpi = int(getattr(getattr(config, "label", None), "dpi", 203))
-            warnings = self._output_preflight_warnings(source_rows, dpi)
+            quantities = [parse_print_quantity(print_quantity if print_quantity is not None else source_row.get("print_qty", "1") or "1") for source_row in source_rows]
+            generated_rows, value_job = self._generated_output_rows(source_rows, quantities, reserve=False)
+            issues = validate_rows(self.template_payload(), generated_rows, self.base_dir, dpi=dpi)
+            if issues:
+                self._show_output_issues(issues, len(generated_rows))
+                return
+            warnings = self._output_preflight_warnings(generated_rows, dpi)
             if warnings:
                 displayed = warnings[:8]
                 remaining = len(warnings) - len(displayed)
@@ -6171,12 +7679,12 @@ class LabelDesignerApp(tk.Tk):
                 ):
                     self.status_var.set("출력 전 경고를 확인하고 작업을 취소했습니다. 프린터로 전송하지 않았습니다.")
                     return
+            if send_to_printer and self.template.get("value_rules"):
+                generated_rows, value_job = self._generated_output_rows(source_rows, quantities, reserve=True)
             prepared_jobs: list[bytes] = []
             prepared_label_counts: list[int] = []
-            for source_row in source_rows:
-                row_print_qty = print_quantity
-                if row_print_qty is None:
-                    row_print_qty = max(1, min(100, int(_float_value(str(source_row.get("print_qty", "1")), 1))))
+            for source_row in generated_rows:
+                row_print_qty = parse_print_quantity(source_row.get("print_qty", "1") or "1")
                 row = self._output_test_row(row_print_qty, source_row=source_row)
                 prepared_jobs.append(self.render_designer_print_command(config, row, row_print_qty))
                 prepared_label_counts.append(row_print_qty)
@@ -6189,19 +7697,22 @@ class LabelDesignerApp(tk.Tk):
             if send_to_printer:
                 progress_path = out_dir / DESIGNER_PROGRESS_FILE_NAME
                 command_encoding = str(getattr(getattr(config, "printer", None), "command_encoding", "utf-8"))
+                job_context = _designer_print_job_context(config)
+                if value_job is not None:
+                    job_context["snapshot_id"] = value_job.snapshot_id
                 try:
                     progress = PrintProgress.open_for_job(
                         progress_path,
                         prepared_jobs,
                         command_encoding,
-                        _designer_print_job_context(config),
+                        job_context,
                     )
                 except NewPrintJobRequired:
                     progress = PrintProgress.open_for_job(
                         progress_path,
                         prepared_jobs,
                         command_encoding,
-                        _designer_print_job_context(config),
+                        job_context,
                         reset=True,
                     )
 
@@ -6216,32 +7727,20 @@ class LabelDesignerApp(tk.Tk):
                         progress_path,
                         prepared_jobs,
                         command_encoding,
-                        _designer_print_job_context(config),
+                        job_context,
                         reset=True,
                     )
 
             sent_count = 0
             sent_label_count = 0
             send_error: Exception | None = None
+            was_cancelled = False
             if send_to_printer:
                 assert progress is not None
-                for item_index in list(progress.pending_indexes):
-                    command_payload = prepared_jobs[item_index - 1]
-                    progress.mark_sending(item_index)
-                    try:
-                        self._send_designer_print(config, command_payload)
-                    except Exception as exc:
-                        # A handled transport exception is not a completed send.
-                        # Return the item to pending so an explicit second Print
-                        # action can retry it. A process crash between
-                        # mark_sending() and this handler still remains unknown.
-                        progress.resolve_unknown(item_index, was_printed=False)
-                        send_error = exc
-                        break
-                    progress.mark_sent(item_index)
-                    sent_count += 1
-                    sent_label_count += prepared_label_counts[item_index - 1]
-            returncode = 0
+                result = self._dispatch_prepared_print(config, prepared_jobs, prepared_label_counts, progress)
+                sent_count, sent_label_count, send_error = result.sent_jobs, result.sent_labels, result.error
+                was_cancelled = result.cancelled
+            returncode = 130 if was_cancelled else 0
             stdout = "designer command written to " + ", ".join(str(path) for path in output_files)
             if send_to_printer:
                 stdout += f"\nprint jobs sent: {sent_count}"
@@ -6263,12 +7762,12 @@ class LabelDesignerApp(tk.Tk):
                 out_dir=out_dir,
                 send_to_printer=True,
             )
-            self.status_var.set(f"프린터 전송 실패 · 전송 {sent_count}건 / 재시도 가능 {remaining_count}건 · 실제 출력 확인 필요")
+            self.status_var.set(f"프린터 전송 실패 · 전송 {sent_count}건 / 미전송 대기 {len(progress.pending_indexes)}건 / 수신 불명확 {len(progress.unknown_indexes)}건 · 실제 출력 확인 필요")
             messagebox.showerror(
                 "인쇄 오류",
                 (
                     f"전송 {sent_count}건 / 재시도 가능 {remaining_count}건입니다. 실제 라벨 출력 여부를 확인하세요.\n"
-                    "프린터와 연결 상태를 확인한 뒤 인쇄 버튼을 다시 누르세요.\n\n"
+                    "오류가 난 명령도 일부 수신됐을 수 있습니다. 실물 출력량을 확인한 뒤 인쇄 버튼을 다시 누르세요.\n\n"
                     f"오류: {send_error}\n로그: {log_path}"
                 ),
             )
@@ -6284,6 +7783,10 @@ class LabelDesignerApp(tk.Tk):
             send_to_printer=send_to_printer,
         )
         config_summary = self._print_config_summary(config_path)
+        if was_cancelled:
+            self.status_var.set(f"미전송 작업 중단 · 전송 {sent_count}건 / {sent_label_count}장 · 이미 전송한 명령은 취소되지 않습니다.")
+            messagebox.showinfo("미전송 작업 중단", f"{sent_label_count}장의 명령은 이미 전송됐습니다.\n프린터에서 받은 명령의 출력은 장비에서 중단해야 합니다.", parent=self)
+            return
         if returncode != 0:
             messagebox.showerror(
                 "인쇄 오류",
@@ -6306,8 +7809,7 @@ class LabelDesignerApp(tk.Tk):
             messagebox.showinfo("인쇄 파일 생성", f"인쇄 파일 생성 완료: {len(output_files)}건")
 
     def ask_print_quantity(self) -> int | None:
-        initial = int(_float_value(str(self.preview_row.get("print_qty", "1")), 1))
-        initial = max(1, min(100, initial))
+        initial = str(self.preview_row.get("print_qty", "1") or "1")
         result: dict[str, int | None] = {"value": None}
         dialog = tk.Toplevel(self)
         dialog.title("인쇄 매수 선택")
@@ -6331,7 +7833,7 @@ class LabelDesignerApp(tk.Tk):
         ttk.Label(frame, text="몇 장씩 인쇄할까요?", style="PanelTitle.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             frame,
-            text="선택한 각 항목에 같은 수량이 적용됩니다. 1장부터 100장까지 선택할 수 있습니다.",
+            text="선택한 각 항목에 같은 수량이 적용됩니다. 1 이상의 정수를 입력하세요. 매수 상한은 없습니다.",
             style="Hint.TLabel",
             wraplength=470,
             justify="left",
@@ -6356,10 +7858,8 @@ class LabelDesignerApp(tk.Tk):
         ).grid(row=0, column=0, columnspan=3, sticky="w", padx=16, pady=(14, 4))
 
         qty_var = tk.StringVar(value=str(initial))
-        qty_entry = ttk.Spinbox(
+        qty_entry = ttk.Entry(
             quantity_card,
-            from_=1,
-            to=100,
             textvariable=qty_var,
             justify="center",
             font=(TYPOGRAPHY.body[0], 24, "bold"),
@@ -6368,8 +7868,11 @@ class LabelDesignerApp(tk.Tk):
         qty_entry.grid(row=1, column=1, sticky="ew", ipady=6, pady=(0, 14))
 
         def adjust(delta: int) -> None:
-            value = int(_float_value(qty_var.get(), initial))
-            qty_var.set(max(1, min(100, value + delta)))
+            try:
+                value = parse_print_quantity(qty_var.get())
+            except ValueError:
+                return
+            qty_var.set(str(max(1, value + delta)))
 
         ttk.Button(
             quantity_card,
@@ -6401,8 +7904,11 @@ class LabelDesignerApp(tk.Tk):
         summary_var = tk.StringVar()
 
         def refresh_summary(*_args: object) -> None:
-            value = int(_float_value(qty_var.get(), initial))
-            value = max(1, min(100, value))
+            try:
+                value = parse_print_quantity(qty_var.get())
+            except ValueError as exc:
+                summary_var.set(str(exc))
+                return
             count = int(self.__dict__.get("_quantity_target_count", 1))
             summary_var.set(f"대상 {count}건 × 각 {value}장 = 총 {count * value}장\n취소하면 명령을 전송하지 않습니다.")
 
@@ -6416,12 +7922,9 @@ class LabelDesignerApp(tk.Tk):
 
         def confirm() -> None:
             try:
-                value = int(qty_var.get())
-            except (TypeError, ValueError):
-                messagebox.showwarning("인쇄 매수", "인쇄 매수는 1부터 100 사이의 숫자로 입력해 주세요.", parent=dialog)
-                return
-            if value < 1 or value > 100:
-                messagebox.showwarning("인쇄 매수", "인쇄 매수는 1부터 100 사이로 선택해 주세요.", parent=dialog)
+                value = parse_print_quantity(qty_var.get())
+            except ValueError as exc:
+                messagebox.showwarning("인쇄 매수", str(exc), parent=dialog)
                 return
             result["value"] = value
             dialog.destroy()
@@ -6449,9 +7952,9 @@ class LabelDesignerApp(tk.Tk):
 
     def _output_test_row(self, print_qty: int = 1, *, source_row: dict[str, str] | None = None) -> dict[str, str]:
         source = self.preview_row if source_row is None else source_row
-        row = {header: str(source.get(header, "")).strip() for header in LABEL_HEADERS}
+        row = {header: str(source.get(header, "")) for header in LABEL_HEADERS}
         for header, value in source.items():
-            row.setdefault(header, str(value).strip())
+            row.setdefault(header, str(value))
         row["print_qty"] = str(print_qty)
         return row
 
@@ -6465,7 +7968,7 @@ class LabelDesignerApp(tk.Tk):
         return None
 
     def _write_output_test_config(self, config_path: Path, out_dir: Path, barcode_type: str | None) -> None:
-        parser = ConfigParser()
+        parser = ConfigParser(interpolation=None)
         parser.read_dict(DEFAULTS)
         if self.config_path.exists():
             parser.read(self.config_path, encoding="utf-8-sig")
@@ -6576,6 +8079,7 @@ class LabelDesignerApp(tk.Tk):
         return b"".join(command for command in commands if command)
 
     def _render_tspl_element(self, element: dict[str, object], row: dict[str, str], dpi: int, width_dot: int, height_dot: int, config: object) -> bytes:
+        element = dict(element, _render_dpi=dpi)
         if not bool(element.get("printable", True)):
             return b""
         x, y, w, h = self._element_dot_box(element, dpi, width_dot, height_dot)
@@ -6606,6 +8110,7 @@ class LabelDesignerApp(tk.Tk):
         return b""
 
     def _render_slcs_element(self, element: dict[str, object], row: dict[str, str], dpi: int, width_dot: int, height_dot: int, config: object) -> bytes:
+        element = dict(element, _render_dpi=dpi)
         if not bool(element.get("printable", True)):
             return b""
         x, y, w, h = self._element_dot_box(element, dpi, width_dot, height_dot)
@@ -6636,6 +8141,7 @@ class LabelDesignerApp(tk.Tk):
         return b""
 
     def _render_zpl_element(self, element: dict[str, object], row: dict[str, str], dpi: int, width_dot: int, height_dot: int, config: object) -> str:
+        element = dict(element, _render_dpi=dpi)
         if not bool(element.get("printable", True)):
             return ""
         x, y, w, h = self._element_dot_box(element, dpi, width_dot, height_dot)
@@ -6684,6 +8190,8 @@ class LabelDesignerApp(tk.Tk):
         return self._tspl_bitmap_command(x, y, image)
 
     def _tspl_barcode_command(self, x: int, y: int, width: int, height: int, value: str, code_type: str, config: object, element: dict[str, object] | None = None) -> bytes:
+        if element is not None:
+            element = dict(element, _render_dpi=config.label.dpi)
         if element is not None and code_type in BARCODE_1D_BITMAP_TYPES:
             image = _render_1d_barcode_image(code_type, value, width, height, element)
             return self._tspl_bitmap_command(x, y, image)
@@ -6735,6 +8243,8 @@ class LabelDesignerApp(tk.Tk):
         raise ValueError(f"{BARCODE_TYPES.get(code_type, code_type)} 타입은 현재 인쇄 명령에서 지원하지 않습니다.")
 
     def _slcs_barcode_command(self, x: int, y: int, width: int, height: int, value: str, code_type: str, config: object, element: dict[str, object] | None = None) -> bytes:
+        if element is not None:
+            element = dict(element, _render_dpi=config.label.dpi)
         if element is not None and code_type in BARCODE_1D_BITMAP_TYPES:
             image = _render_1d_barcode_image(code_type, value, width, height, element)
             return self._slcs_bitmap_command(x, y, image)
@@ -6790,6 +8300,8 @@ class LabelDesignerApp(tk.Tk):
         raise ValueError(f"{BARCODE_TYPES.get(code_type, code_type)} 타입은 현재 인쇄 명령에서 지원하지 않습니다.")
 
     def _zpl_barcode_command(self, x: int, y: int, width: int, height: int, value: str, code_type: str, config: object, element: dict[str, object] | None = None) -> str:
+        if element is not None:
+            element = dict(element, _render_dpi=config.label.dpi)
         if element is not None and code_type in BARCODE_1D_BITMAP_TYPES:
             image = _render_1d_barcode_image(code_type, value, width, height, element)
             return self._zpl_bitmap_command(x, y, image)
@@ -7059,7 +8571,64 @@ class LabelDesignerApp(tk.Tk):
         output_file.write_bytes(command_payload)
         return output_file
 
-    def _send_designer_print(self, config: object, command_payload: bytes) -> None:
+    def _dispatch_prepared_print(self, config: object, jobs: list[bytes], counts: list[int], progress: PrintProgress) -> PrintSendResult:
+        cancel = threading.Event()
+        send = self._send_designer_print
+        sender = lambda payload: send(config, payload)
+        if "tk" not in self.__dict__:
+            return send_prepared_jobs(jobs, counts, progress, sender, cancel)
+        responses: Queue[tuple[str, object]] = Queue()
+        dialog = tk.Toplevel(self)
+        dialog.title("프린터 전송")
+        dialog.transient(self)
+        dialog.grab_set()
+        state = tk.StringVar(value=f"대상 {len(jobs)}건 · 총 {sum(counts):,}장 명령을 전송합니다.")
+        ttk.Label(dialog, textvariable=state, padding=18, wraplength=440).pack()
+        ttk.Label(dialog, text="이미 프린터가 받은 명령은 이 창에서 취소할 수 없습니다.", padding=(18, 0, 18, 12)).pack()
+        self._active_background_job = {"title": "프린터 전송", "print_cancel": cancel}
+        def stop() -> None:
+            cancel.set()
+            state.set("미전송 작업 중단 요청 · 진행 중인 전송이 끝나면 중단합니다.")
+            button.configure(state="disabled")
+        button = ttk.Button(dialog, text="미전송 작업 중지", command=stop, style="Secondary.TButton")
+        button.pack(pady=(0, 18))
+        dialog.protocol("WM_DELETE_WINDOW", stop)
+        def worker() -> None:
+            try:
+                result = send_prepared_jobs(jobs, counts, progress, sender, cancel,
+                    lambda sent, labels: responses.put(("progress", (sent, labels))))
+                responses.put(("result", result))
+            except Exception as exc:
+                responses.put(("error", exc))
+        result: list[object] = []
+        def poll() -> None:
+            while True:
+                try:
+                    kind, item = responses.get_nowait()
+                except Empty:
+                    dialog.after(75, poll)
+                    return
+                if kind == "progress":
+                    sent, labels = item
+                    state.set(f"전송 {sent}/{len(jobs)}건 · {labels:,}장" + (" · 중단 요청 중" if cancel.is_set() else ""))
+                else:
+                    result.append(item)
+                    dialog.destroy()
+                    return
+        threading.Thread(target=worker, name="designer-print-send", daemon=True).start()
+        dialog.after(75, poll)
+        try:
+            self.wait_window(dialog)
+        finally:
+            self._active_background_job = None
+        if not result:
+            raise RuntimeError("전송 결과를 확인할 수 없습니다. 프린터의 실제 출력량을 확인하세요.")
+        if isinstance(result[0], Exception):
+            raise result[0]
+        return result[0]
+
+    @staticmethod
+    def _send_designer_print(config: object, command_payload: bytes) -> None:
         if config.printer.mode == "network":  # type: ignore[attr-defined]
             send_network_raw(config.printer.ip, config.printer.port, command_payload, config.printer.command_encoding)  # type: ignore[attr-defined]
             return
@@ -7104,6 +8673,25 @@ class LabelDesignerApp(tk.Tk):
         return log_path
 
     def render_preview_image(self) -> Image.Image:
+        original_row = self.preview_row
+        self.preview_row = self._preview_generated_row()
+        try:
+            return self._render_preview_image_current_row()
+        finally:
+            self.preview_row = original_row
+
+    def _preview_generated_row(self) -> dict:
+        original_row = self.preview_row
+        if self.template.get("value_rules") and not all(rule["name"] in original_row for rule in self.template["value_rules"]):
+            from .value_rules import compile_generated_labels
+            from .value_jobs import ValueJobStore
+            key = str(self.template.get("value_profile_id") or self.__dict__.get("template_path", "preview"))
+            generated = compile_generated_labels([original_row], [1], self.template["value_rules"],
+                                                start_overrides=ValueJobStore(self.base_dir).peek_start_overrides(key, self.template["value_rules"]))
+            return generated[0].row
+        return original_row
+
+    def _render_preview_image_current_row(self) -> Image.Image:
         label = self.template["label"]  # type: ignore[index]
         width = int(float(label["width_mm"]) * 8)  # type: ignore[index]
         height = int(float(label["height_mm"]) * 8)  # type: ignore[index]
@@ -7115,6 +8703,17 @@ class LabelDesignerApp(tk.Tk):
 
     def _draw_element_to_image(self, image: Image.Image, draw: ImageDraw.ImageDraw, element: dict[str, object], scale: float) -> None:
         if not bool(element.get("printable", True)):
+            return
+        if _barcode_first(element):
+            x, y = round(float(element.get("x", 0)) * scale), round(float(element.get("y", 0)) * scale)
+            try:
+                bitmap = self._render_2d_preview_bitmap(element, self.preview_row,
+                    max(1, round(float(element["width"]) * scale)),
+                    max(1, round(float(element["height"]) * scale)), transparent=True)
+            except ValueError as exc:
+                draw.text((x + 4, y + 4), str(exc), fill="#b42318", font=_load_font(10))
+            else:
+                image.paste(bitmap.convert("RGB"), (x, y), bitmap.getchannel("A"))
             return
         x1 = float(element.get("x", 0)) * scale
         y1 = float(element.get("y", 0)) * scale
@@ -7150,7 +8749,11 @@ class LabelDesignerApp(tk.Tk):
             draw.bitmap((x1, y1), text_mask, fill="#111820")
         elif element_type in {"barcode", "qr"}:
             code_type = "qr" if element_type == "qr" else _barcode_type(element)
-            value = _preview_code_value(render_template_text(str(element.get("text", "{{barcode}}")), self.preview_row))
+            try:
+                value = _designer_code_value(element, self.preview_row)
+            except ValueError as exc:
+                draw.text((x1 + 4, y1 + 4), str(exc), fill="#b42318", font=_load_font(10))
+                return
             if code_type in BARCODE_2D_TYPES:
                 if code_type in BARCODE_2D_BITMAP_TYPES:
                     try:
@@ -7727,50 +9330,143 @@ def _barcode_check_mode(element: dict[str, object]) -> str:
     return value if value in BARCODE_CHECK_DIGIT_LABELS else "auto"
 
 
+def _render_engine_barcode_box(code_type: str, value: str, width: int, height: int,
+                               element: dict[str, object]) -> Image.Image:
+    if code_type in BARCODE_2D_TYPES and _barcode_first(dict(element, barcode_type=code_type)):
+        source_options = dict(_barcode_options(element), cell_size=1)
+        source = encode_barcode_image(code_type, sanitize_barcode(value), source_options)
+        display = source.info.get("hri_value", value)
+        if code_type in GS1_TYPES:
+            display = [f"({item.ai}){item.value}" for item in build_gs1(parse_gs1(value)).elements]
+        return render_barcode_first(source, element, display, width, height,
+                                    int(element.get("_render_dpi", 203)), _load_font,
+                                    preview_only=bool(element.get("_preview_only", False)))
+    if code_type == "gs1_datamatrix" and _barcode_option_bool(element, "human_readable", True):
+        return _render_gs1_datamatrix_image(value, width, height, element)
+    options = dict(_barcode_options(element))
+    specs = option_definitions(code_type)
+    is_linear = code_type in BARCODE_1D_TYPES
+    # HRI is rendered independently; its data is never fed back into the encoder.
+    hri_enabled = bool(options.get("human_readable", True))
+    display_value = (build_gs1(parse_gs1(value)).hri if code_type in GS1_TYPES else
+                     hibc_hri(resolve_hibc(value, str(options.get("hibc_input_mode", "auto"))), linear=is_linear) if code_type.startswith("hibc") else value)
+    font_size = max(8, min(22, round(height * 0.16)))
+    hri_font = _fit_font_to_box(display_value, width - 4, max(12,height//3), font_size,
+                              str(element.get("font_name") or "Consolas"))
+    probe = ImageDraw.Draw(Image.new("1",(1,1),1))
+    bbox = probe.textbbox((0,0),display_value,font=hri_font)
+    hri_height = min(max(12,bbox[3]-bbox[1]+5),max(12,height//3)) if hri_enabled else 0
+    available_height = max(1,height-hri_height)
+    size_key = "module_width" if is_linear else "cell_size"
+    configured = int(options.get(size_key,0))
+    # Do not carry historical check-digit aliases into a different checksum mode.
+    if options.get("check_digit") in {"on","off"}:
+        options["check_digit"] = ("none" if options["check_digit"]=="off" else
+                                 "mod43" if code_type in {"code39","code39extended"} else "mod10")
+    linear_height_types = {"code128","gs1_128","code39","code39extended","code93","code11",
+                           "codabar","itf","industrial2of5","standard2of5","iata2of5","datalogic2of5",
+                           "msi","plessey","telepen","telepennumeric","hibc128","hibc39","bc412"}
+    automatic_height = code_type in linear_height_types and not options.get("bar_height")
+    if automatic_height:
+        options["bar_height"] = available_height/max(1,configured)
+    source = encode_barcode_image(code_type,sanitize_barcode(value),options)
+    if configured:
+        scale = 1
+    else:
+        scale = width//source.width
+        if not automatic_height:
+            scale = min(scale,available_height//source.height)
+        if scale >= 1 and automatic_height:
+            options["bar_height"] = max(1,available_height//scale)
+            source = encode_barcode_image(code_type,sanitize_barcode(value),options)
+    if scale < 1 or source.width*scale > width or source.height*scale > available_height:
+        raise ValueError(f"바코드에 필요한 최소 크기는 {source.width}×{source.height+hri_height}도트입니다. "
+                         "개체를 키우거나 모듈·행·열 설정을 조정하세요. 자동 축소하지 않습니다.")
+    symbol = source.resize((source.width*scale,source.height*scale),Image.Resampling.NEAREST).convert("1")
+    image = Image.new("1",(max(1,width),max(1,height)),1)
+    image.paste(symbol,((width-symbol.width)//2,(available_height-symbol.height)//2))
+    if hri_height:
+        if bbox[2]-bbox[0] > width-2:
+            raise ValueError("표시문자가 개체 폭을 넘습니다. 개체를 키우거나 표시문자를 끄세요.")
+        ImageDraw.Draw(image).text(((width-(bbox[2]-bbox[0]))//2-bbox[0],height-hri_height-bbox[1]+2),
+                                  display_value,font=hri_font,fill=0)
+    image.info.update(source.info)
+    image.info["module_dots"] = int(source.info.get("module_dots",1))*scale
+    image.info["hri_value"] = display_value
+    sx, sy = (width-symbol.width)//2, (available_height-symbol.height)//2
+    image.info["symbol_bounds"] = (sx, sy, sx+symbol.width, sy+symbol.height)
+    dpi = int(element.get("_render_dpi", 203))
+    image.info["actual_symbol_mm"] = (symbol.width*25.4/dpi, symbol.height*25.4/dpi)
+    return image
+
+
 def _render_qr_code_image(value: str, width: int, height: int, element: dict[str, object]) -> Image.Image:
-    clean_value = sanitize_barcode(value)
-    options = _barcode_options(element)
-    ecc = str(options.get("qr_ecc", "M")).upper()
-    error_correction = QR_ERROR_CORRECTION.get(ecc, ERROR_CORRECT_M)
-    qr = qrcode.QRCode(version=None, error_correction=error_correction, box_size=1, border=4)
-    qr.add_data(clean_value)
-    qr.make(fit=True)
-    matrix = qr.get_matrix()
-    module_count = max(1, len(matrix))
+    return _render_engine_barcode_box("qr",value,width,height,element)
 
-    image_width = max(1, width)
-    image_height = max(1, height)
-    image = Image.new("1", (image_width, image_height), 1)
-    max_symbol_size = max(1, min(image_width, image_height))
-    cell_size = max(1, max_symbol_size // module_count)
-    symbol_size = module_count * cell_size
 
-    source = Image.new("1", (module_count, module_count), 1)
-    draw = ImageDraw.Draw(source)
-    for row_index, row in enumerate(matrix):
-        for col_index, enabled in enumerate(row):
-            if enabled:
-                source.putpixel((col_index, row_index), 0)
-    source = source.resize((symbol_size, symbol_size), Image.Resampling.NEAREST)
-    paste_x = max(0, (image_width - symbol_size) // 2)
-    paste_y = max(0, (image_height - symbol_size) // 2)
-    image.paste(source, (paste_x, paste_y))
+def _gs1_hri_lines(value: str) -> list[str]:
+    payload = build_gs1(parse_gs1(value))
+    return [f"({item.ai}){item.value}" for item in payload.elements]
+
+
+def _gs1_hri_packed_lines(groups: list[str], max_width: int, measure) -> list[str]:
+    lines: list[str] = []
+    current = ""
+    for group in groups:
+        candidate = current + group
+        if current and measure(candidate) > max_width:
+            lines.append(current)
+            current = group
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _render_gs1_datamatrix_image(value: str, width: int, height: int, element: dict[str, object]) -> Image.Image:
+    """Place intact AI groups beside an integer-scaled symbol with quiet zones."""
+    groups = _gs1_hri_lines(value)
+    options = dict(_barcode_options(element))
+    source = encode_barcode_image("gs1_datamatrix", value, options)
+    probe = ImageDraw.Draw(Image.new("1", (1, 1), 1))
+    font_name = str(element.get("font_name") or "Consolas")
+    gap = 8
+    for size in range(max(8, min(32, round(height / 3.4))), 7, -1):
+        font = _load_font(size, font_name)
+        def measure(text):
+            box = probe.textbbox((0, 0), text, font=font)
+            return box[2] - box[0]
+        lines = _gs1_hri_packed_lines(groups, max(1, round(width * 0.62)), measure)
+        boxes = [probe.textbbox((0, 0), line, font=font) for line in lines]
+        text_width = max(box[2] - box[0] for box in boxes)
+        line_height = max(box[3] - box[1] for box in boxes) + 4
+        symbol_width = width - text_width - gap
+        scale = 1 if options.get("cell_size") else min(symbol_width // source.width, height // source.height)
+        minimum_scale = 1 if options.get("cell_size") else 2
+        if scale >= minimum_scale and source.width * scale <= symbol_width and source.height * scale <= height and line_height * len(lines) <= height:
+            break
+    else:
+        raise ValueError("GS1 데이터 표시와 바코드를 함께 넣을 공간이 부족합니다. 개체를 키우거나 데이터 표시를 끄세요. 값은 자동으로 잘라내지 않습니다.")
+    symbol = source.resize((source.width * scale, source.height * scale), Image.Resampling.NEAREST).convert("1")
+    image = Image.new("1", (width, height), 1)
+    symbol_x, symbol_y = (symbol_width - symbol.width) // 2, (height - symbol.height) // 2
+    image.paste(symbol, (symbol_x, symbol_y))
+    draw = ImageDraw.Draw(image)
+    top = (height - line_height * len(lines)) // 2
+    for index, (line, box) in enumerate(zip(lines, boxes)):
+        draw.text((symbol_width + gap - box[0], top + index * line_height - box[1]), line, font=font, fill=0)
+    image.info.update(module_dots=int(source.info.get("module_dots", 1)) * scale,
+                      hri_lines=lines, hri_layout="right", symbol_bounds=(symbol_x, symbol_y, symbol_x + symbol.width, symbol_y + symbol.height))
     return image
 
 
 def _render_2d_barcode_image(code_type: str, value: str, width: int, height: int, element: dict[str, object]) -> Image.Image:
-    if code_type == "qr":
-        return _render_qr_code_image(value, width, height, element)
-    if code_type in ZXING_2D_FORMATS:
-        return _render_zxing_2d_barcode_image(code_type, value, width, height)
-    raise ValueError(f"{BARCODE_TYPES.get(code_type, code_type)} does not have a verified bitmap renderer.")
+    return _render_engine_barcode_box(code_type,value,width,height,element)
 
 
 def _render_zxing_2d_barcode_image(code_type: str, value: str, width: int, height: int) -> Image.Image:
-    clean_value = sanitize_barcode(value)
-    barcode = zxingcpp.create_barcode(clean_value, ZXING_2D_FORMATS[code_type])
-    source = _zxing_image_to_pil(zxingcpp.write_barcode_to_image(barcode, scale=4, add_quiet_zones=True))
-    return _fit_barcode_source_to_box(source, width, height)
+    return _render_engine_barcode_box(code_type,value,width,height,{"barcode_options":{"human_readable":False}})
 
 
 def _zxing_image_to_pil(source: zxingcpp.Image) -> Image.Image:
@@ -7811,43 +9507,17 @@ def _barcode_image_to_transparent_rgba(image: Image.Image) -> Image.Image:
 
 
 def _render_1d_barcode_image(code_type: str, value: str, width: int, height: int, element: dict[str, object]) -> Image.Image:
-    if code_type in {"ean13", "ean8", "upca"}:
-        return _render_ean_upc_image(code_type, value, width, height, element)
-    modules, display_value = _one_d_barcode_modules(code_type, value, element)
-    image = Image.new("1", (max(1, width), max(1, height)), 1)
-    draw = ImageDraw.Draw(image)
-    padding = max(1, min(6, round(min(width, height) * 0.035)))
-    hri_enabled = _barcode_option_bool(element, "human_readable", True)
-    hri_height = 0
-    hri_font = _load_font(max(8, min(22, round(height * 0.16))), str(element.get("font_name") or "Consolas"))
-    if hri_enabled and height >= 22:
-        bbox = draw.textbbox((0, 0), display_value, font=hri_font)
-        hri_height = min(max(12, bbox[3] - bbox[1] + 5), max(12, height // 3))
-    bar_height = max(6, height - (padding * 2) - hri_height)
-    quiet_zone = _barcode_option_int(element, "quiet_zone", 10, 0, 40)
-    source_width = max(1, sum(modules) + (quiet_zone * 2))
-    source = Image.new("1", (source_width, bar_height), 1)
-    source_draw = ImageDraw.Draw(source)
-    cursor = quiet_zone
-    black = True
-    for module_width in modules:
-        if black:
-            source_draw.rectangle((cursor, 0, cursor + module_width - 1, bar_height), fill=0)
-        cursor += module_width
-        black = not black
-    available_width = max(1, width - (padding * 2))
-    configured_module = _barcode_option_int(element, "module_width", 0, 0, 12)
-    target_width = min(available_width, source_width * configured_module) if configured_module else available_width
-    target_width = max(1, target_width)
-    barcode = source.resize((target_width, bar_height), Image.Resampling.NEAREST)
-    image.paste(barcode, (padding + max(0, (available_width - target_width) // 2), padding))
-    if hri_height:
-        bbox = draw.textbbox((0, 0), display_value, font=hri_font)
-        text_w = bbox[2] - bbox[0]
-        text_x = max(0, (width - text_w) // 2)
-        text_y = max(padding + bar_height + 2, height - hri_height + 1)
-        draw.text((text_x - bbox[0], text_y - bbox[1]), display_value, fill=0, font=hri_font)
-    return image
+    if code_type in {"ean13","ean8","upca"}:
+        options = _barcode_options(element)
+        encode_barcode_image(code_type, value, options)
+        specs = option_definitions(code_type)
+        custom_keys = {"module_width", "quiet_zone", "human_readable", "check_digit"}
+        if any(key not in custom_keys and options.get(key, spec["default"]) != spec["default"] for key, spec in specs.items()):
+            return _render_engine_barcode_box(code_type, value, width, height, element)
+        # Preserve the established outside digit/guard bar typography. Horizontal
+        # modules in this renderer are integer dots; required checks cannot be disabled.
+        return _render_ean_upc_image(code_type,value,width,height,element)
+    return _render_engine_barcode_box(code_type,value,width,height,element)
 
 
 def _render_ean_upc_image(code_type: str, value: str, width: int, height: int, element: dict[str, object]) -> Image.Image:
@@ -7881,9 +9551,12 @@ def _render_ean_upc_image(code_type: str, value: str, width: int, height: int, e
     module_count = len(bits)
     available_width = max(1, width - (padding * 2))
     configured_module = _barcode_option_int(element, "module_width", 0, 0, 12)
-    target_width = min(available_width, (module_count + (quiet_zone * 2)) * configured_module) if configured_module else available_width
-    target_width = max(1, target_width)
-    scale = target_width / max(1, module_count + (quiet_zone * 2))
+    quiet_zone = max(10,quiet_zone)
+    source_width = module_count + quiet_zone*2
+    scale = configured_module or available_width//source_width
+    if scale < 1 or source_width*scale > available_width:
+        raise ValueError(f"바코드에 필요한 최소 폭은 {source_width*max(1,configured_module)}도트입니다. 개체 폭을 늘리세요.")
+    target_width = source_width*scale
     bar_left = padding + max(0, (available_width - target_width) / 2) + (quiet_zone * scale)
     top = padding
 
@@ -7922,7 +9595,8 @@ def _draw_centered_hri(draw: ImageDraw.ImageDraw, text: str, center_x: float, y:
 def _one_d_barcode_modules(code_type: str, value: str, element: dict[str, object]) -> tuple[list[int], str]:
     if code_type in {"code128", "gs1_128"}:
         clean = _clean_code128_value(value, gs1=code_type == "gs1_128")
-        return _code128_module_widths(clean, gs1=code_type == "gs1_128"), clean
+        display = build_gs1(parse_gs1(value)).hri if code_type == "gs1_128" else clean
+        return _code128_module_widths(clean, gs1=code_type == "gs1_128"), display
     if code_type == "code39":
         clean = _clean_code39_value(value)
         if _barcode_check_mode(element) == "on":
@@ -7956,23 +9630,26 @@ def _one_d_barcode_modules(code_type: str, value: str, element: dict[str, object
 
 
 def _clean_code128_value(value: str, *, gs1: bool = False) -> str:
-    text = str(value).strip()
+    text = sanitize_barcode(value)
     if gs1:
-        text = text.replace("(", "").replace(")", "")
-    return sanitize_barcode(text)
+        from .gs1 import build_gs1, parse_gs1
+        return build_gs1(parse_gs1(text)).payload
+    if any(not 32 <= ord(char) <= 127 for char in text):
+        raise ValueError("Code 128 값은 ASCII 문자여야 합니다. Unicode 데이터는 QR 또는 Data Matrix를 사용하세요.")
+    return text
 
 
 def _clean_code39_value(value: str) -> str:
-    clean = "".join(char for char in str(value).upper().strip() if char in _CODE39_CHARS)
-    if not clean:
-        raise ValueError("Code 39에 사용할 수 있는 데이터가 없습니다.")
+    clean = sanitize_barcode(value)
+    if any(char not in _CODE39_CHARS for char in clean):
+        raise ValueError("Code 39는 대문자·숫자와 - . 공백 $ / + %만 사용할 수 있습니다. Full ASCII 형식을 선택하세요.")
     return clean
 
 
 def _clean_codabar_value(value: str) -> str:
-    clean = "".join(char for char in str(value).upper().strip() if char in _CODABAR_PATTERNS)
-    if not clean:
-        raise ValueError("Codabar에 사용할 수 있는 데이터가 없습니다.")
+    clean = sanitize_barcode(value)
+    if any(char not in _CODABAR_PATTERNS for char in clean):
+        raise ValueError("Codabar에 허용되지 않는 문자가 있습니다.")
     starts = {"A", "B", "C", "D"}
     if clean[0] not in starts:
         clean = "A" + clean
@@ -7982,9 +9659,9 @@ def _clean_codabar_value(value: str) -> str:
 
 
 def _numeric_only(value: str) -> str:
-    digits = "".join(char for char in str(value) if char.isdigit())
-    if not digits:
-        raise ValueError("숫자 바코드에 사용할 숫자가 없습니다.")
+    digits = sanitize_barcode(value)
+    if any(char not in "0123456789" for char in digits):
+        raise ValueError("숫자 바코드는 ASCII 숫자만 사용할 수 있습니다. 원문을 확인하세요.")
     return digits
 
 
@@ -8120,9 +9797,12 @@ def _code128_module_widths(value: str, *, gs1: bool = False) -> list[int]:
     if gs1:
         codes.append(102)
     for char in value:
+        if gs1 and char == "\x1d":
+            codes.append(102)
+            continue
         code = ord(char) - 32
         if code < 0 or code > 95:
-            code = ord("?") - 32
+            raise ValueError("Code 128 인코딩에서 허용되지 않는 문자입니다.")
         codes.append(code)
     checksum = 104
     for index, code in enumerate(codes[1:], start=1):
@@ -8207,12 +9887,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--print", dest="print_on_open", action="store_true", help="Open the label file and show the print flow")
     parser.add_argument("--smoke-test", action="store_true", help="Load template and data source without showing the UI")
     parser.add_argument("--ui-smoke-test", action="store_true", help="Create the Tk UI once and exit without printing")
+    parser.add_argument("--workflow-smoke-test", type=Path, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--analyze-design", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--label-width-mm", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--label-height-mm", type=float, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--analysis-json", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--analysis-preview", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.workflow_smoke_test is not None:
+        if args.print_on_open or args.label_file or args.import_project or args.register_file_associations or args.restore_file_associations:
+            parser.error("워크플로 검증은 파일 열기·등록·실제 인쇄와 함께 실행할 수 없습니다.")
+        from .workflow_probe import run_workflow_probe
+        return run_workflow_probe(args.workflow_smoke_test.resolve())
     if args.register_file_associations or args.restore_file_associations:
         if args.label_file or args.import_project or args.print_on_open:
             parser.error("파일 연결 등록/복원은 도안 열기 또는 인쇄와 함께 실행할 수 없습니다.")

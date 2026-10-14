@@ -1,11 +1,19 @@
+from pathlib import Path
 # -*- mode: python ; coding: utf-8 -*-
 
+
+
+barcode_runtime_datas = [
+    (str(path), str(path.parent))
+    for directory in (Path("barcode_label_automation/resources"), Path("barcode_label_automation/vendor/zint"))
+    for path in directory.rglob("*") if path.is_file()
+]
 
 a = Analysis(
     ['label_job_runner_launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=barcode_runtime_datas,
     hiddenimports=['openpyxl'],
     hookspath=[],
     hooksconfig={},

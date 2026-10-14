@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, date
+
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,7 +56,7 @@ def load_db_rows(path: str | Path) -> list[dict[str, str]]:
     return normalized_rows
 
 
-def load_db_source(path: str | Path) -> tuple[list[dict[str, str]], tuple[str, ...]]:
+def load_db_source(path: str | Path, *, sheet_name: str | None = None) -> tuple[list[dict[str, str]], tuple[str, ...]]:
     """Load DB rows plus the real workbook headers for UI data-source pickers."""
     workbook_path = Path(path)
     if not workbook_path.exists():
@@ -62,7 +64,9 @@ def load_db_source(path: str | Path) -> tuple[list[dict[str, str]], tuple[str, .
 
     workbook = load_workbook(workbook_path, data_only=True)
     try:
-        sheet = workbook["BarcodeDB"] if "BarcodeDB" in workbook.sheetnames else workbook.active
+        if sheet_name is not None and sheet_name not in workbook.sheetnames:
+            raise ValueError(f"엑셀에 '{sheet_name}' 시트가 없습니다. 시트를 다시 선택하세요.")
+        sheet = workbook[sheet_name] if sheet_name else workbook["BarcodeDB"] if "BarcodeDB" in workbook.sheetnames else workbook.active
         header_map = _flexible_header_map(sheet, DB_HEADERS)
         source_headers = [_cell_text(cell.value) for cell in sheet[1]]
         visible_headers = tuple(dict.fromkeys(header for header in source_headers if header))
@@ -127,7 +131,7 @@ def lookup_barcode(db_rows: list[dict[str, str]], barcode: str) -> BarcodeLookup
     for row in db_rows:
         if _row_field_value(row, "barcode") == target:
             return BarcodeLookupResult(
-                barcode=target,
+                barcode=next((str(value) for header, value in row.items() if _field_for_header(header) == "barcode"), target),
                 item_code=_row_field_value(row, "item_code"),
                 item_name=_row_field_value(row, "item_name"),
                 lot_no=_row_field_value(row, "lot_no"),
@@ -153,7 +157,7 @@ def load_table(
         header_map = _header_map(sheet, headers)
         rows: list[dict[str, str]] = []
         for row_number in range(2, sheet.max_row + 1):
-            row = {header: _cell_text(sheet.cell(row_number, header_map[header]).value) for header in headers}
+            row = {header: _db_cell_text(sheet.cell(row_number, header_map[header]), row_number, header) for header in headers}
             if any(value.strip() for value in row.values()):
                 rows.append(row)
         return rows
@@ -172,7 +176,7 @@ def save_table(path: str | Path, headers: tuple[str, ...], rows: list[dict[str, 
     for row in rows:
         if not any(str(row.get(header, "")).strip() for header in headers):
             continue
-        sheet.append([str(row.get(header, "")).strip() for header in headers])
+        sheet.append([str(row.get(header, "")) for header in headers])
 
     for column_index, header in enumerate(headers, start=1):
         width = 28 if header in {"item_name", "barcode"} else 16
@@ -262,6 +266,13 @@ def _cell_text(value: object) -> str:
 
 def _db_cell_text(cell: object, row_number: int, header: str) -> str:
     value = cell.value
+    # Exact text may contain an HIBC Mod43 space or meaningful identifier spaces.
+    if isinstance(value, str):
+        return value
+    if isinstance(value, datetime) and value.time() == datetime.min.time():
+        return value.date().isoformat()
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value.isoformat()
     text = _cell_text(value)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return text

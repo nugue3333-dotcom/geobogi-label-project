@@ -14,6 +14,7 @@ from .printers.network import send_raw as send_network_raw
 from .printers.windows_raw import send_raw as send_windows_raw
 from .print_progress import (
     PROGRESS_FILE_NAME,
+    DESIGNER_PROGRESS_FILE_NAME,
     PrintProgress,
     PrintTransportUncertainError,
     UnknownPrintItemsError,
@@ -21,7 +22,7 @@ from .print_progress import (
 from .sanitizer import sanitize_barcode
 from .templates import CommandPayload, render_label
 
-MAX_PRINT_QTY = 100
+from .print_quantity import parse_print_quantity
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,6 +40,9 @@ def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render and optionally print barcode labels.")
     parser.add_argument("--config", default="config.ini", help="Path to config.ini")
     parser.add_argument("--excel", default=None, help="Override the Excel workbook path from config.ini")
+    parser.add_argument("--template", default=None, help="Saved .cllabel design instead of automatic layout")
+    parser.add_argument("--template-hash", default=None, help="Expected saved design SHA256")
+    parser.add_argument("--value-job", default=None, help="Explicitly reprint an immutable value snapshot")
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--dry-run", action="store_true", help="Render commands to output files only")
     action.add_argument("--print", dest="do_print", action="store_true", help="Send commands to the configured printer")
@@ -54,7 +58,7 @@ def _main(argv: list[str] | None = None) -> int:
         "--force-print-qty",
         type=_safe_print_qty,
         default=None,
-        help=f"Override print_qty for this run only, from 1 to {MAX_PRINT_QTY}",
+        help="Override print_qty for this run only with a positive integer",
     )
     args = parser.parse_args(argv)
 
@@ -75,11 +79,19 @@ def _main(argv: list[str] | None = None) -> int:
         print("Print mode enabled. Commands will be sent to the configured printer.")
         print("Dry-run is the default; use --dry-run when you only want files in the output folder.")
 
-    labels = read_labels(config.data.excel_file)
-    if args.limit is not None:
-        labels = labels[: args.limit]
-    if args.force_print_qty is not None:
-        labels = [replace(row, print_qty=args.force_print_qty) for row in labels]
+    custom_commands = None
+    job_context = _print_job_context(config.printer)
+    if args.template:
+        from .saved_output import prepare_saved_output
+        labels, custom_commands, job_context = prepare_saved_output(args, config, dry_run=dry_run)
+    else:
+        if args.value_job or args.template_hash:
+            raise ValueError("--value-job/--template-hash requires --template.")
+        labels = read_labels(config.data.excel_file)
+        if args.limit is not None:
+            labels = labels[: args.limit]
+        if args.force_print_qty is not None:
+            labels = [replace(row, print_qty=args.force_print_qty) for row in labels]
     config.data.output_dir.mkdir(parents=True, exist_ok=True)
     log_dir = config.data.output_dir.parent
 
@@ -87,7 +99,7 @@ def _main(argv: list[str] | None = None) -> int:
     skipped_count = 0
     prepared: list[tuple[int, LabelRow, CommandPayload]] = []
     for row_index, row in enumerate(labels, start=1):
-        validation_error = _validate_row_for_output(row)
+        validation_error = _validate_row_for_output(row) if custom_commands is None else None
         if validation_error:
             skipped_count += 1
             print(f"Warning: row {row_index} skipped. {validation_error}")
@@ -103,7 +115,7 @@ def _main(argv: list[str] | None = None) -> int:
             )
             continue
 
-        command = render_label(
+        command = custom_commands[row_index - 1] if custom_commands is not None else render_label(
             config.printer.language,
             row,
             config.label.width_mm,
@@ -148,10 +160,10 @@ def _main(argv: list[str] | None = None) -> int:
     else:
         commands = [command for _row_index, _row, command in prepared]
         progress = PrintProgress.open_for_job(
-            config.data.output_dir / PROGRESS_FILE_NAME,
+            config.data.output_dir / (DESIGNER_PROGRESS_FILE_NAME if args.template else PROGRESS_FILE_NAME),
             commands,
             config.printer.command_encoding,
-            _print_job_context(config.printer),
+            job_context,
             reset=args.new_job,
         )
         if progress.unknown_indexes:
@@ -212,7 +224,7 @@ def _main(argv: list[str] | None = None) -> int:
     print(f"Print log written to {_display_path(log_path, log_dir)}")
     if dry_run:
         print("Dry-run complete. No data was sent to a printer.")
-    return 0
+    return 1 if skipped_count else 0
 
 
 def _check_printer(mode: str, printer_config: object) -> None:
@@ -235,10 +247,10 @@ def _validate_row_for_output(row: LabelRow) -> str | None:
         sanitize_barcode(row.barcode)
     except ValueError:
         return "barcode is empty or contains no printable barcode characters"
-    if row.print_qty <= 0:
-        return "print_qty must be greater than 0"
-    if row.print_qty > MAX_PRINT_QTY:
-        return f"print_qty exceeds the safety limit of {MAX_PRINT_QTY}"
+    try:
+        parse_print_quantity(row.print_qty)
+    except ValueError:
+        return "print_qty must be greater than 0 and an integer"
     return None
 
 
@@ -253,10 +265,11 @@ def _positive_int(value: str) -> int:
 
 
 def _safe_print_qty(value: str) -> int:
-    parsed = _positive_int(value)
-    if parsed > MAX_PRINT_QTY:
-        raise argparse.ArgumentTypeError(f"must be between 1 and {MAX_PRINT_QTY}")
-    return parsed
+    try:
+        return parse_print_quantity(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+
 
 
 def _write_command_file(

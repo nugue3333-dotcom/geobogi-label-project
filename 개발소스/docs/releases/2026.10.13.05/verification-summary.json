@@ -1,0 +1,547 @@
+{
+  "version": "2026.10.13.05",
+  "build_id": "20261013_05_delivery",
+  "verification_date": "2026-10-13",
+  "publication_prepared_date": "2026-10-14",
+  "timezone": "Asia/Seoul",
+  "boundary": "Existing verified release, no application code change or new full test run during GitHub publication.",
+  "tests": {
+    "status": "passed",
+    "passed": 6871,
+    "skipped": 2,
+    "failed": 0,
+    "native_gui_processes": 95
+  },
+  "build": {
+    "id": "20261013_05_delivery",
+    "python_version": "3.13.7",
+    "pyinstaller_version": "6.21.0",
+    "specs": [
+      {
+        "path": "customer_preflight.spec",
+        "size": 1104,
+        "sha256": "8d5fffa81babecd1d8e67d8a790633b7b924994488e3a627fdf1b1b41e88d06c",
+        "exists": true
+      },
+      {
+        "path": "label_designer.spec",
+        "size": 2129,
+        "sha256": "9f1425fb443ac5767d627624bb58b83b0a65b788db3c03e4c7de362f91d2d3f4",
+        "exists": true
+      },
+      {
+        "path": "label_job_runner.spec",
+        "size": 1105,
+        "sha256": "86dc82b3f510d3e8f517bc287d7bbd268cf45cd05b061da1c27c72dde3194055",
+        "exists": true
+      },
+      {
+        "path": "label_manager.spec",
+        "size": 1612,
+        "sha256": "3b59aca9106bfcd35523b613c0b3b2a60cd7b2094a6fb58e2f0c9767cc012b46",
+        "exists": true
+      },
+      {
+        "path": "print_labels.spec",
+        "size": 1152,
+        "sha256": "cb5dbb162d6b5253a3e3bb1856f9ce11bfa4c93ba1d24a31b61ee847cfa65d9d",
+        "exists": true
+      },
+      {
+        "path": "printer_settings.spec",
+        "size": 1615,
+        "sha256": "44869ca7f1e4232f628c75bf3a3d12783151392aff4ff733cf7fbe73b4c931e0",
+        "exists": true
+      }
+    ],
+    "test_result": "6871 passed, 2 skipped; 95 independent native GUI cases; visible GS1-128 entry, all action buttons, wheel, popup DB rows and closing"
+  },
+  "executables_sha256": {
+    "고객환경점검.exe": "eb13cd97dd3ae0a6ff1201bc23a3b7e8bbb4011401674d1dd9200f022634fc22",
+    "라벨디자이너.exe": "9acc18dc1d2576ee20ac9ee5eee2ce6cc608c927ba9d0a8410e552023b75090c",
+    "라벨작업실행기.exe": "b19e251afd2f6456777d83f71995fd9a4c8b14d9926d506f528e4a26c1a787c0",
+    "라벨출력관리.exe": "d9813dc4953900c1516432a507a4cae8ebe8a3da5b1cd294c905220f6118f48e",
+    "라벨출력엔진.exe": "eab5baef5fe6c35d7daf311389e0fbc57722e97cb96b16592540241468f58f35",
+    "프린터설정.exe": "65e929b7740d9caf6cbe47219c5a9930a1a1c0cba262797647f0ce73c99e8e7a"
+  },
+  "customer_preflight": {
+    "normal": 36,
+    "errors": 0,
+    "mode": "dry-run"
+  },
+  "frozen_designer_workflow_checks": 33,
+  "frozen_manager_workflow_checks": 11,
+  "asset": {
+    "name": "채움랩_라벨출력_고객용_20261013_05.zip",
+    "bytes": 207643024,
+    "sha256": "89897be9a827acc0575081e01f61291660a05a1b14dd4ac0bf852bcad44b69e7",
+    "payload_files": 202
+  },
+  "physical_print_and_scan": "not_performed",
+  "files": [
+    {
+      "path": "barcode_label_automation/__init__.py",
+      "sha256": "c5ceb4566579e4595c61593357f735686529950167553f15c3d661823a62aa57"
+    },
+    {
+      "path": "barcode_label_automation/__main__.py",
+      "sha256": "3d2438ae92f4746e9ffaa1f837b1fe803f6281091d1f31f8c95643716f257d9a"
+    },
+    {
+      "path": "barcode_label_automation/barcode_catalog.py",
+      "sha256": "a1f9e5172627a9c325e7df4bf348422b4df5ef843aaeb7add135473edeede183"
+    },
+    {
+      "path": "barcode_label_automation/barcode_editor_preview.py",
+      "sha256": "6dda2c08583f7c06dfee07d1be71da3a99edcf3c93e3b133f565c7317358d61b"
+    },
+    {
+      "path": "barcode_label_automation/barcode_engine.py",
+      "sha256": "6b99a5b227f11e55d12d22d1b8a4b62f8bf84f63c46333eaa07a0b6b2f6c597c"
+    },
+    {
+      "path": "barcode_label_automation/barcode_layout.py",
+      "sha256": "c8e8cc2cb2329dc220984e9454b876b04cfc43a5f8654454c9a3033e04229b72"
+    },
+    {
+      "path": "barcode_label_automation/barcode_options_dialog.py",
+      "sha256": "7a27fe13ba446d81a13ed4a7b5da5b791c38ce17e3dfc569a8d7635ccb593fc3"
+    },
+    {
+      "path": "barcode_label_automation/brand_assets.py",
+      "sha256": "097665a6216afdb70b1a11cc940d0ce506075d99af8d1f453605d295072b9c47"
+    },
+    {
+      "path": "barcode_label_automation/cli.py",
+      "sha256": "2d939350f9323d94a93af0067f8d0bb35467fbcd1d79f089b4b44cce3690bf9c"
+    },
+    {
+      "path": "barcode_label_automation/config.py",
+      "sha256": "974fe321438802e722bdabdb462afc81c6f9d96f487e671dce7065bc144d1d43"
+    },
+    {
+      "path": "barcode_label_automation/customer_backup.py",
+      "sha256": "a14c7d5012926c4fc36832ac4c660284c301cbccb9cd4a3f6bd80650661c5243"
+    },
+    {
+      "path": "barcode_label_automation/customer_deployment.py",
+      "sha256": "11aab8a715abc90d4bc56b67b5f81f3f0e6d68b58ba1755e0ade99ffeb870406"
+    },
+    {
+      "path": "barcode_label_automation/customer_guide_package.py",
+      "sha256": "dc80b8cfe126114cd704824d8e8bf3a048e99f896647d9d72af568b396a0f5f8"
+    },
+    {
+      "path": "barcode_label_automation/customer_preflight.py",
+      "sha256": "239aaca70e1373baa7f9dcd1f73bdc2f061fc5ae3bd5fd3299967380c16ce9f3"
+    },
+    {
+      "path": "barcode_label_automation/data_store.py",
+      "sha256": "1127c91d4ade5f8777ed623d625acc64b019dbe35478e1c94d04f2f631be208c"
+    },
+    {
+      "path": "barcode_label_automation/designer_clipboard.py",
+      "sha256": "e749299abb837e5f7e9288fbc90e10347b362f4dabede3fcd3c9e46c51a49a6c"
+    },
+    {
+      "path": "barcode_label_automation/designer_print_dispatch.py",
+      "sha256": "999879422fe04c18308f897a0e0096fd3c2292a43e3a48ca44c845e6ea453dc2"
+    },
+    {
+      "path": "barcode_label_automation/errors.py",
+      "sha256": "a6e659ff3c6772ef0f146aa35c445b2c7c2cc4147aa10d90275151b20550b9d4"
+    },
+    {
+      "path": "barcode_label_automation/excel_reader.py",
+      "sha256": "7a6f378658b4f248a86b06ad4170613d9efa602b68f3d7cdab5cb2a9fa284baf"
+    },
+    {
+      "path": "barcode_label_automation/file_association.py",
+      "sha256": "b90c5cdec20f386756c3974a1f85468967b0522301a085e0a06cabf8f5b84588"
+    },
+    {
+      "path": "barcode_label_automation/font_assets.py",
+      "sha256": "d1fb91a4c02b0c2b440d3436cfef1bae3fcb70240518764e65fe05c5ca60cad8"
+    },
+    {
+      "path": "barcode_label_automation/gs1.py",
+      "sha256": "1ba3a2437596101c8f82c3eeebc9d1645a037ed15b70bb80cf4e762bb485fdf0"
+    },
+    {
+      "path": "barcode_label_automation/gs1_editor.py",
+      "sha256": "8a81c59297849a3898fac607a70ea851f55d74f58d00680b6ee1c14e39b57483"
+    },
+    {
+      "path": "barcode_label_automation/hibc.py",
+      "sha256": "cdeb7f616370472371ff2ec397b969507e0b4b9945143a27205934c65a95ce5e"
+    },
+    {
+      "path": "barcode_label_automation/job_profile.py",
+      "sha256": "ddf14b453007df4ab211c6d2659584fbf36c8d25ac9da9fe093d678a073d7206"
+    },
+    {
+      "path": "barcode_label_automation/job_runner.py",
+      "sha256": "7d0b59cd53a7773ee504631e5dc1b06701e717b8940e41ec03e824cd79cc7356"
+    },
+    {
+      "path": "barcode_label_automation/label_designer_app.py",
+      "sha256": "9af84bd6a71af478b9761e5f4ffe8d1f9180b450a9faef6ce24732c7886556a8"
+    },
+    {
+      "path": "barcode_label_automation/label_file_types.py",
+      "sha256": "778fdd23c515d38d781e96728dd59bc8c7137a58efe00e114aa4848c375798f9"
+    },
+    {
+      "path": "barcode_label_automation/label_manager_app.py",
+      "sha256": "d503d71ce997f7182e15d34a179bcaa7a9ce83002ccf1994aaa55140f1715a25"
+    },
+    {
+      "path": "barcode_label_automation/label_media.py",
+      "sha256": "bca08c8d70e8fb80d1399b74162706c760cbe68155d74b2cca529e44544b636e"
+    },
+    {
+      "path": "barcode_label_automation/logger.py",
+      "sha256": "4f1dc6bb3a64a6f1bfa7f0fdcd1ecd638e61201d786fed2d8ffea2568fb4ecda"
+    },
+    {
+      "path": "barcode_label_automation/portable_project.py",
+      "sha256": "2bb2de9477be407dc6680002d21ef0ee78ea4f4af5975df689c058c66587ed44"
+    },
+    {
+      "path": "barcode_label_automation/print_progress.py",
+      "sha256": "15d33d2e468ead35a9612dc80e3867c503ec801e330f96f8d5b4c23a0d80b448"
+    },
+    {
+      "path": "barcode_label_automation/print_quantity.py",
+      "sha256": "bc105ce72d8633445d9a79e2da53eb1ea6d616bf66d2d5eec46f5d7d35258119"
+    },
+    {
+      "path": "barcode_label_automation/printers/__init__.py",
+      "sha256": "1e87b1c70e27faca3d33d7eec73d45f79cfad4ed0a0a7e95e81cf2556761041d"
+    },
+    {
+      "path": "barcode_label_automation/printers/network.py",
+      "sha256": "9c55f48963570b5787bd6238220c635f8dc2c539fc7840558a0bab9e1d91161b"
+    },
+    {
+      "path": "barcode_label_automation/printers/windows_raw.py",
+      "sha256": "240315127e130254a8ea094bd9342903352ac31f6ff5db9f605a3631c7a51334"
+    },
+    {
+      "path": "barcode_label_automation/profile_dialogs.py",
+      "sha256": "c70707b4d2656856dc5c63d46d3dc5b16ff76bae65c22053da4a9d80689c95b9"
+    },
+    {
+      "path": "barcode_label_automation/release_manifest.py",
+      "sha256": "6337136bf4c7226676bd652cee0827d6b8cf338c134ef729341baff95b666d8d"
+    },
+    {
+      "path": "barcode_label_automation/resources/bartender2022-capabilities.json",
+      "sha256": "22f58bb9a0aa73a86bb0c53d8ae2ab26a6bb380ce6b501386ea2be6b5ad5cbdb"
+    },
+    {
+      "path": "barcode_label_automation/resources/gs1-linter-tables.json",
+      "sha256": "fa53a0007a1be206f5c615e07377d082639f8ce30513b507c051f77dfbe80694"
+    },
+    {
+      "path": "barcode_label_automation/resources/gs1-provenance.json",
+      "sha256": "aa976b93613a644079ba30c6c8968402d5c97a954d548078fb48f506f11c5d86"
+    },
+    {
+      "path": "barcode_label_automation/runtime_paths.py",
+      "sha256": "9f07d31d644ba6f79abf7d51170fbf834fcf6e78a7e744c86077953795237647"
+    },
+    {
+      "path": "barcode_label_automation/sanitizer.py",
+      "sha256": "2e40a0688671f5f18fb5c36026c6636b5eb47cd062d91b5807c59e871e90a2a2"
+    },
+    {
+      "path": "barcode_label_automation/saved_output.py",
+      "sha256": "06e7956391ab1adbd047090a09dd50b6a0acaee4604e6b1a500b18b4b253ed1c"
+    },
+    {
+      "path": "barcode_label_automation/settings_app.py",
+      "sha256": "46174c638e30a55cc5404e249ec7bc4a38e812378f09c0265ae86d5effdfe0a5"
+    },
+    {
+      "path": "barcode_label_automation/template_output.py",
+      "sha256": "4fcb72460e9256ce63ec13d44adeff86c1fd2be6fcb2af060d7d0cd80cf7bd30"
+    },
+    {
+      "path": "barcode_label_automation/templates.py",
+      "sha256": "3d22b667cb29b90fdc4c18f8392102ceb70db20ed7067c2435b4961cab25f869"
+    },
+    {
+      "path": "barcode_label_automation/tool_icons.py",
+      "sha256": "5e7dd1692261343e772e950853f0f58f0f7e7128548191e843f4ee0943696893"
+    },
+    {
+      "path": "barcode_label_automation/udi_editor.py",
+      "sha256": "6209168e73256fa11904968fe7dffe1cedd8d9aa1dc75670006a1064ba3449b3"
+    },
+    {
+      "path": "barcode_label_automation/ui_style.py",
+      "sha256": "94b6280ad798e6e85d62ffbe0ffe9683ed31b544101611591cdb65cbe446834b"
+    },
+    {
+      "path": "barcode_label_automation/ui_tokens.py",
+      "sha256": "8bdf2770442042b5cf8d7f821b3732682a1aca16413fbeabae08f1158e7046ff"
+    },
+    {
+      "path": "barcode_label_automation/ui_window.py",
+      "sha256": "fc996dc2541f9d1d05c8379d8e09e723ad06c7b1a34611cd25f7c2df77b75a64"
+    },
+    {
+      "path": "barcode_label_automation/value_jobs.py",
+      "sha256": "bb96ebdf7748a560a0a57386cc48348446db291b1ae40efcc5ec6705a0c52639"
+    },
+    {
+      "path": "barcode_label_automation/value_rules.py",
+      "sha256": "345eaf25f45770e2b4dfbfd5d66464ec3aeb239bf837a3956f3b55271f0a9c64"
+    },
+    {
+      "path": "barcode_label_automation/value_rules_dialog.py",
+      "sha256": "57ae4f5797d76ad376423ebb750187d61f627c7fb09e6644f3cb46ce8ebb98fe"
+    },
+    {
+      "path": "barcode_label_automation/vendor/zint/provenance.json",
+      "sha256": "1559dfcd97d7834e6b577a819968d19e11fbc4844524f8cb044effd1bab2acba"
+    },
+    {
+      "path": "barcode_label_automation/vendor/zint/zint.exe",
+      "sha256": "1497e712959a8109dc0f61bd7a1ee61e4d596142d865f492ee0ab30ae6cf73ee"
+    },
+    {
+      "path": "barcode_label_automation/workflow_probe.py",
+      "sha256": "2e848b4f368750b37125a3a01336175c878f257591cdc796cce5443f487a3a02"
+    },
+    {
+      "path": "tests/conftest.py",
+      "sha256": "318d16efb498f8a5e8593be3579ebe6e96c62a96a4e864432b85c840debdfa50"
+    },
+    {
+      "path": "tests/test_ai_udi_workflow_ui.py",
+      "sha256": "3109df3782ba954700431a14c4f9bfcb6144e1056384c65b1c027e135a7bb928"
+    },
+    {
+      "path": "tests/test_barcode_data_integrity.py",
+      "sha256": "c8cff505c0c34be3fd9c3c304aa20abec1e1da87a3ac5a63fc647d72cc250969"
+    },
+    {
+      "path": "tests/test_barcode_dialogs.py",
+      "sha256": "1bb77febb1303a8507520d924c9ab47e72f210b2dcf7424b8055847b09c03d28"
+    },
+    {
+      "path": "tests/test_barcode_editor_r4_ui.py",
+      "sha256": "acb0b17094cd6d269face0c925d201b31598177e0559d80e917a9949bacd6dfa"
+    },
+    {
+      "path": "tests/test_barcode_editor_r5_ui.py",
+      "sha256": "a52f09f78d3ac6346e1a1c2c3c4ca745b4c34962f978b1f76336b2ad4bee854c"
+    },
+    {
+      "path": "tests/test_barcode_engine.py",
+      "sha256": "deee280b39f5daa5c0dbfa59e42077a4eee9959f4e0c210ce5a8172ebdfe896c"
+    },
+    {
+      "path": "tests/test_barcode_first_integration.py",
+      "sha256": "f160ee2a38b26b0e94e62e5df18cfcc3913e4f91882268e9104ed6b8440bdcab"
+    },
+    {
+      "path": "tests/test_barcode_first_ui.py",
+      "sha256": "a300819bc9c864110d71bd373754a8670a6518530abe13e402f08edef7794a39"
+    },
+    {
+      "path": "tests/test_barcode_layout.py",
+      "sha256": "832e2e0bcc096c23852eacaacfaee03eff44362313ef8376e7599371e1fc9eef"
+    },
+    {
+      "path": "tests/test_barcode_pipeline.py",
+      "sha256": "4863fc371d45fd35df673a009ed141abf9ef82f62ba7cadf1cfbc596dd272b6e"
+    },
+    {
+      "path": "tests/test_branding.py",
+      "sha256": "c2c1ff505ffde3542a29231a0adc000f99491d3d75385d1c2b20391dc607cf78"
+    },
+    {
+      "path": "tests/test_cli.py",
+      "sha256": "6da57092b90ccdc2c865568d8a03eceeba85e8de0a986f663cf2ef72e200b6d2"
+    },
+    {
+      "path": "tests/test_config.py",
+      "sha256": "72aa53cdfc8ad2cdbbdc2cc95d7533c997a1a541ac30faf00b45ad609e7347cb"
+    },
+    {
+      "path": "tests/test_customer_backup.py",
+      "sha256": "f0ee0c475c9a38fc3590ffadc706357d0b890fe22eb949dbf4189d6590dda234"
+    },
+    {
+      "path": "tests/test_customer_deployment.py",
+      "sha256": "b35aa27f7029026f69b449dc0ef17730f3018eae2ef9b8c0aca519e6a5a634b1"
+    },
+    {
+      "path": "tests/test_customer_guide_package.py",
+      "sha256": "4207940cfb1eb7e8b20af0167cbca4608702f98e5a64856491dc1f681679c415"
+    },
+    {
+      "path": "tests/test_customer_manual_contract.py",
+      "sha256": "6241de04cad1a91daf7184d35608ae4fd73148019ef17cb868a2b3104177f3c9"
+    },
+    {
+      "path": "tests/test_customer_package_shape.py",
+      "sha256": "3137268a384a99cd6585ac3261f8dad4b0f74bd3a3cf9b868ea495aece0d7a37"
+    },
+    {
+      "path": "tests/test_customer_preflight.py",
+      "sha256": "602428b0e2f3815baf819919a6ceb49c68a667205d5b400e3a631f66b92da24d"
+    },
+    {
+      "path": "tests/test_data_store.py",
+      "sha256": "e3c9ccb9f4447457fdd170c121fe197786eb733ed651db7fe78dbb75f8424d8a"
+    },
+    {
+      "path": "tests/test_designer_usability.py",
+      "sha256": "aac6965e81cb6e44aa1533429ee1a2d0ae85817c50ff80f45e0081c37abfc3cb"
+    },
+    {
+      "path": "tests/test_excel_reader.py",
+      "sha256": "5efbb66dd1e25885a758a407cd38ec3ebb57cb80f530a1d01d7e5e48b29d9cb9"
+    },
+    {
+      "path": "tests/test_file_association.py",
+      "sha256": "8c963c61ce1dd702ad7f19fa65d823b97114c58a9a1eb28c16b7ce5371149353"
+    },
+    {
+      "path": "tests/test_font_assets.py",
+      "sha256": "0ebd4bd36696cb88f2a3cff31134a08b854bc2945830e3ca43a3c74becd7fc93"
+    },
+    {
+      "path": "tests/test_gs1.py",
+      "sha256": "cfc7e6bfb7bd2ab1776c36687256441c2ca14c4e74b5561defb216b61d00bdc0"
+    },
+    {
+      "path": "tests/test_gs1_hri_layout.py",
+      "sha256": "87aa4a159adfd99ba9b5e4ad64895801dfc2eef5f0c2ba5320c71f8d1edb705f"
+    },
+    {
+      "path": "tests/test_hibc.py",
+      "sha256": "ab0ab4aaba315b54a8c191fcc1ec9a4c71fae5a6321c37086270781b9960e5cd"
+    },
+    {
+      "path": "tests/test_job_runner.py",
+      "sha256": "a89ff9fee0461e932c7fced5934d19afc94029b1039080e7ce05cf601f3bdc83"
+    },
+    {
+      "path": "tests/test_label_designer_app.py",
+      "sha256": "41c2d74321fe7835d85264ac9fc2b733f75bdfab4032d771bffa119d9a471b37"
+    },
+    {
+      "path": "tests/test_label_file_types.py",
+      "sha256": "72b9890e9ad82a9e1ac4e3ad4151d3ab503da7e6c4d04ba86a09542c444e1a36"
+    },
+    {
+      "path": "tests/test_label_manager_app.py",
+      "sha256": "97735f825d0a4ed8bf1d75434f5a9ab12e723ed33f2c1f75b8449b24018ebf16"
+    },
+    {
+      "path": "tests/test_logger.py",
+      "sha256": "a6438569a2d832ab8b68b74ef3e75bfeea753d21172e9f98b34ae4be856bab8b"
+    },
+    {
+      "path": "tests/test_manager_workflow_ui.py",
+      "sha256": "d8d36d303d93639e17d56ef815bebbabbcfac0aa31e4437984d15ae55c5f4a51"
+    },
+    {
+      "path": "tests/test_mobile_android_designer.py",
+      "sha256": "9aca93b366ec037689f422dde93b458c7e3ce7862ebd6d7d85f00cb3750d9249"
+    },
+    {
+      "path": "tests/test_mobile_apps.py",
+      "sha256": "619416caff5b699c825b904721ee8444a311e3bdb10ad7f7c08ca1c4fbf10ab0"
+    },
+    {
+      "path": "tests/test_network_printer.py",
+      "sha256": "4ae05923fd69c3fa8024c4ba4c8ba66533023e9e33e1b8f35751bf3bb9bbdbfd"
+    },
+    {
+      "path": "tests/test_paid_output_workflow.py",
+      "sha256": "6934b430083e4d8ce4f848c4be44f596569daf409b2ae8d12076171a9dbc71c4"
+    },
+    {
+      "path": "tests/test_portable_project.py",
+      "sha256": "8cf6eb20730279bd4e03dd5734f75bbdffd3a2c948ff63f8c340d4df115e4cc9"
+    },
+    {
+      "path": "tests/test_print_progress.py",
+      "sha256": "1bd73f1887a8db640d570e4d93f9288abb3a5bbd78e4325261a89eb060d9103f"
+    },
+    {
+      "path": "tests/test_print_quantity.py",
+      "sha256": "f2b4a519f00da08e1f7833dc286344f09f45d3c7a641001f029851f34d8b797a"
+    },
+    {
+      "path": "tests/test_release_manifest.py",
+      "sha256": "092dc07f0885f27a620fbc8127ccc3baf78b8843c2c92b51edc63911d243c1a4"
+    },
+    {
+      "path": "tests/test_runtime_paths.py",
+      "sha256": "7ee68aae0947e1496908f681be9540aa1dc9fa83364e2af68632a388b2e978f0"
+    },
+    {
+      "path": "tests/test_sales_claims.py",
+      "sha256": "87f3a6e9fc5328b60cb1f6039d0a115c96bfedc210910415c6f85aea87fb2738"
+    },
+    {
+      "path": "tests/test_sales_page_motion.py",
+      "sha256": "86dc3c429cbbbf7655a673b1912b5e9386e66d1374e19d10dd145038a69a2bcb"
+    },
+    {
+      "path": "tests/test_sanitizer.py",
+      "sha256": "8fe4448545da9b77f2ac7219aaba6f4249330f2a930868a9635207662db1f1c1"
+    },
+    {
+      "path": "tests/test_settings_app.py",
+      "sha256": "950d00d15c95ec1e920f90cd58b1886ff6ce550158632b7e40b18de1d7e4d8d8"
+    },
+    {
+      "path": "tests/test_start_menu_cmd.py",
+      "sha256": "e7f44afd97cf946e9e37a6907c46b436b98a112360ae4aba6a6d3c4312127cb7"
+    },
+    {
+      "path": "tests/test_suite_design.py",
+      "sha256": "edae51ff89f743003f8b4378a65df90c491955e6dd630067744426a7c5ff9407"
+    },
+    {
+      "path": "tests/test_templates.py",
+      "sha256": "dba1b523d4a8da8efba1fd99814408ae3b79160ed417c4a8a3f67cc836633029"
+    },
+    {
+      "path": "tests/test_udi_editor.py",
+      "sha256": "4d428d9897485cc01a4adeca282732f10e24e1696e68b0400d33d431b891a6ec"
+    },
+    {
+      "path": "tests/test_ui_contrast.py",
+      "sha256": "8fca00963c5ede8170d1c809dc3b6107fdcd7629d061bade471b590c1bbb0324"
+    },
+    {
+      "path": "tests/test_ui_visibility.py",
+      "sha256": "9fe62eec9574841f8e1305fd29ba8172d60e7865f646cd69ba50e142396c4383"
+    },
+    {
+      "path": "tests/test_ui_window.py",
+      "sha256": "9520a08a2865517fcd8fdf5e10526bb972f208c15002ac145db01266ebae372d"
+    },
+    {
+      "path": "tests/test_value_jobs.py",
+      "sha256": "924518175f5d6fc2ffeb377e70b4c188ffd4a534b4a2242ffb5ddbcf40d08915"
+    },
+    {
+      "path": "tests/test_value_rules.py",
+      "sha256": "ed52028e1a7ec3ad904381a5e3be121a12f2b58039d94eb5c0c5b5c7ec24d44a"
+    },
+    {
+      "path": "tests/test_value_rules_dialog.py",
+      "sha256": "40412b8bd29b4758086aa8154dc5ed14b0d6b78c820932b77a8f72dac1d5ce36"
+    }
+  ]
+}

@@ -174,6 +174,16 @@ try {
         }
     }
 
+    $PreservedTools = Join-Path $ProjectRoot (".release-preserved-tools\" + $BuildId)
+    Assert-ChildPath -Root $ProjectRoot -Path $PreservedTools
+    foreach ($toolName in @("tesseract.exe", "winpath.exe")) {
+        $toolPath = Join-Path $CustomerRoot $toolName
+        Assert-ChildPath -Root $CustomerRoot -Path $toolPath
+        if (Test-Path -LiteralPath $toolPath -PathType Leaf) {
+            New-Item -ItemType Directory -Path $PreservedTools -Force | Out-Null
+            Move-Item -LiteralPath $toolPath -Destination (Join-Path $PreservedTools $toolName)
+        }
+    }
     Push-Location $ProjectRoot
     try {
         & $PythonExe -m barcode_label_automation.release_manifest `

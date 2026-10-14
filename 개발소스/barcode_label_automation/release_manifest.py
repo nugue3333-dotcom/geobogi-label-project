@@ -123,6 +123,8 @@ FORBIDDEN_RELATIVE_PATHS = frozenset(
         "db/test.xlsx",
         "tools/tools",
         "tools/ocr/tessdata/osd.traineddata",
+        "tesseract.exe",
+        "winpath.exe",
     }
 )
 FORBIDDEN_FILE_NAMES = frozenset(

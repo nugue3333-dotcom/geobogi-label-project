@@ -9,6 +9,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from barcode_label_automation.barcode_catalog import SAMPLE_VALUES, sample_options
+from barcode_label_automation.barcode_engine import render_barcode as shared_render
+import math
 from openpyxl import Workbook
 from PIL import Image, ImageChops, ImageDraw
 
@@ -607,6 +610,36 @@ def test_crash_recovery_restores_to_memory_without_overwriting_saved_file(monkey
     assert "직접 저장" in statuses[-1]
 
 
+def test_startup_recovery_does_not_offer_current_session_edits(monkeypatch, tmp_path):
+    app, _statuses = _history_test_app(tmp_path)
+    app._recovery_prompt_pending = True
+    app._startup_recovery_path = app._recovery_path()
+    app._startup_recovery_bytes = None
+    app.elements.append(_element("text", "지금 작성", 2, 2, 20, 5))
+    app._save_recovery()
+    assert not app._recovery_path().exists()
+    monkeypatch.setattr(label_designer_app.messagebox, "askyesno", lambda *args, **kwargs: pytest.fail("new edits are not a previous-session recovery"))
+    app._offer_recovery()
+    assert app.elements[0]["text"] == "지금 작성"
+    assert app._recovery_path().exists()
+
+
+def test_startup_redraw_preserves_previous_recovery_until_decision(monkeypatch, tmp_path):
+    original, _statuses = _history_test_app(tmp_path)
+    original.elements.append(_element("text", "이전 복구", 2, 2, 20, 5))
+    original._save_recovery()
+    before = original._recovery_path().read_bytes()
+    app, _statuses = _history_test_app(tmp_path)
+    app._recovery_prompt_pending = True
+    app._startup_recovery_path = app._recovery_path()
+    app._startup_recovery_bytes = before
+    app._save_recovery()
+    assert app._recovery_path().read_bytes() == before
+    monkeypatch.setattr(label_designer_app.messagebox, "askyesno", lambda *args, **kwargs: True)
+    app._offer_recovery()
+    assert app.elements[0]["text"] == "이전 복구"
+
+
 def test_dirty_prompt_save_failure_blocks_followup_action(monkeypatch):
     app = LabelDesignerApp.__new__(LabelDesignerApp)
     app.template = default_template(50, 40)
@@ -1006,7 +1039,7 @@ def test_design_template_barcode_label_is_not_misread_as_table(monkeypatch):
     for line_text, barcode_value, y in rows:
         draw.text((10, y - 12), line_text, fill="black")
         barcode = _element("barcode", barcode_value, 0, 0, 24, 3, barcode_type="code128")
-        barcode_image = _render_1d_barcode_image("code128", barcode_value, 260, 28, barcode).convert("RGB")
+        barcode_image = _render_1d_barcode_image("code128", barcode_value, 360, 28, barcode).convert("RGB")
         image.paste(barcode_image, (270, y - 16))
         y_mm = round((y - 16) / image.height * float(label["height_mm"]), 1)
         fake_text_elements.append(_element("text", line_text, 0.8, y_mm, 21.0, 1.5, font_size=8, align="left"))
@@ -1228,12 +1261,12 @@ def test_normalize_template_keeps_image_path_and_arrange_mode():
 def test_barcode_type_list_has_1d_and_2d_choices():
     assert "Code 128" in BARCODE_TYPES.values()
     assert "Aztec" in BARCODE_TYPES.values()
-    assert "DataMatrix" in BARCODE_TYPES.values()
+    assert "Data Matrix ECC200" in BARCODE_TYPES.values()
     assert "MaxiCode" in BARCODE_TYPES.values()
     assert "Micro QR" in BARCODE_TYPES.values()
     assert "MicroPDF417" in BARCODE_TYPES.values()
     assert "PDF417" in BARCODE_TYPES.values()
-    assert "QR" in BARCODE_TYPES.values()
+    assert "QR Code" in BARCODE_TYPES.values()
 
 
 def test_new_basic_barcode_object_is_not_db_connected_by_default():
@@ -1282,7 +1315,8 @@ def test_designer_visible_copy_keeps_db_ui_minimal_until_connection():
 def test_tool_panel_rows_follow_the_dynamic_tool_list():
     source = inspect.getsource(LabelDesignerApp._build_tool_panel)
 
-    assert "for row, (label, command) in enumerate(tools, 1)" in source
+    assert "enumerate(zip(tools, TOOL_ICON_NAMES), 1)" in source
+    assert 'compound="left"' in source
     assert 'column=0, sticky="ew"' in source
     assert "parent.columnconfigure(0, weight=1)" in source
 
@@ -1609,6 +1643,8 @@ def test_designer_text_tool_remains_literal_without_db_connection():
 def test_connect_data_source_replaces_rows_headers_and_preview(monkeypatch, tmp_path) -> None:
     source = tmp_path / "새상품DB.xlsx"
     rows = [{"barcode": "001234", "상품명": "감열 라벨", "판매가": "580000"}]
+    from barcode_label_automation.data_store import save_table
+    save_table(source, ("barcode", "상품명", "판매가"), rows, "BarcodeDB")
     status: list[str] = []
     app = LabelDesignerApp.__new__(LabelDesignerApp)
     app.base_dir = tmp_path
@@ -1793,14 +1829,21 @@ def test_db_connection_repairs_non_finite_or_non_positive_template_size(tmp_path
 def test_element_editor_uses_responsive_scrollable_layout() -> None:
     source = inspect.getsource(LabelDesignerApp.open_element_editor)
 
+    assert 'editor.title("바코드 속성" if is_barcode_editor else "요소 편집")' in source
     assert "set_initial_window_size(" in source
-    assert "minimum_height=560" in source
+    assert "minimum_height=620 if is_barcode_editor else 560" in source
     assert "editor_canvas = tk.Canvas" in source
     assert "width=420" in source
     assert "height=360" in source
     assert "editor_scroll = ttk.Scrollbar" in source
     assert 'editor.bind("<MouseWheel>", scroll_editor)' in source
     assert "buttons = ttk.Frame(editor" in source
+    assert "navigation = ttk.Treeview" in source
+    assert "def bind_escape_tree(widget: tk.Misc)" in source
+    assert 'widget.bind("<Escape>"' in source
+    assert 'text="적용"' in source and 'text="확인"' in source and 'text="취소"' in source
+    assert "ttk.Notebook" not in source
+    assert 'text="출력 확인"' not in source
 
 
 def test_db_toolbar_reflows_in_narrow_window() -> None:
@@ -1808,7 +1851,7 @@ def test_db_toolbar_reflows_in_narrow_window() -> None:
     startup_source = inspect.getsource(LabelDesignerApp.__init__)
     shared = inspect.getsource(label_designer_app.build_command_bar)
     assert '("열기", self.open_template, "Ribbon.TButton")' in source
-    assert "build_command_bar(parent, commands)" in source
+    assert "build_grouped_command_bar(parent, groups)" in source
     assert "button.winfo_reqwidth()" in shared
     assert "used + requested > width" in shared
     assert "positions == previous" in shared
@@ -2017,6 +2060,7 @@ def test_unknown_windows_font_fails_without_silent_fallback() -> None:
 
 def test_connect_data_source_failure_keeps_previous_connection(monkeypatch, tmp_path) -> None:
     previous_source = tmp_path / "기존DB.xlsx"
+    (tmp_path / "손상DB.xlsx").write_bytes(b"broken workbook")
     previous_rows = [{"barcode": "009999", "item_name": "기존 상품"}]
     errors: list[tuple[str, str]] = []
     status: list[str] = []
@@ -2380,7 +2424,9 @@ def test_designer_quantity_dialog_uses_clear_short_modal_controls() -> None:
 
     assert 'dialog.title("인쇄 매수 선택")' in source
     assert "선택한 각 항목에 같은 수량이 적용됩니다." in source
-    assert "ttk.Spinbox" in source
+    assert "ttk.Entry" in source
+    assert "parse_print_quantity" in source
+    assert "min(100" not in source
     assert 'text="인쇄 시작"' in source
     assert 'text="취소"' in source
 
@@ -2469,7 +2515,7 @@ def test_print_send_failure_reports_retryable_counts(monkeypatch, tmp_path) -> N
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sent == ["001", "002"]
-    assert "전송 1건 / 재시도 가능 2건 · 실제 출력 확인 필요" in statuses[-1]
+    assert "전송 1건 / 미전송 대기 1건 / 수신 불명확 1건" in statuses[-1]
     assert errors[-1][0] == "인쇄 오류"
     assert "인쇄 버튼을 다시 누르세요" in errors[-1][1]
 
@@ -2507,12 +2553,13 @@ def test_designer_send_failure_retries_remaining_items(monkeypatch, tmp_path) ->
     assert first_attempt == ["001", "002"]
     assert [PrintProgress.load(progress_path).status(index) for index in (1, 2, 3)] == [
         "sent",
-        "pending",
+        "unknown",
         "pending",
     ]
 
     resumed: list[str] = []
     app._send_designer_print = lambda _config, payload: resumed.append(payload.decode("ascii"))
+    monkeypatch.setattr(label_designer_app, "_ask_unknown_resolution", lambda *_args: "pending")
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert resumed == ["002", "003"]
@@ -2542,6 +2589,7 @@ def test_designer_first_item_failure_allows_next_explicit_print(monkeypatch, tmp
 
     sends: list[bytes] = []
     app._send_designer_print = lambda _config, payload: sends.append(payload)
+    monkeypatch.setattr(label_designer_app, "_ask_unknown_resolution", lambda *_args: "pending")
     app.run_output_test(send_to_printer=True, selected_only=True)
 
     assert sends == [b"001", b"002"]
@@ -2933,7 +2981,7 @@ def test_rotated_designer_non_line_objects_use_bitmaps_and_lines_use_direct_comm
     app.template = {"version": 1, "label": {"width_mm": 50, "height_mm": 40}, "elements": []}
     app.elements = [
         {**_element("text", "세로 텍스트", 2, 2, 16, 5, font_size=10), "rotation": 90},
-        {**_element("barcode", "ABC123", 20, 2, 24, 10, barcode_type="code128"), "rotation": 270},
+        {**_element("barcode", "ABC123", 20, 2, 24, 20, barcode_type="code128"), "rotation": 270},
         {**_element("box", "", 2, 14, 10, 8), "rotation": 90},
         {**_element("line", "", 14, 14, 10, 8), "rotation": 180},
         {**_element("table", "", 26, 14, 10, 8), "rotation": 270},
@@ -3035,7 +3083,7 @@ def test_element_editor_includes_supported_object_direction_options():
 
     assert "rotation_var" in source
     assert "90도 시계 방향" in inspect.getsource(__import__("barcode_label_automation.label_designer_app", fromlist=["ELEMENT_ROTATION_LABELS"]))
-    assert 'add_row(6, "방향", rotation_combo)' in source
+    assert 'add_row(6, "방향", rotation_combo, size_frame)' in source
 
 
 def test_designer_zpl_single_line_text_uses_selected_font_bitmap():
@@ -3138,7 +3186,7 @@ def test_designer_print_renderer_rejects_slcs_peeler_until_command_is_confirmed(
     ("barcode_type", "value"),
     [
         ("code128", "ABC123"),
-        ("gs1_128", "(01)08801234567890"),
+        ("gs1_128", "(01)09506000134376"),
         ("code39", "ABC-123"),
         ("ean13", "590123412345"),
         ("ean8", "5512345"),
@@ -3211,10 +3259,13 @@ def test_qr_barcode_renders_real_bitmap_and_preserves_string_value():
     assert ImageChops.difference(image.convert("L"), other.convert("L")).getbbox() is not None
 
 
-@pytest.mark.parametrize("barcode_type", sorted(BARCODE_2D_BITMAP_TYPES))
+@pytest.mark.parametrize("barcode_type", sorted({"qr","microqr","datamatrix","pdf417","micropdf417","aztec","maxicode"}))
 def test_2d_barcode_types_render_real_bitmap_images(barcode_type: str):
     width, height = (360, 160) if barcode_type in {"pdf417", "micropdf417"} else (180, 180)
     element = _element("barcode", "A1001-250531", 1, 1, 36 if barcode_type in {"pdf417", "micropdf417"} else 18, 16 if barcode_type in {"pdf417", "micropdf417"} else 18, barcode_type=barcode_type)
+    if barcode_type == "maxicode":
+        # Its unscaled encoder raster requires more than 18 mm at 203 dpi.
+        element["barcode_layout"].update(symbol_width_mm=24, symbol_height_mm=24)
 
     image = _render_2d_barcode_image(barcode_type, _barcode_value_for_type(barcode_type), width, height, element)
     black_bbox = ImageChops.invert(image.convert("L")).getbbox()
@@ -3233,7 +3284,8 @@ def test_designer_preview_uses_full_element_box_for_every_exposed_barcode_type(b
     value = _barcode_value_for_type(barcode_type)
     width_mm, height_mm = _barcode_element_size_mm(barcode_type)
     element = _element("barcode", "{{barcode}}", 8, 6, width_mm, height_mm, barcode_type=barcode_type)
-    app.template = {"version": 1, "label": {"width_mm": 60, "height_mm": 40}, "elements": []}
+    element["barcode_options"].update(sample_options(barcode_type))
+    app.template = {"version": 1, "label": {"width_mm":max(60,10+width_mm),"height_mm":max(40,8+height_mm)}, "elements": []}
     app.elements = [element]
     app.preview_row = {
         "item_code": "A1002",
@@ -3259,7 +3311,8 @@ def test_designer_prints_every_exposed_barcode_type_as_full_size_bitmap(language
     value = _barcode_value_for_type(barcode_type)
     width_mm, height_mm = _barcode_element_size_mm(barcode_type)
     element = _element("barcode", "{{barcode}}", 8, 6, width_mm, height_mm, barcode_type=barcode_type)
-    app.template = {"version": 1, "label": {"width_mm": 60, "height_mm": 40}, "elements": []}
+    element["barcode_options"].update(sample_options(barcode_type))
+    app.template = {"version": 1, "label": {"width_mm":max(60,10+width_mm),"height_mm":max(40,8+height_mm)}, "elements": []}
     app.elements = [element]
     row = {
         "item_code": "A1002",
@@ -3497,7 +3550,7 @@ def test_designer_vertical_line_print_uses_direct_axis_command(language: str, ro
 def test_designer_qr_outputs_same_bitmap_path_for_screen_and_print(language: str, expected: bytes, forbidden: bytes):
     app = LabelDesignerApp.__new__(LabelDesignerApp)
     element = _element("barcode", "A1001-250531", 5, 10, 30, 18, barcode_type="qr")
-    element["barcode_options"]["cell_size"] = 6
+    element["barcode_options"]["cell_size"] = 3
     element["barcode_options"]["qr_ecc"] = "H"
     app.template = {"version": 1, "label": {"width_mm": 50, "height_mm": 40}, "elements": []}
     app.elements = [element]
@@ -3568,7 +3621,7 @@ def test_designer_qr_preview_export_matches_element_pixel_size():
 def _barcode_value_for_type(barcode_type: str) -> str:
     values = {
         "code128": "ABC123",
-        "gs1_128": "(01)08801234567890",
+        "gs1_128": "(01)09506000134376",
         "code39": "ABC-123",
         "codabar": "A12345A",
         "ean13": "590123412345",
@@ -3584,17 +3637,13 @@ def _barcode_value_for_type(barcode_type: str) -> str:
         "aztec": "A1001-250531",
         "maxicode": "A1001-250531",
     }
-    return values[barcode_type]
+    return values[barcode_type] if barcode_type in values else SAMPLE_VALUES[barcode_type]
 
 
 def _barcode_element_size_mm(barcode_type: str) -> tuple[int, int]:
-    if barcode_type in {"pdf417", "micropdf417"}:
-        return 36, 16
-    if barcode_type in BARCODE_2D_BITMAP_TYPES:
-        return 18, 18
-    if barcode_type in BARCODE_1D_BITMAP_TYPES:
-        return 36, 16
-    raise AssertionError(barcode_type)
+    # Full catalogue fixtures derive room from the actual unscaled symbol.
+    image=shared_render(barcode_type,_barcode_value_for_type(barcode_type),sample_options(barcode_type))
+    return max(30,math.ceil((image.width+100)/8)),max(20,math.ceil((image.height+48)/8))
 
 
 def write_label_size_config(tmp_path, width_mm: int, height_mm: int) -> None:
@@ -3799,6 +3848,7 @@ def test_async_excel_connection_applies_rows_only_after_worker_result(monkeypatc
     sheet.append(["0000123", "상품"])
     workbook.save(source)
     app = LabelDesignerApp.__new__(LabelDesignerApp)
+    app.template = default_template(50, 40)
     app.base_dir = tmp_path
     app.data_source_path = None
     app.status_var = SimpleNamespace(set=lambda _value: None)

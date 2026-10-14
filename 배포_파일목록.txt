@@ -1,11 +1,11 @@
 ﻿채움랩 라벨 출력 패키지 배포 파일 목록
-패키지명: 채움랩_라벨출력_고객용_20261006_01
-버전: 2026.10.06.01
-빌드 ID: suite_20261006_01
-생성시간: 2026-10-06T10:06:16+09:00
+패키지명: 채움랩_라벨출력_고객용
+버전: 2026.10.13.05
+빌드 ID: 20261013_05_delivery
+생성시간: 2026-10-13T16:54:39+09:00
 
 요약
-- 배포 파일 수: 165
+- 배포 파일 수: 200
 - 누락 필수 파일 수: 0
 - 추가 금지 파일 수: 0
 
@@ -39,17 +39,44 @@
 - [OK] assets/fonts/README.txt / 457 bytes / sha256 e09c4c8de44dc613d0c49f7ea8dd278167706f892b81cfdbc37d4dcb983f1ad4
 - [OK] assets/label_designer.ico / 19081 bytes / sha256 7da2e1531ee8bcceb77a48dd7bd9d8c3432a8bfe1ffb1d427b7cfd71c773cfee
 - [OK] assets/label_designer_icon.png / 2594 bytes / sha256 4c5781522f3acdde7ce8534efb505da1e4433865aea7f67166590fe9a2a986f0
-- [OK] barcode_db.xlsx / 5387 bytes / sha256 3aafc63169983bd8679e4190d294151bce9db4baee95a8bb1589f55eb38fe86c / 고객 수정 허용
+- [OK] barcode_db.xlsx / 7947 bytes / sha256 ff5986a32da3c5dd16ba959c20991586c4e93ba0c31828d4d3084d2280634c53 / 고객 수정 허용
 - [OK] config.example.ini / 1743 bytes / sha256 ebae444e2da3a85a9722f838335687aa5c1173952f9242c38bfe56b99e43ce3a
-- [OK] config.ini / 1035 bytes / sha256 1980a5de190ad46d78ae9b6225af64b12637e95471d9fc4dfeb2ed194714aa3b / 고객 수정 허용
-- [OK] db/barcode_db.xlsx / 9045 bytes / sha256 8c188e4ee7b23ec5c9d18eb53ccccafa3607f52f0e1b8ed89fe1ec0c85359db8
-- [OK] docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf / 2000627 bytes / sha256 9efe13a73f0aba26b52479441dba77145e6fc2d7a82d1672843ba2c0bfa557bf
-- [OK] docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf / 2864365 bytes / sha256 9681155085644a7c814dcc6afc3befed05869254c2dab489ceb606cc0a4fc505
-- [OK] docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf / 1435570 bytes / sha256 2cc2e3a069e894440c659be73199dc3c9c5404957f0e188d52b5d81151e97fad
+- [OK] config.ini / 1114 bytes / sha256 7af799a63bdf5d974dd418d360425ea43c633360fd8ddd684c0ce069e8b850b7 / 고객 수정 허용
+- [OK] db/barcode_db.xlsx / 7947 bytes / sha256 ff5986a32da3c5dd16ba959c20991586c4e93ba0c31828d4d3084d2280634c53
+- [OK] docs/BARTENDER_MIGRATION.md / 3625 bytes / sha256 1254abd82e8b010dff43b2efe96b106a097962d0d844ec151f7dd950312ee110
+- [OK] docs/DEVICE_ACCEPTANCE_RECORD.md / 1908 bytes / sha256 831034ef5b7b59dc4228963d3a5c2b7140945dfdf92fa9de06bfb7aa6324d144
+- [OK] docs/TEMPLATE_MIGRATION_CHECKLIST.md / 2258 bytes / sha256 c4e7429eddbbba3881bc62a6db9c0472b40f5080323721027815c95e80a53174
+- [OK] docs/UPDATE_AND_RECOVERY.md / 2808 bytes / sha256 a048dd06fc069c0a809c20bd7086c34eff649bc9ffe700a47a5f74e1e7983c23
+- [OK] docs/고객용_매뉴얼/_generated/designer-canvas-focus.png / 211679 bytes / sha256 12cee18d51b52c35a8b39232ff9cf2cbeded19fe26f21121c986f770b92ab7c5
+- [OK] docs/고객용_매뉴얼/_generated/designer-db-focus.png / 179318 bytes / sha256 c1be2601f0d59efe9b96d30c0969149cc745282dee90c846b080d63868739c9c
+- [OK] docs/고객용_매뉴얼/_generated/designer-db.jpg / 44774 bytes / sha256 b8a4396d9b0078732c8aed361a1e9dd32178caa4237bce01467cc59fb472aa77
+- [OK] docs/고객용_매뉴얼/_generated/designer-overview-focus.png / 667088 bytes / sha256 7fb382af6cc6f38a26b263b1835cca5ffa2538d6375b5d532baa067ce52ccec5
+- [OK] docs/고객용_매뉴얼/_generated/designer-overview.jpg / 181808 bytes / sha256 c83987f198f2a631939d677efae5db46ace673b81a1d068fe5af07c06b2161fb
+- [OK] docs/고객용_매뉴얼/_generated/designer-toolbar-focus.png / 143182 bytes / sha256 450298cdb49174afe424ffc0981074063cdddef709e32ef85766c344f50c19ab
+- [OK] docs/고객용_매뉴얼/_generated/designer-top.jpg / 37548 bytes / sha256 845ca6fe63d2083a48827d40c8d29ac261b7aedae2e19267c85e29830ac7a740
+- [OK] docs/고객용_매뉴얼/_generated/designer-workspace.jpg / 68636 bytes / sha256 78dee07ce99e176cae344067429e6887e45c83357a0a772f4486186b590258d3
+- [OK] docs/고객용_매뉴얼/_generated/label-designer-annotated.jpg / 208529 bytes / sha256 b891c919610a2b6615c7cb297b1520f6f19510b81dc6731a18fa9045f755be36
+- [OK] docs/고객용_매뉴얼/_generated/label-manager-annotated.jpg / 187777 bytes / sha256 0b45c8577de1485c2dff51d551c9f38e496233551522454fd26c77a3d3a19381
+- [OK] docs/고객용_매뉴얼/_generated/manager-data-focus.png / 384515 bytes / sha256 55a51cc263c6004c1ab53c6625f5ba022b5e3626e2bf85f68601eab3bc92a64f
+- [OK] docs/고객용_매뉴얼/_generated/manager-data.jpg / 81935 bytes / sha256 1933f7954420edee3fa4e76f6b962ef8e03596730cab0cdfdca26a7d7c1a3d53
+- [OK] docs/고객용_매뉴얼/_generated/manager-overview-focus.png / 785960 bytes / sha256 21aa4a15b133eecf9a8d8e7d8fbb443e69d6014f2989d5b82439a9a1e2660462
+- [OK] docs/고객용_매뉴얼/_generated/manager-overview.jpg / 198157 bytes / sha256 1916d35b2d4f8170fe05bc872a9062915aed61c1c05f4461933ec62866f6a104
+- [OK] docs/고객용_매뉴얼/_generated/manager-print-focus.png / 673261 bytes / sha256 88db9f55655c8629e9f5253b72ff2db4719d8897c93ea3ff9f45d39ba5193a62
+- [OK] docs/고객용_매뉴얼/_generated/manager-print.jpg / 110928 bytes / sha256 65c715c82b98ca34c3ce888344d958e4588ff56727e95bb7a8c9650145ee3a7e
+- [OK] docs/고객용_매뉴얼/_generated/printer-settings-annotated.jpg / 191258 bytes / sha256 079b59a151ab78b0c33fdbb2110742b9885886247cfcbcab69f8a6808a04b8bb
+- [OK] docs/고객용_매뉴얼/_generated/settings-media-focus.png / 164166 bytes / sha256 2b6ee7273e2704ea0b39755ad6053d60ca6c07f46bc894702bfb4696bd587aa5
+- [OK] docs/고객용_매뉴얼/_generated/settings-media.jpg / 51555 bytes / sha256 d8fd5c431d885286483fb10b886b70b3e61e2016ee83b1cc3d430dff63ac89ff
+- [OK] docs/고객용_매뉴얼/_generated/settings-overview-focus.png / 489553 bytes / sha256 d40f83f12117e652968d94351de54ceb3018a0ef5255d09f86e76ac89e00d912
+- [OK] docs/고객용_매뉴얼/_generated/settings-overview.jpg / 210221 bytes / sha256 188db985ae8ba7d2bdc9ce277dbf3080c8ce5161f98f7103428faa546a8bbf9f
+- [OK] docs/고객용_매뉴얼/_generated/settings-printer-focus.png / 177003 bytes / sha256 5707e54ee5641e459fee96d6c044d4b668b45e1100346913ba4fd8c7eb5f756e
+- [OK] docs/고객용_매뉴얼/_generated/settings-printer.jpg / 48080 bytes / sha256 664898cd1eb3b110bd583f1956b36de4235113315cca70bbbf2df36eaf5b3deb
+- [OK] docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf / 2286582 bytes / sha256 a99a920a91d1e04cce4fd2ea7e6a10fd8667e1d0b3d583a5dcdc88d1c564c151
+- [OK] docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf / 2969688 bytes / sha256 fb11c94756ce1433980bb699d577da6c0e73d7ba4a2347086241b4ead684bfaa
+- [OK] docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf / 1617011 bytes / sha256 73c4a7164f335d1ba61431aee7db3bb09617267f300db6add70dc292c07ccef1
 - [OK] labels.xlsm / 40999 bytes / sha256 8321619dac2b9ba9d26df4f9c9cbf058c50ed65b052e0ce39349d526446e72d3 / 고객 수정 허용
-- [OK] print_queue.xlsx / 5375 bytes / sha256 7af1ecfb2304b345423c0c41da8bf8d805ab806136aea6d8fbd6a1ca6609befd / 고객 수정 허용
-- [OK] README.md / 7716 bytes / sha256 9f26e65a4112a380d15668b35882bc6a382d61d9e2d00e8f50ba8bee4cfa8bd6
-- [OK] README_먼저읽기.txt / 7355 bytes / sha256 a7f142c8966ee8f92d23b820b6fcfd8945a58dd1dabb89cae464a49985784f91
+- [OK] print_queue.xlsx / 5020 bytes / sha256 2978851c20cd4da091b8d5adebac4a9b9667a8303edca628e0c2044d2637c187 / 고객 수정 허용
+- [OK] README.md / 9718 bytes / sha256 6085928c2406b5290eb0f5d89890a521abf5bb4edab2838c47d1e077273fa139
+- [OK] README_먼저읽기.txt / 16171 bytes / sha256 67931e800e7de5c57fe0ce33476cca6960f1b1efdd6a9394b2a34e765c4c0e42
 - [OK] register_label_filetype.cmd / 1406 bytes / sha256 5e48bea85ea75d3ea5ca2c217ab1ed98603c49f45462b80be62f1b41633d83b6
 - [OK] register_label_filetype.ps1 / 1309 bytes / sha256 ece355951b5c6e46e0f9b04e7a4b76c316ea186ab60c9f6866c3fbce440904fe
 - [OK] run_label_job.cmd / 1300 bytes / sha256 25d00b52c3d08f37caf704a29820c0e066759dbef17565fd8a02c929940cd242
@@ -64,7 +91,6 @@
 - [OK] templates/sample_direct_open.gblabel / 805 bytes / sha256 d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc
 - [OK] templates/sample_excel_product.cllabel / 760 bytes / sha256 26058c00c4ed6478e07eb3601747e3b864d81372e0238ffb1e6ac37e89b371a2
 - [OK] templates/sample_excel_product.gblabel / 760 bytes / sha256 26058c00c4ed6478e07eb3601747e3b864d81372e0238ffb1e6ac37e89b371a2
-- [OK] tesseract.exe / 1585024 bytes / sha256 babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9
 - [OK] tools/ocr/doc/AUTHORS / 787 bytes / sha256 720862b7253993b348fe15f37ed6e0d4feb0fc8df8324284d75975d54dd29923
 - [OK] tools/ocr/doc/LICENSE / 11358 bytes / sha256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
 - [OK] tools/ocr/doc/README.md / 8485 bytes / sha256 099fb244ec3e34962afc4861a6c8c42d2727c2f834f23071070c6f2d557b164c
@@ -159,22 +185,31 @@
 - [OK] tools/ocr/tesseract.exe / 1585024 bytes / sha256 babb405f4366b480d02cd8ff2bac8d497170f6c1711ce6f3d5d8bf0fb7fa6ed9
 - [OK] tools/ocr/winpath.exe / 19154 bytes / sha256 5223e97b220215cc3ec12acb8979a6f41f5344737af63a90f47879051567777d
 - [OK] tools/ocr/zlib1.dll / 120814 bytes / sha256 cb7ab3788d10940df874acd97b1821bbb5ee4a91f3eec11982bb5bf7a3c96443
-- [OK] winpath.exe / 19154 bytes / sha256 5223e97b220215cc3ec12acb8979a6f41f5344737af63a90f47879051567777d
+- [OK] tools/zint/build_static.py / 1629 bytes / sha256 25e6ca3d2028b8f5bf22ca7ebb963d014b01af101c5c9d08d510a831e6bcc235
+- [OK] tools/zint/COPYING / 35147 bytes / sha256 8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903
+- [OK] tools/zint/GS1-gs1-LICENSE.txt / 10173 bytes / sha256 a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9
+- [OK] tools/zint/LICENSE / 909 bytes / sha256 d69af7f2442fcde1c3372cbbb43907fa1f4b3a91ef3899be69dd3a726dc255a4
+- [OK] tools/zint/manual.txt / 240974 bytes / sha256 3cea2734c7f914afa2823f1638dc39d762bf57029d94e81d25db554fa204ed58
+- [OK] tools/zint/MINGW-COPYING.txt / 2326 bytes / sha256 99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f
+- [OK] tools/zint/provenance.json / 1310 bytes / sha256 1559dfcd97d7834e6b577a819968d19e11fbc4844524f8cb044effd1bab2acba
+- [OK] tools/zint/README.md / 1541 bytes / sha256 5b2b1b0d7cacc3bf74d0163e462b93bc3d772518198883cedf6e5e384b744b12
+- [OK] tools/zint/ZIG-LICENSE.txt / 1080 bytes / sha256 5c537d6853e005298a285d508cff9ac7192cea23576c840d485b2b586a7ff177
+- [OK] tools/zint/zint-2.16.0-src.tar.gz / 6423511 bytes / sha256 37e767afada2403bb9ae49b93a19eb0a9e944a0c278d9f23522746b3d08a3c4b
 - [OK] 고객데이터_백업.cmd / 601 bytes / sha256 8795c11fb861f9b7f957fc946db2a325e91e51c19c85a0d45e5358fdca0d1298
 - [OK] 고객데이터_복원.cmd / 1093 bytes / sha256 3e03f3910d32e5b8bab7746e69b964a7200524e7dae63904e184ed815489be18
-- [OK] 고객환경점검.exe / 20298536 bytes / sha256 763f9991aa7c5f0edc9c6cc73cdf22f67ef2255b773bcac6d9359ad8cb89b0a6
-- [OK] 라벨디자이너.exe / 24197265 bytes / sha256 e9fda972f9b8a2f0a936cfac0f0388b22b46bf3552d8d5b53873ce6d08f3eb7d
-- [OK] 라벨작업실행기.exe / 20266771 bytes / sha256 def7534325dd35ae6ba93c71fef68d492c0565bb7adf029cad6476406f8fdccb
-- [OK] 라벨출력관리.exe / 21757811 bytes / sha256 24dd3897e56ab42bbca437022d4fce2d5e6e4576c7106289fefc674f537342a1
-- [OK] 라벨출력엔진.exe / 18380889 bytes / sha256 cefe9e4b817da9e9051b6351e06cdb2bd774a70e0f0d51f38afaa1e42b7ad725
-- [OK] 버전정보.txt / 1084 bytes / sha256 99ced515f0b0efbde7b0a6ea7a245a3a3cfb33606b4bc8e3e82b92ff8f3b2eea
-- [OK] 사용안내.txt / 15334 bytes / sha256 99e54f7349ff5a33d951aba65c5aa4846bcca8df21d4a4efd0465bb58117e172
-- [OK] 설치_및_사용_메뉴얼.txt / 20665 bytes / sha256 5246a9943e642d4e90e5603e45d26fb086af777da01d276e42ddd57a505ba6f7
+- [OK] 고객환경점검.exe / 19784398 bytes / sha256 eb13cd97dd3ae0a6ff1201bc23a3b7e8bbb4011401674d1dd9200f022634fc22
+- [OK] 라벨디자이너.exe / 24098421 bytes / sha256 9acc18dc1d2576ee20ac9ee5eee2ce6cc608c927ba9d0a8410e552023b75090c
+- [OK] 라벨작업실행기.exe / 19767717 bytes / sha256 b19e251afd2f6456777d83f71995fd9a4c8b14d9926d506f528e4a26c1a787c0
+- [OK] 라벨출력관리.exe / 24100503 bytes / sha256 d9813dc4953900c1516432a507a4cae8ebe8a3da5b1cd294c905220f6118f48e
+- [OK] 라벨출력엔진.exe / 22877541 bytes / sha256 eab5baef5fe6c35d7daf311389e0fbc57722e97cb96b16592540241468f58f35
+- [OK] 버전정보.txt / 1072 bytes / sha256 65abf6b5db156a945162abd60b0a1487e24f4d6b46a2ef679e7da927b5299c10
+- [OK] 사용안내.txt / 24150 bytes / sha256 f11c747f50b730251a83764662b4ffb8e98acc913b9c69bca55e53c05ac61394
+- [OK] 설치_및_사용_메뉴얼.txt / 29594 bytes / sha256 c2922cae757e1d74028bfe413f557e0295b45e2f9f5c4c6f87b5927a1192937e
 - [OK] 시작하기.cmd / 4162 bytes / sha256 362d67b755e46df03b80370ae4570f8a91544290aa893ba683af5b16e77c4107
-- [OK] 채움랩_라벨출력패키지_고객용_매뉴얼.docx / 507454 bytes / sha256 7a35edbe74f91164160073125b0282c440f33256b03f185f67e1a54dac40dd0d
+- [OK] 채움랩_라벨출력패키지_고객용_매뉴얼.docx / 573973 bytes / sha256 e7c40448705fb41ff5aa4a9b8181e62cc8fe41065369869ff039ae55f9caf493
 - [OK] 처음실행_점검.cmd / 1622 bytes / sha256 70ef329f12d5f4e620cffa58c6d8cad1111dced6ae204fe2e5a94419fb47744a
-- [OK] 프린터설정.exe / 21152479 bytes / sha256 e7cdb4ec58f6bd873841f016362c962d6ff81e5ee85451c05ac0fe1c9424348a
-- [OK] 한눈에_사용안내.pdf / 144404 bytes / sha256 552dc822dbf34082e4ca4b96150e21fbd7d24d071d4b8a769c449cf9956369c3
+- [OK] 프린터설정.exe / 20705189 bytes / sha256 65e929b7740d9caf6cbe47219c5a9930a1a1c0cba262797647f0ce73c99e8e7a
+- [OK] 한눈에_사용안내.pdf / 166105 bytes / sha256 f231e00a444a86b965f63f054759d314a4d124aee8c6c30f62cb230c45c4ac31
 
 사용 전 확인
 1. 처음실행_점검.cmd로 고객 PC 환경을 확인하세요. 시작하기.cmd는 출력 관리 화면을 바로 엽니다.

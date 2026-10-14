@@ -340,7 +340,7 @@ def test_run_preflight_reports_invalid_print_quantity(tmp_path):
     assert not report.ok
     readiness = next(result for result in report.results if result.name == "인쇄 데이터 준비")
     assert not readiness.ok
-    assert "출력 매수는 1부터 1000 사이" in readiness.message
+    assert "출력 매수는 1 이상의 정수" in readiness.message
 
 
 def test_run_preflight_ignores_active_pyinstaller_temp_dir(monkeypatch, tmp_path):
@@ -453,3 +453,12 @@ def test_write_support_package_excludes_raw_customer_workbooks(tmp_path):
     assert "printer_ip=127.0.0.xxx" in config_text
     assert "runtime_storage=install_folder" in environment_text
     assert str(tmp_path) not in environment_text
+
+
+@pytest.mark.parametrize("quantity", ["101", "1001", "10000"])
+def test_preflight_accepts_counts_above_previous_caps(tmp_path, quantity):
+    _write_deploy_fixture(tmp_path)
+    save_label_rows(tmp_path / "print_queue.xlsx", [{"item_code": "A", "item_name": "Name", "barcode": "001234", "lot_no": "L", "qty": "1", "print_qty": quantity}])
+    report = run_preflight(tmp_path, run_dry_run=False)
+    readiness = next(item for item in report.results if item.name == "인쇄 데이터 준비")
+    assert readiness.ok

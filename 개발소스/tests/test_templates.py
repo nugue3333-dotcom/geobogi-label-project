@@ -332,6 +332,10 @@ def test_auto_layout_supports_configured_size_and_dpi_across_printer_languages(
     )
 
     assert layout["content_bottom"] <= layout["label_bottom"]
+    if width_mm == 20 and dpi == 203:
+        with pytest.raises(ValueError, match="라벨 영역"):
+            render_label(language, row, width_mm, height_mm, dpi, barcode_config=default_barcode_config())
+        return
     assert render_label(
         language,
         row,
@@ -466,10 +470,9 @@ def test_render_label_uses_qr_barcode_config_for_2d():
         pdf417_module_height=10,
     )
 
-    assert "B2120,90,Q,2,Q,5,1,'A1001-250531'" in render_label("slcs", ROW, 60, 40, 203, barcode_config=config)
-    assert b'QRCODE 120,90,Q,5,A,90,M2,S7,"A1001-250531"' in render_label(
-        "tspl", ROW, 60, 40, 203, barcode_config=config
-    )
-    assert "^FO120,90^BQR,2,5^FDLA,A1001-250531^FS" in render_label(
-        "zpl", ROW, 60, 40, 203, barcode_config=config
-    )
+    for language, marker in (("slcs",b"BMP120,90"),("tspl",b"BITMAP 120,90"),("zpl",b"^FO120,90^GFA")):
+        command=render_label(language,ROW,60,40,203,barcode_config=config)
+        payload=command.encode("utf-8") if isinstance(command,str) else command
+        assert marker in payload
+        assert b"QRCODE " not in payload
+        assert b"^BQ" not in payload

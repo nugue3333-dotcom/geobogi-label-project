@@ -199,7 +199,7 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
         main_action_labels = (
             "상품 엑셀 연결",
             "상품 선택",
-            "프린터 설정",
+            "용지 설정",
             "인쇄파일 생성",
             "새 라벨",
             "열기",
@@ -215,7 +215,7 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
         _assert_visible_inside(app, *main_actions)
         _assert_text_not_clipped(*main_actions)
         assert not _widgets_with_text(app, "개체 속성")
-        assert not _widgets_with_text(app, "선택 개체 편집")
+        assert _only_widget(app, "선택 개체 편집").winfo_ismapped()
         assert not _widgets_with_text(app, "정밀 편집")
         assert not _widgets_with_text(app, "편집·이동")
         assert _only_widget(app, "인식 값 전체 확인").winfo_ismapped()
@@ -319,7 +319,7 @@ def test_manager_main_workflow_actions_stay_visible_at_150_percent(
     try:
         _settle(app)
         assert (app.winfo_width(), app.winfo_height()) == EXPECTED_CLIENT_SIZE
-        for text in ("상품 엑셀 연결", "프린터 설정", "실행 전 점검", "인쇄", "저장", "전체 선택", "선택 해제", "새 행", "선택 삭제", "삭제 실행취소", "라벨디자이너"):
+        for text in ("상품 엑셀 연결", "저장", "전체 선택", "선택 해제", "새 행", "선택 삭제", "삭제 실행취소", "라벨디자이너", "전체 데이터 검증"):
             candidates = _widgets_with_text(app, text)
             assert candidates, f"메뉴를 찾을 수 없습니다: {text}"
             visible = [widget for widget in candidates if widget.winfo_ismapped()]
@@ -328,5 +328,106 @@ def test_manager_main_workflow_actions_stay_visible_at_150_percent(
             assert toolbar_visible, f"상단 업무 명령이 없습니다: {text}"
             _assert_visible_inside(app, *toolbar_visible)
             _assert_text_not_clipped(*toolbar_visible)
+        for text in ("프린터 설정", "실행 전 점검"):
+            assert _widgets_with_text(app, text), f"출력 패널 명령이 없습니다: {text}"
+        print_actions = [widget for widget in app._toolbar_buttons if str(widget.cget("text")).endswith("건 인쇄")]
+        assert print_actions
+        _assert_visible_inside(app, *print_actions)
+        _assert_text_not_clipped(*print_actions)
+    finally:
+        app.destroy()
+def test_designer_clipboard_shared_paper_and_unlimited_quantity(tmp_path, monkeypatch):
+    from configparser import ConfigParser
+    from barcode_label_automation.config import DEFAULTS
+    from barcode_label_automation.label_media import save_label_size, write_config_atomic
+    parser = ConfigParser()
+    parser.read_dict(DEFAULTS)
+    parser.set('printer', 'mode', 'network')
+    parser.set('printer', 'ip', '127.0.0.1')
+    parser.set('label', 'width_mm', '50')
+    parser.set('label', 'height_mm', '40')
+    write_config_atomic(tmp_path / 'config.ini', parser)
+    monkeypatch.setattr(label_designer_app.LabelDesignerApp, '_offer_start_dialog', lambda self: None)
+    app = label_designer_app.LabelDesignerApp(tmp_path, register_file_association=False)
+    try:
+        _settle(app)
+        assert len(app._tool_icons) == 8
+        assert all(str(_only_widget(app, text).cget('image')) for text in ('텍스트', '여러 줄', '1D 바코드', '2D 코드', '그림', '박스', '선', '표'))
+        assert not _widgets_with_text(app, '크기 적용')
+        assert _only_widget(app, '용지 설정')
+        element = label_designer_app._element('text', '001234', 2, 2, 20, 5, field='barcode')
+        app.elements = [element]
+        app.selected_id = element['id']
+        app.selected_ids = {element['id']}
+        app.redraw()
+        app.canvas.focus_force()
+        app.canvas.event_generate('<Control-c>')
+        _settle(app)
+        app.canvas.event_generate('<Control-v>')
+        _settle(app)
+        assert len(app.elements) == 2
+        assert app.elements[1]['text'] == '001234'
+        assert app.elements[1]['field'] == 'barcode'
+        assert app.elements[1]['id'] != element['id']
+        app.undo()
+        assert len(app.elements) == 1
+        app.redo()
+        assert len(app.elements) == 2
+        entry = ttk.Entry(app)
+        entry.pack()
+        _settle(app)
+        entry.focus_force()
+        app.clipboard_clear()
+        app.clipboard_append('일반 글자')
+        entry.event_generate('<Control-v>')
+        _settle(app)
+        assert entry.get() == '일반 글자'
+        assert len(app.elements) == 2
+        entry.destroy()
+        before = [(e['x'], e['y'], e['width'], e['height']) for e in app.elements]
+        save_label_size(tmp_path / 'config.ini', 70, 60)
+        app._poll_printer_media()
+        assert app.template['label'] == {'width_mm': 70, 'height_mm': 60}
+        assert '70' in app.media_summary_var.get()
+        assert before == [(e['x'], e['y'], e['width'], e['height']) for e in app.elements]
+        monkeypatch.setattr(label_designer_app.messagebox, 'askyesno', lambda *_a, **_kw: False)
+        save_label_size(tmp_path / 'config.ini', 10, 10)
+        app._poll_printer_media()
+        assert app.template['label'] == {'width_mm': 70, 'height_mm': 60}
+        assert not app._ensure_media_before_output()
+        app._quantity_target_count = 3
+        def choose_quantity():
+            dialog = _window_with_title(app, '인쇄 매수 선택')
+            quantity_entry = next(w for w in _descendants(dialog) if isinstance(w, ttk.Entry))
+            quantity_entry.delete(0, 'end')
+            quantity_entry.insert(0, '10000')
+            assert any('총 30000장' in str(w.cget('text')) for w in _descendants(dialog) if isinstance(w, ttk.Label))
+            _only_widget(dialog, '인쇄 시작').invoke()
+        app.after(50, choose_quantity)
+        assert app.ask_print_quantity() == 10000
+        import json
+        save_label_size(tmp_path / 'config.ini', 70, 60)
+        app._poll_printer_media()
+        path = tmp_path / 'another.cllabel'
+        payload = label_designer_app.default_template(80, 70)
+        payload['elements'] = [label_designer_app._element('text', '저장 도안', 2, 2, 20, 5)]
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
+        original_bytes = path.read_bytes()
+        previous_path = app.template_path
+        monkeypatch.setattr(label_designer_app.messagebox, 'askyesnocancel', lambda *_a, **_kw: None)
+        app.open_template_path(path)
+        assert app.template_path == previous_path
+        monkeypatch.setattr(label_designer_app.messagebox, 'askyesnocancel', lambda *_a, **_kw: False)
+        app.open_template_path(path)
+        assert app.template['label'] == {'width_mm': 70, 'height_mm': 60}
+        assert path.read_bytes() == original_bytes
+        assert app._has_unsaved_changes()
+        app.undo()
+        assert app.template['label'] == {'width_mm': 80, 'height_mm': 70}
+        monkeypatch.setattr(label_designer_app.messagebox, 'askyesnocancel', lambda *_a, **_kw: True)
+        app.open_template_path(path)
+        from barcode_label_automation.label_media import read_label_size
+        assert read_label_size(tmp_path / 'config.ini') == (80, 70)
+        assert path.read_bytes() == original_bytes
     finally:
         app.destroy()

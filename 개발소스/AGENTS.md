@@ -157,9 +157,10 @@ Flag as high priority:
 - On 80×80mm and larger labels, a 1D barcode must remain visually subordinate
   to the text block and its human-readable value must be clearly printed below
   the bars. Preserve the verified 100×100mm BIXOLON HRI sizing regression test.
-- A handled designer transport failure must return the failed item to pending
-  so the next explicit Print action can retry. Only an interrupted process with
-  genuinely uncertain physical output may remain in the unknown state.
+- The approved 2026-10-07 usability plan requires transport failures to retain
+  unknown state because a device may already have received part of a command.
+  The next explicit Print action must ask the user to check actual output before
+  marking it sent or returning it to pending. Never retry it automatically.
 - A persisted unknown designer item must not permanently block later printing.
   When the user explicitly presses Print again, preserve confirmed sent items,
   recover stale unknown items to pending, and replace a stale different-job

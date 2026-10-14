@@ -76,6 +76,7 @@ def _job_definition(commands: Iterable[str | bytes], encoding: str, context: Map
     now = _utc_now()
     return {
         "version": 1,
+        "context": dict(context),
         "job_fingerprint": fingerprint,
         "created_at": now,
         "updated_at": now,
@@ -138,6 +139,10 @@ class PrintProgress:
     @property
     def job_fingerprint(self) -> str:
         return str(self._data["job_fingerprint"])
+
+    @property
+    def context(self) -> dict[str, object]:
+        return dict(self._data.get("context", {}))
 
     @property
     def item_fingerprints(self) -> list[str]:

@@ -574,7 +574,12 @@ output_dir = out
             returncode = print_cli.main(args[1:])
         return SimpleNamespace(returncode=returncode, stdout=stdout.getvalue(), stderr=stderr.getvalue())
 
-    monkeypatch.setattr("barcode_label_automation.label_manager_app.subprocess.run", run_cli)
+    original_run = subprocess.run
+    def run_application_or_encoder(args, **kwargs):
+        if Path(args[0]).name.lower() == "zint.exe":
+            return original_run(args, **kwargs)
+        return run_cli(args, **kwargs)
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.subprocess.run", run_application_or_encoder)
 
     app.run_print_job("--dry-run", selected_only=True)
 
@@ -1083,7 +1088,7 @@ def test_print_readiness_errors_require_barcode_and_numeric_quantity(tmp_path):
     errors = _print_readiness_errors(rows, config_path=config_path)
 
     assert "1행 바코드가 비어 있습니다." in errors
-    assert "2행 출력 매수는 숫자로 입력하세요." in errors
+    assert "2행 출력 매수는 1 이상의 정수로 입력하세요." in errors
 
 
 def test_print_readiness_errors_report_invalid_printer_settings(tmp_path):
@@ -1304,12 +1309,12 @@ def test_label_manager_prefers_docx_manual_over_text_manual():
     assert pdf_index < docx_index < legacy_index < text_index
 
 
-def test_rows_with_print_quantity_returns_copies_and_clamps_quantity():
+def test_rows_with_print_quantity_returns_copies_without_clamping():
     rows = [{"barcode": "A", "print_qty": "2"}]
 
     copied = _rows_with_print_quantity(rows, 120)
 
-    assert copied == [{"barcode": "A", "print_qty": "100"}]
+    assert copied == [{"barcode": "A", "print_qty": "120"}]
     assert rows == [{"barcode": "A", "print_qty": "2"}]
 
 
@@ -1329,8 +1334,9 @@ def test_top_action_surface_uses_common_suite_menus():
     assert positions == sorted(positions)
     assert "상품 엑셀 연결" in menu_source
     assert "상품 DB 연결 해제" in menu_source
-    assert "프린터 설정" in source
-    assert "실행 전 점검" in source
+    panel_source = inspect.getsource(LabelManagerApp._build_job_panel)
+    assert "프린터 설정" in panel_source
+    assert "실행 전 점검" in panel_source
     assert "빠른 사용안내 열기" in menu_source
     assert "고객용 매뉴얼" in menu_source
     assert "지원 패키지 생성" in menu_source
@@ -1592,3 +1598,76 @@ def test_checklist_wrap_skips_unchanged_geometry_to_avoid_resize_feedback():
                                   configure=lambda **kwargs: pytest.fail("same wrap width must not trigger layout"))
     app._fit_checklist_description(SimpleNamespace(width=300), description,
                                   SimpleNamespace(winfo_reqwidth=lambda: 90))
+
+
+@pytest.mark.parametrize("value", ["1.5", "NaN", "inf", "0", "-1"])
+def test_readiness_rejects_invalid_counts_without_truncation(value):
+    assert _print_readiness_errors([{"barcode": "001234", "print_qty": value}])
+
+@pytest.mark.parametrize("value", ["101", "1001", "1000000"])
+def test_readiness_accepts_large_counts(value):
+    assert _print_readiness_errors([{"barcode": "001234", "print_qty": value}]) == []
+    assert _default_print_quantity([{"print_qty": value}]) == int(value)
+
+@pytest.mark.parametrize("value", [0, True, 1.5])
+def test_quantity_override_rejects_invalid_without_clamping(value):
+    with pytest.raises(ValueError):
+        _rows_with_print_quantity([{"barcode": "001234", "print_qty": "1"}], value)
+
+
+def test_cancelled_job_never_reports_transfer_success(monkeypatch, tmp_path):
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.base_dir = tmp_path
+    app.config_path = tmp_path / "config.ini"
+    _write_ready_config(app.config_path)
+    app.print_exe = tmp_path / "engine.exe"
+    app.print_exe.write_bytes(b"stub")
+    app.db_rows = []
+    app.label_rows = [{"item_code": "A", "item_name": "Name", "barcode": "001234", "lot_no": "L", "qty": "1", "print_qty": "1001"}]
+    app.selected_label_indexes = set()
+    app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
+    app._invoke_print_engine = lambda args: subprocess.CompletedProcess(args, 130, "", "")
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.showinfo", lambda *_args: pytest.fail("cancelled job cannot succeed"))
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.showwarning", lambda *_args: None)
+    app.run_print_job("--print")
+    assert "인쇄 작업 중지" in app.status_var.value
+
+
+def test_active_job_blocks_duplicate_print_requests():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app._print_job_active = True
+    app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
+    app.run_print_job("--print")
+    assert "진행 중인 인쇄 작업" in app.status_var.value
+
+
+def test_close_during_active_print_requests_cancel_without_destroy():
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app._print_job_active = True
+    calls = []
+    app._cancel_print_job = lambda: calls.append("cancel")
+    app.destroy = lambda: pytest.fail("active transfer must not lose its status window")
+    app._confirm_close()
+    assert calls == ["cancel"]
+
+
+def test_hibc_checksum_space_and_custom_values_survive_db_to_print_queue(tmp_path):
+    from barcode_label_automation.hibc import compose_hibc, resolve_hibc
+    from barcode_label_automation.data_store import save_label_rows, load_db_source, lookup_barcode
+    from barcode_label_automation.label_manager_app import _label_row_from_db_row, _lookup_dynamic_barcode
+    value = next(compose_hibc("A123", str(i), "0") for i in range(1000) if compose_hibc("A123", str(i), "0").endswith(" "))
+    headers=("바코드","완성코드","로트","출력 매수")
+    original={"바코드":value,"완성코드":value,"로트":" 000LOT ","출력 매수":"2"}
+    selected=_lookup_dynamic_barcode([original],value)
+    assert selected is original
+    row=_label_row_from_db_row(selected,headers)
+    assert row==original
+    queue=_printable_rows_from_label_rows([row],headers)
+    assert queue[0]["barcode"]==queue[0]["완성코드"]==value
+    assert queue[0]["로트"]==original["로트"]
+    path=tmp_path/"queue.xlsx";save_label_rows(path,queue)
+    loaded,_=load_db_source(path)
+    assert loaded[0]["barcode"]==loaded[0]["완성코드"]==value
+    assert resolve_hibc(loaded[0]["barcode"],"complete")==value
+    result=lookup_barcode([{"barcode":value}],value)
+    assert result.barcode==value

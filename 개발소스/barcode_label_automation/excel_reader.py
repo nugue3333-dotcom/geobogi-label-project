@@ -7,6 +7,8 @@ import re
 
 from openpyxl import load_workbook
 
+from .print_quantity import parse_print_quantity
+
 
 REQUIRED_COLUMNS = ("item_code", "item_name", "barcode", "lot_no", "qty", "print_qty")
 PRICE_HEADERS = ("price", "판매가", "가격", "판매 가격", "금액", "단가")
@@ -50,10 +52,10 @@ def read_labels(path: str | Path) -> list[LabelRow]:
             LabelRow(
                 item_code=_as_text(values["item_code"]),
                 item_name=_as_text(values["item_name"]),
-                barcode=_as_text(values["barcode"]),
+                barcode=(values["barcode"] if isinstance(values["barcode"],str) else _as_text(values["barcode"])),
                 lot_no=_as_text(values["lot_no"]),
                 qty=_as_positive_int(values["qty"], "qty", row_number),
-                print_qty=_as_required_int(values["print_qty"], "print_qty", row_number),
+                print_qty=_as_print_quantity(values["print_qty"], row_number),
                 source_fields=_source_fields(headers, values),
             )
         )
@@ -158,3 +160,10 @@ def _as_required_int(value: object, column: str, row_number: int) -> int:
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Row {row_number}: {column} must be an integer") from exc
     return number
+
+
+def _as_print_quantity(value: object, row_number: int) -> int:
+    try:
+        return parse_print_quantity(value, allow_integral_float=True)
+    except ValueError as exc:
+        raise ValueError(f"Row {row_number}: print_qty must be a positive integer") from exc

@@ -40,6 +40,24 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_release_exes.ps1 -
 - [ ] Barcode type checked
 - [ ] Driver/connection mode checked
 
+## Paid-product workflow gate
+
+- [ ] GS1 selected-row edits are applied or explicitly rejected before validation/apply; cancel preserves the source
+- [ ] Designer → repeating print retains the saved template, DB sheet/fields, media and options; unsaved work is handled explicitly
+- [ ] User-template printing and automatic default layout are visibly distinguished
+- [ ] Missing/moved/changed DB source and invalid rows have actionable messages
+- [ ] Generated serial/date values are fixed for the confirmed job; preview does not consume numbers; uncertain transmission is not retried automatically
+- [ ] Current manual screenshots and source/module hashes match; all PDF/DOCX/text copies have the release version
+- [ ] Customer starts through `시작하기.cmd`; root OCR helper EXEs are excluded, `tools/ocr` runtime is preserved
+- [ ] Previous customer folders and config/DB/queue data are preserved; rollback and recovery instructions are available
+- [ ] Customer migration evidence uses `TEMPLATE_MIGRATION_CHECKLIST.md`; empty forms are not recorded as completed work
+- [ ] Physical device evidence uses `DEVICE_ACCEPTANCE_RECORD.md`; empty forms do not authorize model compatibility claims
+- [ ] Pricing/license/support terms in `PAID_SUPPORT_TERMS_DRAFT.md` are approved before offering those terms to a customer
+
+Automated build, manifest, dry-run and command decoding can pass while physical
+device approval and commercial terms remain pending. Record the two outcomes
+separately; do not turn a prepared form into a hardware or customer acceptance.
+
 ## Business approval required when affected
 
 - [ ] Price

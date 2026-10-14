@@ -38,6 +38,12 @@ def export_portable_project(
     if target.suffix.lower() not in PROJECT_FILE_EXTENSIONS:
         raise ValueError(f"이동용 프로젝트는 {' 또는 '.join(PROJECT_FILE_EXTENSIONS)} 파일로 저장해야 합니다.")
     portable = copy.deepcopy(template)
+    # Moving a design never moves issuance state or an absolute customer path.
+    profile = portable.get("data_source")
+    if isinstance(profile, dict):
+        portable["data_source"] = {"path": "", "sheet": profile.get("sheet", ""),
+                                   "headers": list(profile.get("headers", [])),
+                                   "mode": "새 PC 재연결 필요"}
     elements = portable.get("elements")
     if not isinstance(elements, list):
         raise ValueError("라벨 개체 목록을 읽을 수 없습니다.")

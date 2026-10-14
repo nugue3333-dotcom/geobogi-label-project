@@ -131,3 +131,32 @@ def build_command_bar(
     for column, button in enumerate(buttons):
         button.grid(row=0, column=column, padx=(0, 6), pady=3, sticky="w")
     return bar
+
+
+def build_grouped_command_bar(parent, groups):
+    """Wrap complete command groups so roles stay visible at larger scaling."""
+    bar = ttk.Frame(parent, style="Toolbar.TFrame")
+    frames = []
+    for title, commands in groups:
+        frame = ttk.Frame(bar, padding=(8, 0, 12, 0), style="Toolbar.TFrame")
+        ttk.Label(frame, text=title, style="Hint.TLabel").pack(anchor="w")
+        buttons = ttk.Frame(frame, style="Toolbar.TFrame")
+        buttons.pack(fill="x", pady=(3, 0))
+        for label, command, style in commands:
+            ttk.Button(buttons, text=label, command=command, style=style, width=0).pack(side="left", padx=(0, 4))
+        frames.append(frame)
+    def layout(event=None):
+        width = max(1, event.width if event else bar.winfo_width())
+        x = y = row_height = 0
+        for frame in frames:
+            requested = frame.winfo_reqwidth() + 8
+            if x and x + requested > width:
+                y += row_height + 6
+                x = row_height = 0
+            frame.place(x=x, y=y + 3)
+            x += requested
+            row_height = max(row_height, frame.winfo_reqheight())
+        bar.configure(height=y + row_height + 6)
+    bar.bind("<Configure>", layout)
+    bar.after_idle(layout)
+    return bar

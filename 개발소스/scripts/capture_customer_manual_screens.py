@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from tkinter import Misc, TclError
 
-from PIL import ImageGrab
+from PIL import Image, ImageGrab
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -21,11 +21,14 @@ if str(ROOT) not in sys.path:
 from barcode_label_automation.label_designer_app import LabelDesignerApp
 from barcode_label_automation.label_manager_app import LabelManagerApp
 from barcode_label_automation.settings_app import SettingsApp
+from barcode_label_automation.workflow_probe import run_workflow_probe
 
 
 OUTPUT = ROOT / "outputs" / "ui-redesign-preview"
 UI_SOURCES = tuple(ROOT / "barcode_label_automation" / name for name in (
     "label_designer_app.py", "label_manager_app.py", "settings_app.py", "ui_tokens.py", "ui_window.py", "ui_style.py", "brand_assets.py",
+    "gs1_editor.py", "barcode_options_dialog.py", "barcode_engine.py", "barcode_catalog.py", "gs1.py", "designer_clipboard.py", "label_media.py", "tool_icons.py", "print_quantity.py", "designer_print_dispatch.py",
+    "job_profile.py", "template_output.py", "profile_dialogs.py", "value_rules.py", "value_rules_dialog.py", "value_jobs.py", "saved_output.py", "data_store.py", "barcode_layout.py", "hibc.py", "udi_editor.py", "workflow_probe.py", "barcode_editor_preview.py",
 ))
 BRAND_SOURCES = tuple(ROOT / "assets" / "brand" / name for name in (
     "chaeumlab_logo_header_2x.png", "chaeumlab_designer_icon.png", "chaeumlab_manager_icon.png", "chaeumlab_settings_icon.png",
@@ -89,12 +92,29 @@ def main() -> None:
             raise FileNotFoundError("최신 예제 도안이 없습니다: " + str(sample_template))
         screenshots = []
         designer = LabelDesignerApp(runtime, initial_template_path=sample_template)
+        designer.connect_data_source_path(runtime / "barcode_db.xlsx")
+        designer.save_template()
         screenshots.append(_capture(designer, OUTPUT / "label-designer-final.png"))
         designer_data = LabelDesignerApp(runtime, initial_template_path=sample_template)
         designer_data.connect_data_source_path(runtime / "barcode_db.xlsx")
+        designer_data.save_template()
         screenshots.append(_capture(designer_data, OUTPUT / "label-designer-data.png"))
-        screenshots.append(_capture(LabelManagerApp(runtime), OUTPUT / "label-manager-final.png"))
+        screenshots.append(_capture(LabelManagerApp(runtime, template_path=sample_template), OUTPUT / "label-manager-final.png"))
         screenshots.append(_capture(SettingsApp(runtime / "config.ini"), OUTPUT / "printer-settings.png"))
+
+    if run_workflow_probe(OUTPUT) != 0:
+        raise RuntimeError("실제 바코드 속성 UI 검증 또는 GS1/UDI 화면 캡처에 실패했습니다.")
+    for filename in ("frozen-udi-content.png", "frozen-udi-size.png"):
+        path = OUTPUT / filename
+        if not path.is_file():
+            raise FileNotFoundError("실제 UDI 편집창 캡처가 없습니다: " + str(path))
+        with Image.open(path) as image:
+            size = list(image.size)
+        screenshots.append({
+            "filename": filename,
+            "size": size,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        })
 
     if any(hashlib.sha256(path.read_bytes()).hexdigest() != expected for path, expected in source_hashes.items()):
         raise RuntimeError("화면 캡처 중 프로그램이나 브랜드 파일이 바뀌었습니다. 변경 완료 후 다시 캡처하세요.")

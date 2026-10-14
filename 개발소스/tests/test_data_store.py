@@ -197,3 +197,31 @@ def test_sample_accessory_db_is_deterministic_and_has_unique_barcodes():
     assert rows[-1]["item_code"] == "ACC-100"
     assert all(row["판매가"].endswith("원") for row in rows)
     assert all(not {"lot_no", "qty", "print_qty"}.intersection(row) for row in rows)
+
+
+def test_hibc_space_checksum_and_custom_binding_round_trip(tmp_path):
+    from barcode_label_automation.hibc import compose_hibc, resolve_hibc
+    value = next(compose_hibc("A123",str(i),"0") for i in range(1000) if compose_hibc("A123",str(i),"0").endswith(" "))
+    rows=[dict.fromkeys(LABEL_HEADERS, "")]
+    rows[0].update(barcode=value,complete_hibc=value,qty="1",print_qty="1")
+    path=tmp_path/"queue.xlsx"
+    save_label_rows(path,rows)
+    assert load_label_rows(path)[0]["barcode"]==value
+    loaded,headers=load_db_source(path)
+    assert loaded[0]["barcode"]==loaded[0]["complete_hibc"]==value
+    assert resolve_hibc(loaded[0]["barcode"],"complete")==value
+    assert read_labels(path)[0].barcode==value
+
+
+def test_udi_excel_date_cells_resolve_through_saved_template(tmp_path):
+    from datetime import datetime
+    from barcode_label_automation.udi_editor import build_udi_patch, resolve_udi_value
+    workbook=Workbook();sheet=workbook.active
+    sheet.append(["barcode","DI","MADE","SER"])
+    sheet.append(["placeholder","09506000134376",datetime(2026,10,13),"000001"])
+    path=tmp_path/"dates.xlsx";workbook.save(path)
+    rows,_=load_db_source(path)
+    assert rows[0]["MADE"]=="2026-10-13"
+    data={"gtin":{"source_field":"DI"},"manufacture_date":{"source_field":"MADE","enabled":True},"serial":{"source_field":"SER","enabled":True}}
+    patch=build_udi_patch({},data,row=rows[0])
+    assert resolve_udi_value(patch,rows[0])=="(01)09506000134376(21)000001(11)261013"

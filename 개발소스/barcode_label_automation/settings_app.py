@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from .label_media import write_config_atomic
+
 import argparse
+import json
 import os
 import sys
 import tkinter as tk
 from configparser import ConfigParser
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from tkinter import messagebox, ttk
 
+from .barcode_catalog import BARCODE_TYPES as CATALOG_TYPES, BARCODE_1D_TYPES
 from .brand_assets import apply_window_icon, load_header_logo
 from .config import (
     DEFAULTS,
+    read_encoder_options,
     SUPPORTED_BARCODE_TYPES,
     SUPPORTED_MEDIA_HANDLING,
     SUPPORTED_MEDIA_TYPES,
@@ -20,7 +25,7 @@ from .config import (
     is_printer_model_approved,
     supported_media_handling_for_brand,
 )
-from .errors import PrinterError
+from .errors import ConfigError, PrinterError
 from .printers.network import check_connection as check_network_connection
 from .runtime_paths import executable_dir, runtime_base_dir
 from .ui_tokens import COLORS, SPACING, TYPOGRAPHY
@@ -56,17 +61,8 @@ MEDIA_TYPE_LABELS = {
     "black_mark": "블랙마크 용지",
     "continuous": "연속 용지",
 }
-BARCODE_TYPE_LABELS = {
-    "code128": "1D - Code128",
-    "code39": "1D - Code39",
-    "ean13": "1D - EAN13",
-    "ean8": "1D - EAN8",
-    "upca": "1D - UPC-A",
-    "itf": "1D - ITF",
-    "qr": "2D - QR Code",
-    "datamatrix": "2D - DataMatrix",
-    "pdf417": "2D - PDF417",
-}
+BARCODE_TYPE_LABELS = {key: ("1D - " if key in BARCODE_1D_TYPES else "2D - ") + label for key, label in CATALOG_TYPES.items()}
+
 BRAND_VALUES = {label: value for value, label in BRAND_LABELS.items()}
 MODE_VALUES = {label: value for value, label in MODE_LABELS.items()}
 PRINT_METHOD_VALUES = {label: value for value, label in PRINT_METHOD_LABELS.items()}
@@ -122,6 +118,7 @@ class PrinterSettings:
     pdf417_security_level: int = 2
     pdf417_module_width: int = 3
     pdf417_module_height: int = 10
+    encoder_options: dict[str, object] = field(default_factory=dict)
 
 
 def app_base_dir() -> Path:
@@ -184,6 +181,7 @@ def load_settings(path: str | Path) -> PrinterSettings:
         pdf417_security_level=parser.getint("barcode.pdf417", "security_level", fallback=2),
         pdf417_module_width=parser.getint("barcode.pdf417", "module_width", fallback=3),
         pdf417_module_height=parser.getint("barcode.pdf417", "module_height", fallback=10),
+        encoder_options=read_encoder_options(parser, barcode_type),
     )
 
 
@@ -217,6 +215,7 @@ def save_settings(path: str | Path, settings: PrinterSettings) -> None:
     parser.set("label", "media_type", settings.media_type)
 
     parser.set("barcode", "type", settings.barcode_type)
+    parser.set("barcode", "options_json", json.dumps(settings.encoder_options, ensure_ascii=True))
     parser.set("barcode", "auto_layout", "yes" if settings.barcode_auto_layout else "no")
     parser.set("barcode", "x", str(settings.barcode_x))
     parser.set("barcode", "y", str(settings.barcode_y))
@@ -242,9 +241,7 @@ def save_settings(path: str | Path, settings: PrinterSettings) -> None:
     if not parser.has_option("data", "output_dir"):
         parser.set("data", "output_dir", DEFAULTS["data"]["output_dir"])
 
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    with config_path.open("w", encoding="utf-8-sig") as file:
-        parser.write(file)
+    write_config_atomic(config_path, parser)
 
 
 def installed_printers() -> list[str]:
@@ -289,6 +286,13 @@ def validate_settings(settings: PrinterSettings) -> SettingsValidationReport:
                 errors.append("선택한 브랜드에서 지원하지 않는 인쇄후작업입니다.")
     if settings.barcode_type not in SUPPORTED_BARCODE_TYPES:
         errors.append("바코드 종류를 선택하세요.")
+    try:
+        option_parser = ConfigParser(interpolation=None)
+        option_parser.add_section("barcode")
+        option_parser.set("barcode", "options_json", json.dumps(settings.encoder_options))
+        read_encoder_options(option_parser, settings.barcode_type)
+    except (ConfigError, ValueError, TypeError) as exc:
+        errors.append(str(exc))
     if settings.width_mm <= 0 or settings.height_mm <= 0:
         errors.append("용지 가로, 세로는 1mm 이상이어야 합니다.")
     if settings.width_mm > 300 or settings.height_mm > 300:
@@ -331,7 +335,7 @@ def validate_settings(settings: PrinterSettings) -> SettingsValidationReport:
 
 
 def _read_parser(path: Path) -> ConfigParser:
-    parser = ConfigParser()
+    parser = ConfigParser(interpolation=None)
     parser.read_dict(DEFAULTS)
     if path.exists():
         parser.read(path, encoding="utf-8-sig")
@@ -445,6 +449,8 @@ class SettingsApp(tk.Tk):
         self.dpi_var = tk.StringVar()
         self.gap_var = tk.StringVar()
         self.media_type_var = tk.StringVar()
+        self.encoder_options: dict[str, object] = {}
+        self._encoder_options_type = "code128"
         self.barcode_type_var = tk.StringVar()
         self.barcode_auto_layout_var = tk.BooleanVar()
         self.barcode_x_var = tk.StringVar()
@@ -810,7 +816,7 @@ class SettingsApp(tk.Tk):
         )
 
     def _build_barcode_section(self, parent: ttk.Frame, row: int) -> None:
-        frame = self._section_card(parent, row, "4. 바코드")
+        frame = self._section_card(parent, row, "4. 자동 기본 배치용 바코드")
         for col in range(3):
             frame.columnconfigure(col, weight=1)
 
@@ -835,14 +841,44 @@ class SettingsApp(tk.Tk):
         ).grid(row=1, column=1, columnspan=2, sticky="w", padx=(8, 2), pady=(0, 4))
         ttk.Label(
             frame,
-            text="자동 배치가 켜져 있으면 X/Y는 라벨 크기에 맞춰 자동 계산됩니다.",
+            text="사용자 도안의 바코드는 디자이너 개체 옵션을 사용합니다. 아래 기본값은 자동 기본 배치에 적용됩니다. 자동 가운데 배치에서는 X/Y를 사용하지 않습니다.",
             style="Status.TLabel",
             wraplength=300,
         ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(4, 2))
         self.barcode_x_entry = ttk.Entry(frame, textvariable=self.barcode_x_var, width=7)
         self.barcode_y_entry = ttk.Entry(frame, textvariable=self.barcode_y_var, width=7)
-        self._labeled_widget(frame, 3, 1, "X", self.barcode_x_entry)
-        self._labeled_widget(frame, 3, 2, "Y", self.barcode_y_entry)
+        self._labeled_widget(frame, 3, 1, "X (도트)", self.barcode_x_entry)
+        self._labeled_widget(frame, 3, 2, "Y (도트)", self.barcode_y_entry)
+        coordinates = tk.StringVar()
+        def coordinate_help(*_args: object) -> None:
+            try:
+                dpi = int(self.dpi_var.get())
+                if dpi <= 0:
+                    raise ValueError('DPI')
+                x, y = int(self.barcode_x_var.get()), int(self.barcode_y_var.get())
+                coordinates.set(f'라벨 왼쪽 위 기준 · {dpi} DPI · X {x*25.4/dpi:.2f}mm / Y {y*25.4/dpi:.2f}mm')
+            except (ValueError, tk.TclError):
+                coordinates.set('좌표는 도트입니다. DPI와 X/Y를 입력하면 mm로도 표시합니다.')
+        for variable in (self.dpi_var, self.barcode_x_var, self.barcode_y_var):
+            variable.trace_add('write', coordinate_help)
+        coordinate_help()
+        ttk.Label(frame, textvariable=coordinates, style='Status.TLabel', wraplength=300).grid(row=5,column=0,columnspan=3,sticky='w',pady=4)
+        ttk.Button(frame, text="바코드 상세 옵션", command=self._edit_barcode_options).grid(row=6, column=0, columnspan=3, sticky="ew", pady=(8, 2))
+
+    def _edit_barcode_options(self) -> None:
+        from .barcode_options_dialog import edit_barcode_options
+        code_type = BARCODE_TYPE_VALUES.get(self.barcode_type_var.get(), "code128")
+        options = self.encoder_options if code_type == self._encoder_options_type else {}
+        def applied(value: dict[str, object]) -> None:
+            self.encoder_options = dict(value)
+            self._encoder_options_type = code_type
+            self._set_settings_dirty(True)
+            self._update_validation_summary()
+        try:
+            dpi = int(self.dpi_var.get())
+        except ValueError:
+            dpi = 203
+        edit_barcode_options(self, code_type, options, applied, dpi=dpi)
 
     def _build_validation_section(self, parent: ttk.Frame, row: int) -> None:
         frame = ttk.Frame(parent, style="Overview.TFrame")
@@ -978,6 +1014,8 @@ class SettingsApp(tk.Tk):
         self.media_type_var.set(MEDIA_TYPE_LABELS[settings.media_type])
         self.print_speed_var.set(str(settings.print_speed))
         self.print_density_var.set(str(settings.print_density))
+        self.encoder_options = dict(settings.encoder_options)
+        self._encoder_options_type = settings.barcode_type
         self.barcode_type_var.set(BARCODE_TYPE_LABELS[settings.barcode_type])
         self.barcode_auto_layout_var.set(settings.barcode_auto_layout)
         self.barcode_x_var.set(str(settings.barcode_x))
@@ -1018,7 +1056,7 @@ class SettingsApp(tk.Tk):
             return
         self._update_validation_summary(settings)
         self._set_settings_dirty(False)
-        self.status_var.set("설정을 저장했습니다. 다음 출력부터 적용됩니다.")
+        self.status_var.set("설정을 저장했습니다. 같은 폴더의 라벨 화면에 용지 규격이 적용됩니다.")
 
     def _install_dirty_tracking(self) -> None:
         for variable in self._settings_variables():
@@ -1169,6 +1207,7 @@ class SettingsApp(tk.Tk):
             pdf417_security_level=2,
             pdf417_module_width=3,
             pdf417_module_height=10,
+            encoder_options=dict(self.encoder_options) if BARCODE_TYPE_VALUES.get(self.barcode_type_var.get()) == self._encoder_options_type else {},
         )
         _validate_settings(settings)
         return settings

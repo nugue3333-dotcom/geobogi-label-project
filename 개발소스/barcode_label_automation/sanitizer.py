@@ -17,15 +17,17 @@ def sanitize_zpl_text(value: object) -> str:
 
 
 def sanitize_barcode(value: object) -> str:
-    text = _to_label_text(value)
-    allowed = []
-    for char in text:
-        if char.isalnum() or char in "-_./":
-            allowed.append(char)
-    sanitized = "".join(allowed)
-    if not sanitized:
-        raise ValueError("barcode is empty after sanitization")
-    return sanitized
+    """Preserve barcode payload exactly; validation belongs to the symbology.
+
+    This is intentionally separate from command-language text sanitizers.
+    Callers must encode as a bitmap or escape their command data boundary.
+    """
+    text = "" if value is None else str(value)
+    if not text or not text.strip():
+        raise ValueError("barcode is empty")
+    if any(0xD800 <= ord(char) <= 0xDFFF for char in text):
+        raise ValueError("barcode contains an invalid Unicode surrogate")
+    return text
 
 
 def _to_label_text(value: object, max_length: int = 48) -> str:

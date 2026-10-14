@@ -42,6 +42,7 @@ def test_manual_capture_uses_current_example_and_actual_source_screen():
     assert "design-review-20261001" not in source
     assert '"ui_style.py"' in source
     assert '"brand_sources"' in source
+    assert "run_workflow_probe(OUTPUT)" in source
 
 
 @pytest.mark.parametrize("path", verifier.FORBIDDEN_MENU_PATHS)
@@ -50,10 +51,10 @@ def test_manual_verifier_rejects_obsolete_menu_paths(path):
 
 
 def test_release_version_and_new_help_file_names():
-    assert verifier.MANUAL_VERSION == "2026.10.06.01"
+    assert verifier.MANUAL_VERSION == "2026.10.13.05"
     for name in ("build_customer_manuals.py", "create_customer_manual.py"):
         source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
-        assert "2026.10.06.01" in source
+        assert "2026.10.13.05" in source
         assert "capture_contract_errors(ROOT)" in source
 
 
@@ -70,7 +71,7 @@ def test_capture_provenance_requires_style_and_all_current_screens(tmp_path):
         path.write_text(name, encoding="utf-8")
         group = "ui_sources" if name in verifier.REQUIRED_UI_SOURCES else "brand_sources"
         metadata[group][name] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ("label-designer-final.png", "label-designer-data.png", "label-manager-final.png", "printer-settings.png"):
+    for name in ("label-designer-final.png", "label-designer-data.png", "label-manager-final.png", "printer-settings.png", "frozen-udi-content.png", "frozen-udi-size.png"):
         path = output / name
         path.write_bytes(name.encode("utf-8"))
         metadata["screenshots"].append({"filename": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
@@ -101,3 +102,90 @@ def test_word_manual_preserves_table_rows_across_page_breaks():
     rows = document.findall(".//w:tbl/w:tr", namespace)
     assert rows
     assert all(row.find("w:trPr/w:cantSplit", namespace) is not None for row in rows)
+
+
+def test_manual_builders_document_current_usability_contract():
+    for name in ("build_customer_manuals.py", "create_customer_manual.py", "build_quick_customer_guide.py"):
+        source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert not verifier.text_contract_errors(source, ())
+        assert "2026.10.13.05" in source
+    designer = verifier.EXPECTED["채움랩_라벨디자이너_고객용_매뉴얼.pdf"][2]
+    assert all(phrase in designer for phrase in ("Ctrl+C", "Ctrl+V", "Ctrl+D", "공통 규격", "용지 설정"))
+    manager = verifier.EXPECTED["채움랩_라벨출력관리_고객용_매뉴얼.pdf"][2]
+    assert all(phrase in manager for phrase in ("상한 없이", "양의 정수", "이미 프린터"))
+
+
+def test_manual_capture_tracks_usability_modules():
+    source = (ROOT / "scripts/capture_customer_manual_screens.py").read_text(encoding="utf-8")
+    for name in ("designer_clipboard.py", "label_media.py", "tool_icons.py", "print_quantity.py", "designer_print_dispatch.py"):
+        assert f'"{name}"' in source
+        assert f"barcode_label_automation/{name}" in verifier.REQUIRED_UI_SOURCES
+
+
+def test_manual_capture_tracks_barcode_layout_calculation():
+    source = (ROOT / "scripts/capture_customer_manual_screens.py").read_text(encoding="utf-8")
+    assert '"barcode_layout.py"' in source
+    assert "barcode_label_automation/barcode_layout.py" in verifier.REQUIRED_UI_SOURCES
+
+
+def test_manual_builders_document_barcode_size_first_without_automatic_migration():
+    required = ("2D 크기·문자 배치", "바코드 크기 우선", "기존 배치", "실제 크기 확인")
+    for name in ("build_customer_manuals.py", "create_customer_manual.py", "build_quick_customer_guide.py"):
+        source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert verifier.text_contract_errors(source, required) == []
+    for name in ("README_먼저읽기.txt", "설치_및_사용_메뉴얼.txt", "사용안내.txt"):
+        source = (ROOT / name).read_text(encoding="utf-8-sig")
+        assert verifier.text_contract_errors(source, required) == []
+    required_in_pdf = verifier.EXPECTED["채움랩_라벨디자이너_고객용_매뉴얼.pdf"][2]
+    assert all(phrase in required_in_pdf for phrase in required)
+
+
+def test_detailed_manuals_distinguish_target_size_quiet_zone_and_group_bounds():
+    required = ("바코드 가로(mm)", "바코드 세로(mm)", "필수 여백", "정수 모듈 도트", "전체 가로·세로", "자동 맞춤", "지정 크기")
+    for name in ("build_customer_manuals.py", "create_customer_manual.py"):
+        source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert verifier.text_contract_errors(source, required) == []
+
+
+def test_migration_guide_uses_current_extensions_and_menu():
+    text = (ROOT / "docs/BARTENDER_MIGRATION.md").read_text(encoding="utf-8")
+    assert ".cllabel" in text and ".clproject" in text
+    assert "파일 → 이동 프로젝트 내보내기" in text
+    assert "편집·이동 →" not in text
+    assert "손실 없는 자동 변환·완전 호환을 약속하지 않습니다" in text
+
+
+def test_acceptance_and_commercial_forms_do_not_invent_approval():
+    device = (ROOT / "docs/DEVICE_ACCEPTANCE_RECORD.md").read_text(encoding="utf-8")
+    commercial = (ROOT / "docs/PAID_SUPPORT_TERMS_DRAFT.md").read_text(encoding="utf-8")
+    migration = (ROOT / "docs/TEMPLATE_MIGRATION_CHECKLIST.md").read_text(encoding="utf-8")
+    assert "현재 승인 모델은 없습니다" in device
+    assert "물리 출력·스캔 검증: 미실행" in migration
+    assert "가격·지원·환불·라이선스 조건 미확정" in commercial
+    assert "구매 안내나 약정으로 사용하지 않습니다" in commercial
+
+
+def test_manual_capture_tracks_hibc_and_udi_modules():
+    source = (ROOT / "scripts/capture_customer_manual_screens.py").read_text(encoding="utf-8")
+    for name in ("hibc.py", "udi_editor.py"):
+        assert f'"{name}"' in source
+        assert f"barcode_label_automation/{name}" in verifier.REQUIRED_UI_SOURCES
+
+
+def test_ai_udi_guides_document_input_recovery_and_print_boundary():
+    required = ("시험용 완성 예제로 시작", "전체 GS1 데이터 가져오기", "의료기기 UDI", "완성 코드 가져오기", "현재 라벨에 맞추기", "GS1 데이터로 설정", "기타 데이터 옵션", "Esc", "전체 데이터 검증", "규제 승인", "손잡이")
+    for name in ("build_customer_manuals.py", "create_customer_manual.py", "build_quick_customer_guide.py"):
+        source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert verifier.text_contract_errors(source, required) == []
+        assert "내용 / 크기·표시문자 / 출력 확인 탭" not in source
+    for name in ("README_먼저읽기.txt", "설치_및_사용_메뉴얼.txt", "사용안내.txt"):
+        source = (ROOT / name).read_text(encoding="utf-8-sig")
+        assert verifier.text_contract_errors(source, required) == []
+        assert "내용 / 크기·표시문자 / 출력 확인 탭" not in source
+
+
+def test_guides_do_not_require_manual_add_before_new_ai_validation():
+    obsolete = ("새 AI는 값을 입력하고 추가합니다", "새 AI는 값을 입력한 뒤 추가합니다", "새 AI는 값 입력 후 추가")
+    for name in ("scripts/build_customer_manuals.py", "scripts/create_customer_manual.py", "scripts/build_quick_customer_guide.py", "README_먼저읽기.txt", "설치_및_사용_메뉴얼.txt", "사용안내.txt"):
+        source = (ROOT / name).read_text(encoding="utf-8-sig")
+        assert all(phrase not in source for phrase in obsolete)

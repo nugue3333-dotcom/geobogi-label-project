@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .print_quantity import parse_print_quantity
+
 import argparse
 import hashlib
 import json
@@ -594,12 +596,10 @@ def _check_print_data_readiness(data_dir: Path) -> CheckResult:
 
         raw_quantity = str(row.get("print_qty", "") or DEFAULT_PRINT_QTY).strip()
         try:
-            quantity = int(float(raw_quantity))
+            parse_print_quantity(raw_quantity)
         except ValueError:
-            errors.append(f"{index}행 출력 매수는 숫자로 입력하세요.")
+            errors.append(f"{index}행 출력 매수는 1 이상의 정수로 입력하세요.")
             continue
-        if quantity < 1 or quantity > 1000:
-            errors.append(f"{index}행 출력 매수는 1부터 1000 사이로 입력하세요.")
 
     if errors:
         extra = "" if len(errors) <= 5 else f" 외 {len(errors) - 5}개"

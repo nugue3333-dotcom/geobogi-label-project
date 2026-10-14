@@ -25,7 +25,8 @@ def test_designer_spec_keeps_assets_without_embedding_external_ocr(monkeypatch) 
     assert destinations
     assert any(path.startswith("assets/brand") for path in destinations)
     assert any(path.startswith("assets/fonts") for path in destinations)
-    assert all(path.startswith("assets/") for path in destinations)
+    assert all(path.startswith(("assets/", "barcode_label_automation/resources", "barcode_label_automation/vendor/zint")) for path in destinations)
+    assert any(path.startswith("barcode_label_automation/vendor/zint") for path in destinations)
     assert captured["binaries"] == []
 
 

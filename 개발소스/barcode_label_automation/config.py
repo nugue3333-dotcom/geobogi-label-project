@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import codecs
+import json
+import math
 from configparser import ConfigParser
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from .barcode_catalog import SUPPORTED_BARCODE_TYPES
 from .errors import ConfigError
 from .runtime_paths import runtime_base_dir
 
@@ -55,6 +58,7 @@ class BarcodeConfig:
     pdf417_security_level: int
     pdf417_module_width: int
     pdf417_module_height: int
+    encoder_options: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -191,12 +195,11 @@ SUPPORTED_MEDIA_HANDLING_BY_BRAND = {
 # No SEWOO model is release-approved until model-specific manufacturer ZPL
 # evidence and a physical output check have both been recorded.
 APPROVED_SEWOO_ZPL_MODELS: frozenset[str] = frozenset()
-SUPPORTED_BARCODE_TYPES = {"code128", "code39", "ean13", "ean8", "upca", "itf", "qr", "datamatrix", "pdf417"}
 
 
 def load_config(path: str | Path = "config.ini") -> AppConfig:
     config_path = Path(path)
-    parser = ConfigParser()
+    parser = ConfigParser(interpolation=None)
     parser.read_dict(DEFAULTS)
     if config_path.exists():
         parser.read(config_path, encoding="utf-8-sig")
@@ -393,8 +396,10 @@ def _read_barcode_config(parser: ConfigParser, language: str) -> BarcodeConfig:
         barcode_type = "datamatrix"
     if barcode_type not in SUPPORTED_BARCODE_TYPES:
         raise ConfigError(
-            "barcode.type must be one of: code128, code39, ean13, ean8, upca, itf, qr, datamatrix, pdf417."
+            "barcode.type must be one of: " + ", ".join(sorted(SUPPORTED_BARCODE_TYPES))
         )
+
+    encoder_options = read_encoder_options(parser, barcode_type)
 
     qr_ecc = parser.get("barcode.qr", "ecc", fallback="M").strip().upper()
     if qr_ecc not in {"L", "M", "Q", "H"}:
@@ -419,6 +424,7 @@ def _read_barcode_config(parser: ConfigParser, language: str) -> BarcodeConfig:
         pdf417_security_level=parser.getint("barcode.pdf417", "security_level", fallback=2),
         pdf417_module_width=parser.getint("barcode.pdf417", "module_width", fallback=3),
         pdf417_module_height=parser.getint("barcode.pdf417", "module_height", fallback=10),
+        encoder_options=encoder_options,
     )
 
 
@@ -430,3 +436,33 @@ def _read_one_d_wide(parser: ConfigParser, language: str) -> int:
         return int(raw_wide)
     except ValueError as exc:
         raise ConfigError("barcode.1d.wide must be an integer or 'auto'.") from exc
+
+
+def read_encoder_options(parser: ConfigParser, barcode_type: str) -> dict[str, object]:
+    """Read explicit advanced settings without interpolation or silent loss."""
+    from .barcode_catalog import option_definitions
+    raw = parser.get("barcode", "options_json", fallback="{}", raw=True)
+    try:
+        options = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise ConfigError("barcode.options_json must be a JSON object.") from exc
+    if not isinstance(options, dict):
+        raise ConfigError("barcode.options_json must be a JSON object.")
+    definitions = option_definitions(barcode_type)
+    for key, value in options.items():
+        if key not in definitions:
+            raise ConfigError(f"Unsupported {barcode_type} option: {key}")
+        spec = definitions[key]
+        if spec.get("type") == "bool":
+            valid = isinstance(value, bool)
+        elif spec.get("type") == "text":
+            valid = isinstance(value, str) and len(value) <= 10000
+        elif "choices" in spec:
+            valid = value in spec["choices"]
+        elif spec.get("type") == "float":
+            valid = isinstance(value, (int, float)) and not isinstance(value, bool) and spec["min"] <= value <= spec["max"] and math.isfinite(value)
+        else:
+            valid = isinstance(value, int) and not isinstance(value, bool) and spec["min"] <= value <= spec["max"]
+        if not valid:
+            raise ConfigError(f"Invalid barcode option {key}: {value!r}")
+    return options

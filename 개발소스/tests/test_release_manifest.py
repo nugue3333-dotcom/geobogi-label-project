@@ -9,6 +9,7 @@ from barcode_label_automation.release_manifest import (
     SPEC_NAMES,
     validate_release_manifest,
     write_release_manifest,
+    find_forbidden_additions,
 )
 
 
@@ -24,6 +25,15 @@ def _write_manifest_fixture(base_dir: Path) -> None:
 def _write_specs(source_root: Path) -> None:
     for name in SPEC_NAMES:
         (source_root / name).write_text(f"spec:{name}", encoding="utf-8")
+
+
+def test_root_ocr_helpers_are_forbidden_but_internal_runtime_is_allowed(tmp_path: Path) -> None:
+    for name in ("tesseract.exe", "winpath.exe"):
+        (tmp_path / name).write_bytes(b"tool")
+        internal = tmp_path / "tools/ocr" / name
+        internal.parent.mkdir(parents=True, exist_ok=True)
+        internal.write_bytes(b"runtime")
+    assert sorted(find_forbidden_additions(tmp_path)) == ["tesseract.exe", "winpath.exe"]
 
 
 def test_write_release_manifest_records_full_payload_and_build_metadata(tmp_path: Path) -> None:

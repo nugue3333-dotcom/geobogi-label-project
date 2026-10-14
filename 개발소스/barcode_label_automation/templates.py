@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+import io
+import re
+
 from dataclasses import replace
 from pathlib import Path
 from typing import TypeAlias
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .barcode_catalog import BARCODE_1D_TYPES, GS1_TYPES, option_definitions
+from .barcode_engine import render_barcode
 from .config import BarcodeConfig, SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE
 from .excel_reader import LabelRow
 from .sanitizer import sanitize_barcode, sanitize_slcs_text, sanitize_tspl_text, sanitize_zpl_text
 
 CommandPayload: TypeAlias = str | bytes
-ONE_D_BARCODE_TYPES = {"code128", "code39", "ean13", "ean8", "upca", "itf"}
+ONE_D_BARCODE_TYPES = BARCODE_1D_TYPES
+NATIVE_1D_TYPES = {"code128", "code39", "ean13", "ean8", "upca", "itf"}
 
 
 def mm_to_dots(mm: int | float, dpi: int) -> int:
@@ -54,7 +60,7 @@ def render_slcs(
     media_handling: str = "tear_off",
     media_type: str = "gap",
     print_orientation: str = "normal",
-) -> str:
+) -> CommandPayload:
     config = barcode_config or default_barcode_config(one_d_wide=6)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
@@ -75,7 +81,7 @@ def render_slcs(
         max_text_chars=max(map(len, text_lines), default=1),
         large_label=large_label,
     )
-    positioned_config = _auto_positioned_barcode_config("slcs", width_dot, height_dot, barcode, config, layout)
+    positioned_config = config if _graphics_required(barcode, config) else _auto_positioned_barcode_config("slcs", width_dot, height_dot, barcode, config, layout)
     text_commands = "".join(
         _slcs_text_command(
             layout["margin_x"],
@@ -88,7 +94,8 @@ def render_slcs(
         for index, (line, y) in enumerate(zip(text_lines, layout["text_line_ys"], strict=False))
     )
 
-    return (
+    barcode_command = _barcode_output("slcs", barcode, positioned_config, width_dot, height_dot, layout)
+    header = (
         "CB\n"
         f"SS{speed}\n"
         f"SD{density}\n"
@@ -99,9 +106,10 @@ def render_slcs(
         f"{_slcs_media_type_command(height_dot, gap_dot, media_type)}"
         f"{print_orientation_command('slcs', print_orientation)}"
         f"{text_commands}"
-        f"{_render_slcs_barcode(barcode, positioned_config)}"
-        f"P{row.print_qty}\n"
     )
+    if isinstance(barcode_command, bytes):
+        return header.encode("cp949") + barcode_command + f"P{row.print_qty}\n".encode("ascii")
+    return header + barcode_command + f"P{row.print_qty}\n"
 
 
 def render_tspl(
@@ -133,8 +141,10 @@ def render_tspl(
         max_text_chars=max(map(len, text_lines), default=1),
         large_label=width_mm >= 80 and height_mm >= 80,
     )
-    positioned_config = _auto_positioned_barcode_config("tspl", width_dot, height_dot, barcode, config, layout)
-    barcode_command = _render_tspl_barcode(barcode, positioned_config).encode("ascii")
+    positioned_config = config if _graphics_required(barcode, config) else _auto_positioned_barcode_config("tspl", width_dot, height_dot, barcode, config, layout)
+    barcode_command = _barcode_output("tspl", barcode, positioned_config, width_dot, height_dot, layout)
+    if isinstance(barcode_command, str):
+        barcode_command = barcode_command.encode("ascii")
     speed = 4 if print_speed is None else print_speed
     density = 8 if print_density is None else print_density
     header = (
@@ -195,7 +205,7 @@ def render_zpl(
         max_text_chars=max(map(len, text_lines), default=1),
         large_label=width_mm >= 80 and height_mm >= 80,
     )
-    positioned_config = _auto_positioned_barcode_config("zpl", width_dot, height_dot, barcode, config, layout)
+    positioned_config = config if _graphics_required(barcode, config) else _auto_positioned_barcode_config("zpl", width_dot, height_dot, barcode, config, layout)
     text_commands = "".join(
         f"^FO{layout['margin_x']},{y}^FB{layout['text_width']},1,0,L,0^A0N,{layout['text_font']},{layout['text_font']}^FD{line}^FS\n"
         for line, y in zip(text_lines, layout["text_line_ys"], strict=False)
@@ -213,7 +223,7 @@ def render_zpl(
         f"^PW{width_dot}\n"
         f"^LL{height_dot}\n"
         f"{text_commands}"
-        f"{_render_zpl_barcode(barcode, positioned_config)}"
+        f"{_barcode_output('zpl', barcode, positioned_config, width_dot, height_dot, layout)}"
         f"^PQ{row.print_qty}\n"
         "^XZ\n"
     )
@@ -497,7 +507,9 @@ def _barcode_module_count(barcode_type: str, barcode: str) -> int:
 
 
 def _estimated_1d_width(barcode_type: str, barcode: str, config: BarcodeConfig) -> int:
-    return _barcode_module_count(barcode_type, barcode) * max(1, config.one_d_narrow)
+    legacy_width = _barcode_module_count(barcode_type, barcode) * max(1, config.one_d_narrow)
+    actual_width = render_barcode(barcode_type, barcode, _encoder_settings(config)).width
+    return max(legacy_width, actual_width)
 
 
 def _estimated_2d_size(config: BarcodeConfig, barcode: str) -> int:
@@ -828,3 +840,89 @@ def _ensure_media_handling_supported(language: str, media_handling: str) -> None
     if language == "slcs" and media_handling == "peeler":
         raise ValueError("BIXOLON/SLCS peeler command is not supported yet. Use tear_off or cutter.")
     raise ValueError(f"media_handling '{media_handling}' is not supported for {language}.")
+
+
+def _graphics_required(value: str, config: BarcodeConfig) -> bool:
+    return (config.barcode_type not in NATIVE_1D_TYPES or bool(config.encoder_options)
+            or not re.fullmatch(r"[A-Za-z0-9 ._/$+%:-]+", value))
+
+
+def _encoder_settings(config: BarcodeConfig) -> dict[str, object]:
+    definitions = option_definitions(config.barcode_type)
+    if config.barcode_type in {"qr", "gs1_qr", "hibcqr"} and config.qr_model != 2:
+        raise ValueError("공통 QR 출력 엔진은 모델 2를 지원합니다. QR 모델 2로 설정하세요.")
+    options: dict[str, object] = {}
+    if config.barcode_type in ONE_D_BARCODE_TYPES:
+        options["module_width"] = config.one_d_narrow
+        options["bar_height"] = max(1, config.one_d_height // max(1, config.one_d_narrow))
+    elif config.barcode_type in {"qr", "gs1_qr", "microqr", "rmqr", "hibcqr"}:
+        options.update(cell_size=config.qr_cell_size, qr_ecc=config.qr_ecc)
+    elif config.barcode_type in {"datamatrix", "gs1_datamatrix", "hibcdatamatrix"}:
+        options["cell_size"] = config.datamatrix_cell_size
+    elif config.barcode_type in {"pdf417", "compactpdf417", "hibcpdf417"}:
+        options.update(cell_size=config.pdf417_module_width, pdf417_rows=config.pdf417_rows,
+                       pdf417_columns=config.pdf417_columns, pdf417_security=config.pdf417_security_level,
+                       pdf417_module_height=config.pdf417_module_height / max(1, config.pdf417_module_width))
+    else:
+        options["cell_size"] = 2
+    options = {key: value for key, value in options.items() if key in definitions}
+    options.update(config.encoder_options)
+    return options
+
+
+def _barcode_output(language: str, value: str, config: BarcodeConfig, width: int, height: int,
+                    layout: dict[str, int]) -> CommandPayload:
+    if not _graphics_required(value, config):
+        # Validate actual symbology semantics before emitting any device command.
+        probe = render_barcode(config.barcode_type, value, _encoder_settings(config))
+        object_width, object_height = probe.size
+        object_width = max(object_width, _estimated_1d_width(config.barcode_type, value, config))
+        if config.rotation in {90, 270}:
+            object_width, object_height = object_height, object_width
+        if config.x < 0 or config.y < 0 or config.x + object_width > width or config.y + object_height > height:
+            raise ValueError("바코드가 라벨 영역을 넘습니다. 라벨 또는 모듈 크기를 확인하세요.")
+        return {"slcs": _render_slcs_barcode, "tspl": _render_tspl_barcode, "zpl": _render_zpl_barcode}[language](value, config)
+    options = _encoder_settings(config)
+    image = render_barcode(config.barcode_type, value, options).convert("1")
+    if config.barcode_type in ONE_D_BARCODE_TYPES:
+        if bool(options.get("human_readable", config.one_d_human_readable)):
+            display_value = value
+            if config.barcode_type in GS1_TYPES:
+                from .gs1 import build_gs1, parse_gs1
+                display_value = build_gs1(parse_gs1(value)).hri
+            font = _load_label_font(16)
+            hri = Image.new("1", (image.width, image.height + 24), 1)
+            hri.paste(image, (0, 0))
+            draw = ImageDraw.Draw(hri)
+            box = draw.textbbox((0, 0), display_value, font=font)
+            if box[2] - box[0] > image.width:
+                raise ValueError("표시문자가 바코드 폭을 넘습니다. 모듈 크기를 키우거나 표시문자를 끄세요.")
+            draw.text(((image.width - box[2] + box[0]) // 2, image.height + 3), display_value, fill=0, font=font)
+            image = hri
+    if config.rotation not in {0, 90, 180, 270}:
+        raise ValueError("바코드 회전은 0, 90, 180, 270도여야 합니다.")
+    if config.rotation:
+        image = image.rotate(-config.rotation, expand=True)
+    x = (width - image.width) // 2 if config.auto_layout else config.x
+    y = layout["barcode_y"] if config.auto_layout else config.y
+    if x < 0 or y < 0 or x + image.width > width or y + image.height > height:
+        raise ValueError(f"바코드가 라벨 영역을 넘습니다 ({image.width}×{image.height}도트). 라벨을 키우거나 모듈/행/열 설정을 줄이세요.")
+    if language == "tspl":
+        return _tspl_bitmap_command(x, y, image)
+    if language == "slcs":
+        data = io.BytesIO()
+        image.save(data, format="BMP")
+        return f"BMP{x},{y}\r\n".encode("ascii") + data.getvalue() + b"\r\n"
+    width_bytes = (image.width + 7) // 8
+    payload = bytearray()
+    pixels = image.load()
+    for row in range(image.height):
+        for offset in range(width_bytes):
+            packed = 0
+            for bit in range(8):
+                col = offset * 8 + bit
+                if col < image.width and pixels[col, row] == 0:
+                    packed |= 0x80 >> bit
+            payload.append(packed)
+    total = len(payload)
+    return f"^FO{x},{y}^GFA,{total},{total},{width_bytes},{payload.hex().upper()}^FS\n"

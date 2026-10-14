@@ -1,0 +1,24 @@
+{
+  "version": "2.16.0",
+  "source_url": "https://downloads.sourceforge.net/project/zint/zint/2.16.0/zint-2.16.0-src.tar.gz",
+  "binary_sha256": "1497e712959a8109dc0f61bd7a1ee61e4d596142d865f492ee0ab30ae6cf73ee",
+  "source_sha256": "37e767afada2403bb9ae49b93a19eb0a9e944a0c278d9f23522746b3d08a3c4b",
+  "runtime": "Windows 10/11 built-in Universal C Runtime; no VCRUNTIME140/MSVCP140 or external PNG/zlib DLL",
+  "source_archive": "tools/zint/zint-2.16.0-src.tar.gz",
+  "upstream_binary_url": "https://downloads.sourceforge.net/project/zint/zint/2.16.0/zint-2.16.0-win32.zip",
+  "binary_origin": "Locally compiled unmodified Zint 2.16.0 source, Zig 0.15.2, x86_64-windows-gnu, -Os -s -DZINT_NO_PNG -DZINT_STATIC",
+  "toolchain_url": "https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip",
+  "toolchain_sha256": "3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c",
+  "build_script": "tools/zint/build_static.py",
+  "imports": [
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-private-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll",
+    "api-ms-win-crt-string-l1-1-0.dll",
+    "KERNEL32.dll",
+    "api-ms-win-crt-environment-l1-1-0.dll",
+    "api-ms-win-crt-math-l1-1-0.dll"
+  ],
+  "architecture": "AMD64"
+}

@@ -51,3 +51,19 @@ cloudflared*.log
 **/print_queue.xlsx
 **/release_manifest.json
 **/last_run.log
+.cleanup_archives/
+
+# Public source repository: runtime packages are published as Release assets.
+_backup/
+*.pid
+*.zip
+*.xlsx
+*.xlsm
+*.dll
+63187D60
+74E87D60
+tools/ocr/*
+!tools/ocr/*.md
+!tools/ocr/*LICENSE*
+!tools/ocr/*COPYING*
+!개발소스/barcode_label_automation/vendor/zint/zint.exe

@@ -61,6 +61,28 @@ def test_should_exclude_runtime_artifacts(relative: str, is_dir: bool) -> None:
     assert should_exclude(relative, is_dir=is_dir)
 
 
+@pytest.mark.parametrize("name", ("tesseract.exe", "winpath.exe"))
+def test_customer_tools_are_not_exposed_at_package_root(name: str) -> None:
+    assert should_exclude(name, is_dir=False)
+    assert not should_exclude(Path("tools/ocr") / name, is_dir=False)
+
+
+def test_deployment_excludes_root_ocr_tools_without_removing_runtime(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    _write_required_customer_files(source)
+    for name in ("tesseract.exe", "winpath.exe"):
+        (source / name).write_bytes(b"root tool")
+        internal = source / "tools/ocr" / name
+        internal.parent.mkdir(parents=True, exist_ok=True)
+        internal.write_bytes(b"internal runtime")
+    result = create_customer_deployment(source, tmp_path / "deploy", date_stamp="20261008")
+    for name in ("tesseract.exe", "winpath.exe"):
+        assert not (result.target_dir / name).exists()
+        assert (result.target_dir / "tools/ocr" / name).read_bytes() == b"internal runtime"
+        assert (source / name).read_bytes() == b"root tool"
+    assert validate_release_manifest(result.target_dir)[0]
+
+
 def test_create_customer_deployment_copies_clean_tree_and_regenerates_manifest(tmp_path: Path) -> None:
     source = tmp_path / "source"
     deploy_root = tmp_path / "deploy"

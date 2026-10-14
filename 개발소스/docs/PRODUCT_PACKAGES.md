@@ -43,6 +43,10 @@ compatibility.
 
 ### Model approval procedure
 
+Use [DEVICE_ACCEPTANCE_RECORD.md](DEVICE_ACCEPTANCE_RECORD.md) to record actual
+device results. The empty form is not evidence or approval. Commercial terms
+remain pending in [PAID_SUPPORT_TERMS_DRAFT.md](PAID_SUPPORT_TERMS_DRAFT.md).
+
 1. Record the exact manufacturer and model.
 2. Store the official command manual and index its file, hash, and relevant
    pages in `references/manufacturer-docs.md`.

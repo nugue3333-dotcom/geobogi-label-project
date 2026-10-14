@@ -8,10 +8,13 @@ import stat
 import tempfile
 import unicodedata
 import zipfile
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
+
+from .value_jobs import ValueJobStore
 
 
 BACKUP_FILES = (
@@ -22,12 +25,14 @@ BACKUP_FILES = (
     "labels.xlsm",
     "sample_direct_open.cllabel",
     "sample_direct_open.gblabel",
+    "out/value_jobs/ledger.json",
 )
 BACKUP_DIRS = ("templates", "db", "assets/images")
 MANIFEST_FILE = "backup_manifest.json"
 LEGACY_MANIFEST_FILE = "backup_manifest.txt"
 BACKUP_FORMAT = "chaeumlab-customer-backup"
 BACKUP_VERSION = 1
+VALUE_LEDGER_FILE = "out/value_jobs/ledger.json"
 
 MAX_FILE_SIZE = 512 * 1024 * 1024
 MAX_TOTAL_SIZE = 2 * 1024 * 1024 * 1024
@@ -97,20 +102,27 @@ def restore_customer_backup(base_dir: Path, backup_path: Path) -> RestoreResult:
         if not managed_entries:
             raise CustomerBackupError("복원할 고객 데이터 파일이 없습니다.")
 
-        # A restore never mutates live data unless a durable, verified backup exists.
-        pre_restore_backup = _create_customer_backup(base_dir, allow_empty=True)
-        try:
-            restored_files = _apply_exact_snapshot(base_dir, payload_dir, rollback_dir)
-        except RestoreRollbackError:
-            preserve_staging = True
-            raise
+        with _value_ledger_guard(base_dir, force=True):
+            _check_value_ledger_restore(base_dir, payload_dir)
+            # A restore never mutates live data unless a durable, verified backup exists.
+            pre_restore_backup = _create_customer_backup(base_dir, allow_empty=True, ledger_locked=True)
+            try:
+                restored_files = _apply_exact_snapshot(base_dir, payload_dir, rollback_dir)
+            except RestoreRollbackError:
+                preserve_staging = True
+                raise
         return RestoreResult(restored_files=restored_files, pre_restore_backup=pre_restore_backup)
     finally:
         if not preserve_staging:
             shutil.rmtree(staging_root, ignore_errors=True)
 
 
-def _create_customer_backup(base_dir: Path, *, allow_empty: bool) -> Path:
+def _create_customer_backup(base_dir: Path, *, allow_empty: bool, ledger_locked: bool = False) -> Path:
+    with nullcontext() if ledger_locked else _value_ledger_guard(Path(base_dir)):
+        return _create_customer_backup_locked(base_dir, allow_empty=allow_empty)
+
+
+def _create_customer_backup_locked(base_dir: Path, *, allow_empty: bool) -> Path:
     base_dir = Path(base_dir).resolve()
     if not base_dir.exists():
         raise CustomerBackupError(f"백업할 데이터 폴더가 없습니다.\n{base_dir}")
@@ -235,7 +247,8 @@ def _format_legacy_manifest(base_dir: Path, entries: list[_ManifestEntry]) -> st
             "",
             "주의",
             "- 이 백업에는 설정, 상품 DB, 인쇄 데이터, 라벨 템플릿과 도안 이미지가 포함됩니다.",
-            "- EXE 실행 파일, out 폴더, 실행 로그, 지원 ZIP은 포함하지 않습니다.",
+            "- 값 생성 발급·재인쇄 기록 out/value_jobs/ledger.json은 포함합니다.",
+            "- EXE 실행 파일과 나머지 out 폴더, 실행 로그, 지원 ZIP은 포함하지 않습니다.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -282,6 +295,9 @@ def _validate_backup_archive(archive_path: Path, extract_dir: Path | None = None
                 if extract_dir is not None and _is_managed_file(name):
                     destination = _safe_extract_destination(extract_dir, name)
                 _read_and_verify_member(archive, info, entry, destination)
+            ledger_info = payload_infos.get(VALUE_LEDGER_FILE)
+            if ledger_info is not None:
+                _validated_value_ledger_bytes(_read_member_bytes(archive, ledger_info, MAX_FILE_SIZE))
             return entries
     except CustomerBackupError:
         raise
@@ -551,9 +567,51 @@ def _is_managed_directory(path: str) -> bool:
         parts = directory.split("/")
         for index in range(1, len(parts) + 1):
             allowed.add("/".join(parts[:index]))
+    allowed.update({"out", "out/value_jobs"})
     return path in allowed or any(path.startswith(directory + "/") for directory in BACKUP_DIRS)
 
 
 def _path_is_link_like(path: Path) -> bool:
     is_junction = getattr(path, "is_junction", None)
     return path.is_symlink() or bool(is_junction and is_junction())
+
+
+@contextmanager
+def _value_ledger_guard(base_dir: Path, *, force: bool = False):
+    store = ValueJobStore(base_dir.resolve())
+    if not force and not store.directory.exists():
+        yield
+        return
+    _validate_live_parent(base_dir.resolve(), store.directory)
+    try:
+        with store.exclusive_access():
+            yield
+    except ValueError as exc:
+        raise CustomerBackupError(f"발급 기록이 사용 중이거나 안전하게 확인되지 않았습니다: {exc}") from exc
+
+
+def _validated_value_ledger_bytes(content: bytes) -> dict:
+    from .value_jobs import validate_ledger_bytes
+    try:
+        return validate_ledger_bytes(content)
+    except ValueError as exc:
+        raise CustomerBackupError(f"값 발급 기록 검증 실패: {exc}") from exc
+
+
+def _check_value_ledger_restore(base_dir: Path, payload_dir: Path) -> None:
+    current_path = base_dir / VALUE_LEDGER_FILE
+    incoming_path = payload_dir / VALUE_LEDGER_FILE
+    if not current_path.exists():
+        return
+    _validate_source_file(base_dir, current_path, VALUE_LEDGER_FILE)
+    current = _validated_value_ledger_bytes(current_path.read_bytes())
+    if not incoming_path.exists():
+        raise CustomerBackupError("이 백업에는 현재 PC의 값 발급 기록이 없습니다. 번호 중복을 막기 위해 복원을 중단했습니다. 최신 백업으로 복원하거나 지원 점검을 받으세요.")
+    incoming = _validated_value_ledger_bytes(incoming_path.read_bytes())
+    for key, value in current["sequences"].items():
+        candidate = incoming["sequences"].get(key)
+        if candidate is None or candidate["rule_digest"] != value["rule_digest"] or candidate["next"] < value["next"]:
+            raise CustomerBackupError("백업의 발급 번호가 현재 기록보다 오래되거나 규칙이 다릅니다. 번호 중복을 막기 위해 복원을 중단했습니다. 최신 백업과 실제 사용 번호를 확인하세요.")
+    for key, value in current["jobs"].items():
+        if incoming["jobs"].get(key) != value:
+            raise CustomerBackupError("백업에서 현재 PC의 출력 값 기록이 누락되거나 바뀌었습니다. 불확실한 전송·재인쇄 값을 보존하기 위해 복원을 중단했습니다. 최신 백업 또는 지원 점검이 필요합니다.")
