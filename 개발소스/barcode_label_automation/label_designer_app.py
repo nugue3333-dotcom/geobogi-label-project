@@ -578,7 +578,6 @@ def _normalize_label_mm(value: object, fallback: float) -> int | float:
         number = float(fallback)
     if not math.isfinite(number) or number <= 0:
         number = 1.0
-    number = round(number, 1)
     return int(number) if number.is_integer() else number
 
 
@@ -7986,7 +7985,27 @@ class LabelDesignerApp(tk.Tk):
             parser.write(config_file)
 
     def render_designer_print_command(self, config: object, row: dict[str, str], print_qty: int) -> bytes:
+        from .printer_offsets import validate_offsets
         language = str(config.printer.language)  # type: ignore[attr-defined]
+        label_settings = getattr(config, "label", None)
+        template_label = getattr(self, "template", {}).get("label", {})
+        label_height_mm = getattr(label_settings, "height_mm", template_label.get("height_mm", 40))
+        dpi = getattr(label_settings, "dpi", 203)
+        validate_offsets(
+            language,
+            getattr(label_settings, "media_type", "gap"),
+            label_height_mm,
+            dpi,
+            getattr(label_settings, "gap_offset_mm", None),
+            getattr(label_settings, "feed_offset_mm", None),
+            brand=getattr(config.printer, "brand", None),
+            model=getattr(config.printer, "model", ""),
+        )
+        from .media_geometry import needs_host_transform, transform_image
+        if needs_host_transform(config):
+            from .templates import render_media_bitmap
+            page = self._render_logical_print_image(config, row)
+            return render_media_bitmap(transform_image(page, config), config, print_qty)
         if language == "tspl":
             return self._render_tspl_designer_command(config, row, print_qty)
         if language == "slcs":
@@ -7995,7 +8014,49 @@ class LabelDesignerApp(tk.Tk):
             return self._render_zpl_designer_command(config, row, print_qty)
         raise ValueError("printer.language must be slcs, tspl, or zpl.")
 
+    def _render_logical_print_image(self, config, row):
+        from .media_geometry import logical_size
+        dpi = config.label.dpi
+        label = self.template["label"]
+        size = (mm_to_dots(float(label["width_mm"]), dpi),
+                mm_to_dots(float(label["height_mm"]), dpi))
+        expected = logical_size(mm_to_dots(config.label.width_mm, dpi),
+                                mm_to_dots(config.label.height_mm, dpi),
+                                config.printer.print_orientation)
+        if size != expected:
+            raise ValueError("도안과 용지 규격·방향이 다릅니다. 용지 설정을 다시 확인하세요.")
+        outside = outside_elements(list(self._drawing_elements()), float(label["width_mm"]), float(label["height_mm"]))
+        if outside:
+            raise ValueError("개체가 라벨 영역을 벗어납니다. 위치와 크기를 조정하세요.")
+        page = Image.new("RGB", size, "white")
+        page.info["protected_bounds"] = []
+        for element in self._drawing_elements():
+            if not element.get("printable", True):
+                continue
+            x = mm_to_dots(float(element.get("x", 0)), dpi)
+            y = mm_to_dots(float(element.get("y", 0)), dpi)
+            w = max(1, mm_to_dots(float(element.get("width", 1)), dpi))
+            h = max(1, mm_to_dots(float(element.get("height", 1)), dpi))
+            if x < 0 or y < 0 or x + w > size[0] or y + h > size[1]:
+                raise ValueError("도트 변환 후 개체가 라벨 영역을 벗어납니다. 여백을 조정하세요.")
+            if element.get("type") in {"barcode", "qr"}:
+                page.info["protected_bounds"].append((x, y, w, h))
+            if element.get("type") == "line" and _line_is_vertical(element):
+                draw = ImageDraw.Draw(page)
+                thickness = _stroke_width_dots(element, dpi)
+                lx = _line_dot_x(x, w, thickness)
+                draw.line((lx, y, lx, y + h - 1), fill="black", width=thickness)
+                continue
+            bitmap = self._render_element_bitmap(
+                dict(element, _render_dpi=dpi), row, w, h,
+                transparent=element.get("type") in STROKE_ELEMENT_TYPES,
+            )
+            rgba = bitmap.convert("RGBA")
+            page.paste(rgba.convert("RGB"), (x, y), rgba.getchannel("A"))
+        return page
+
     def _render_slcs_designer_command(self, config: object, row: dict[str, str], print_qty: int) -> bytes:
+        from .printer_offsets import slcs_media_commands
         label = self.template["label"]  # type: ignore[index]
         width_mm = float(label["width_mm"])  # type: ignore[index]
         height_mm = float(label["height_mm"])  # type: ignore[index]
@@ -8011,10 +8072,13 @@ class LabelDesignerApp(tk.Tk):
             self._slcs_print_method_command(config.printer.print_method).replace("\n", "\r\n").encode("ascii"),  # type: ignore[attr-defined]
             self._slcs_media_handling_command(str(getattr(config.printer, "media_handling", "tear_off"))).replace("\n", "\r\n").encode("ascii"),  # type: ignore[attr-defined]
             f"SW{width_dot}\r\n".encode("ascii"),
-            self._slcs_media_type_command(
+            slcs_media_commands(
                 height_dot,
                 gap_dot,
                 str(getattr(config.label, "media_type", "gap")),  # type: ignore[attr-defined]
+                dpi,
+                getattr(config.label, "gap_offset_mm", None),
+                getattr(config.label, "feed_offset_mm", None),
             ).replace("\n", "\r\n").encode("ascii"),
             print_orientation_command(
                 "slcs",
@@ -8027,6 +8091,7 @@ class LabelDesignerApp(tk.Tk):
         return b"".join(parts)
 
     def _render_zpl_designer_command(self, config: object, row: dict[str, str], print_qty: int) -> bytes:
+        from .printer_offsets import zebra_feed_command
         label = self.template["label"]  # type: ignore[index]
         width_mm = float(label["width_mm"])  # type: ignore[index]
         height_mm = float(label["height_mm"])  # type: ignore[index]
@@ -8034,6 +8099,12 @@ class LabelDesignerApp(tk.Tk):
         width_dot = mm_to_dots(width_mm, dpi)
         height_dot = mm_to_dots(height_mm, dpi)
         parts = [
+            zebra_feed_command(
+                dpi,
+                getattr(config.label, "feed_offset_mm", None),
+                brand=getattr(config.printer, "brand", None),
+                model=getattr(config.printer, "model", ""),
+            ),
             "^XA\n",
             "^CI28\n",
             print_orientation_command(
@@ -8062,7 +8133,7 @@ class LabelDesignerApp(tk.Tk):
         height_dot = mm_to_dots(height_mm, dpi)
         header = (
             f"SIZE {width_mm:g} mm,{height_mm:g} mm\n"
-            f"{self._tspl_media_type_command(float(config.label.gap_mm), str(getattr(config.label, 'media_type', 'gap')))}"  # type: ignore[attr-defined]
+            f"{self._configured_tspl_media_command(config)}"
             f"{self._tspl_codepage_command(config.printer.command_encoding)}"  # type: ignore[attr-defined]
             f"DENSITY {config.printer.print_density}\n"  # type: ignore[attr-defined]
             f"SPEED {config.printer.print_speed}\n"  # type: ignore[attr-defined]
@@ -8077,6 +8148,16 @@ class LabelDesignerApp(tk.Tk):
         commands.append(self._tspl_media_handling_command(str(getattr(config.printer, "media_handling", "tear_off"))).encode("ascii"))  # type: ignore[attr-defined]
         commands.append(f"PRINT 1,{print_qty}\n".encode("ascii"))
         return b"".join(command for command in commands if command)
+
+    @staticmethod
+    def _configured_tspl_media_command(config: object) -> str:
+        from .templates import tspl_media_commands
+        return tspl_media_commands(
+            config.label.gap_mm,
+            config.label.media_type,
+            getattr(config.label, "gap_offset_mm", 0.0),
+            getattr(config.label, "feed_offset_mm", None),
+        )
 
     def _render_tspl_element(self, element: dict[str, object], row: dict[str, str], dpi: int, width_dot: int, height_dot: int, config: object) -> bytes:
         element = dict(element, _render_dpi=dpi)

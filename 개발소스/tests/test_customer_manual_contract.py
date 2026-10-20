@@ -51,10 +51,10 @@ def test_manual_verifier_rejects_obsolete_menu_paths(path):
 
 
 def test_release_version_and_new_help_file_names():
-    assert verifier.MANUAL_VERSION == "2026.10.13.05"
+    assert verifier.MANUAL_VERSION == "2026.10.20.01"
     for name in ("build_customer_manuals.py", "create_customer_manual.py"):
         source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
-        assert "2026.10.13.05" in source
+        assert verifier.MANUAL_VERSION in source
         assert "capture_contract_errors(ROOT)" in source
 
 
@@ -71,7 +71,7 @@ def test_capture_provenance_requires_style_and_all_current_screens(tmp_path):
         path.write_text(name, encoding="utf-8")
         group = "ui_sources" if name in verifier.REQUIRED_UI_SOURCES else "brand_sources"
         metadata[group][name] = hashlib.sha256(path.read_bytes()).hexdigest()
-    for name in ("label-designer-final.png", "label-designer-data.png", "label-manager-final.png", "printer-settings.png", "frozen-udi-content.png", "frozen-udi-size.png"):
+    for name in ("label-designer-final.png", "label-designer-data.png", "label-manager-final.png", "manager-compact-preview.png", "printer-settings.png", "frozen-udi-content.png", "frozen-udi-size.png"):
         path = output / name
         path.write_bytes(name.encode("utf-8"))
         metadata["screenshots"].append({"filename": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
@@ -108,11 +108,21 @@ def test_manual_builders_document_current_usability_contract():
     for name in ("build_customer_manuals.py", "create_customer_manual.py", "build_quick_customer_guide.py"):
         source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
         assert not verifier.text_contract_errors(source, ())
-        assert "2026.10.13.05" in source
+        assert verifier.MANUAL_VERSION in source
     designer = verifier.EXPECTED["채움랩_라벨디자이너_고객용_매뉴얼.pdf"][2]
     assert all(phrase in designer for phrase in ("Ctrl+C", "Ctrl+V", "Ctrl+D", "공통 규격", "용지 설정"))
     manager = verifier.EXPECTED["채움랩_라벨출력관리_고객용_매뉴얼.pdf"][2]
     assert all(phrase in manager for phrase in ("상한 없이", "양의 정수", "이미 프린터"))
+
+
+def test_compact_automatic_layout_has_current_manual_and_capture_contract():
+    required = ("40×20mm", "최소 5pt", "두 열")
+    manager = verifier.EXPECTED["채움랩_라벨출력관리_고객용_매뉴얼.pdf"][2]
+    assert all(phrase in manager for phrase in required)
+    source = (ROOT/'scripts/build_customer_manuals.py').read_text(encoding='utf-8')
+    assert verifier.text_contract_errors(source, required) == []
+    assert "barcode_label_automation/compact_auto_layout.py" in verifier.REQUIRED_UI_SOURCES
+    assert "manager-compact-preview.png" in source
 
 
 def test_manual_capture_tracks_usability_modules():

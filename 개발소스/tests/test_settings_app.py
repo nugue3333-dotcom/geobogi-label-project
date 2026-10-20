@@ -333,11 +333,11 @@ def test_settings_ui_hides_model_name_and_keeps_brand_postprocessing_guardrails(
 
 
 def test_settings_ui_includes_whole_label_180_degree_orientation_control():
-    source = inspect.getsource(SettingsApp._build_printer_section)
+    source = inspect.getsource(SettingsApp._build_label_section)
 
     assert "print_orientation_var" in source
     assert "PRINT_ORIENTATION_VALUES" in source
-    assert "180도 회전" in inspect.getsource(__import__("barcode_label_automation.settings_app", fromlist=["PRINT_ORIENTATION_LABELS"]))
+    assert "세로 180도" in inspect.getsource(__import__("barcode_label_automation.settings_app", fromlist=["PRINT_ORIENTATION_LABELS"]))
 
 
 def test_save_settings_rejects_bixolon_peeler_until_slcs_command_is_confirmed(tmp_path):
@@ -459,7 +459,7 @@ def test_dirty_tracking_covers_every_saved_printer_and_barcode_field():
     app = SettingsApp.__new__(SettingsApp)
     names = (
         "brand", "mode", "print_method", "print_orientation", "media_handling", "print_speed",
-        "print_density", "ip", "port", "printer_name", "width", "height", "dpi", "gap", "media_type",
+        "print_density", "ip", "port", "printer_name", "width", "height", "dpi", "gap", "offset_x", "offset_y", "gap_offset", "feed_offset", "media_type",
         "barcode_type", "barcode_auto_layout", "barcode_x", "barcode_y", "barcode_rotation", "one_d_height",
         "one_d_narrow", "one_d_wide", "one_d_human_readable", "qr_model", "qr_ecc", "qr_cell_size",
         "datamatrix_cell_size", "pdf417_rows", "pdf417_columns", "pdf417_security", "pdf417_module_width",

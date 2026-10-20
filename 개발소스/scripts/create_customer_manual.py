@@ -249,7 +249,7 @@ def add_footer(section) -> None:
     paragraph = footer.paragraphs[0]
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     paragraph.paragraph_format.space_after = Pt(0)
-    run = paragraph.add_run("채움랩 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.10.13.05")
+    run = paragraph.add_run("채움랩 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.10.20.01")
     set_run_font(run, size_pt=8.5, color=COLOR_MUTED)
     paragraph.add_run(" | ")
     page = OxmlElement("w:fldSimple")
@@ -275,7 +275,7 @@ def add_cover(doc: Document) -> None:
         ("문서 용도", "프린터 설정, 라벨 디자인, 상품 엑셀 연결과 일상 출력을 한 흐름으로 익히는 사용 설명서"),
         ("장비 확인", "BIXOLON, TSC, Zebra, SEWOO 브랜드 설정은 실제 모델의 지원 명령과 장착 옵션을 별도로 확인합니다."),
         ("배포 폴더", "고객용_실행폴더"),
-        ("문서 버전", "3.0 / 2026.10.13.05"),
+        ("문서 버전", "3.0 / 2026.10.20.01"),
     ]
     for row, (label, value) in zip(metadata.rows, rows):
         fill_cell(row.cells[0], label, bold=True, color=COLOR_NAVY)
@@ -360,7 +360,7 @@ def add_product_screens(doc: Document) -> None:
         if not path.exists():
             raise FileNotFoundError("최신 실제 화면 캡처가 없습니다: " + str(path))
         doc.add_picture(str(path), width=Inches(6.5))
-        add_body(doc, "2026.10.13.05 실제 프로그램 화면. 창 크기와 Windows 배율에 따라 패널 폭과 표시 위치가 달라질 수 있습니다.")
+        add_body(doc, "2026.10.20.01 실제 프로그램 화면. 창 크기와 Windows 배율에 따라 패널 폭과 표시 위치가 달라질 수 있습니다.")
 
 
 def add_file_map(doc: Document) -> None:
@@ -535,7 +535,10 @@ def add_installer_settings(doc: Document) -> None:
         ("인쇄 방식", "감열 / 열전사", "감열은 리본 없음, 열전사는 리본 사용 환경입니다."),
         ("ip, port", "예: 192.168.0.130 / 9100", "network 방식일 때 프린터 IP와 포트를 입력합니다."),
         ("windows_printer_name", "auto 또는 프린터 이름", "windows_raw 방식일 때 Windows 프린터 이름을 지정합니다."),
-        ("width_mm, height_mm", "예: 50 / 30", "라벨 용지 가로, 세로 크기입니다."),
+        ("width_mm, height_mm", "예: 50.5 / 30.25", "실제 라벨 용지 폭·길이(mm). 소수점 지원."),
+        ("print_orientation", "normal / landscape / rotate_180 / landscape_180", "세로 / 가로 / 세로 180도 / 가로 180도."),
+        ("offset_x_mm, offset_y_mm", "예: 1.25 / -0.5", "내용 전체 보정. +오른쪽 / +아래쪽. 영역 초과는 차단."),
+        ("gap_offset_mm, feed_offset_mm", "auto 또는 mm", "BIXOLON 마크-절취선은 SL p4(200도트 예시)이며 p4 제조사 최대값은 확인되지 않아 용지 길이·SL p1 페이지 길이(최대 2432도트) 상한을 사용합니다. TA 절취·커터 정지는 별도 ±100도트이며 영구 저장됩니다. TSC GAP/BLINE 추가 이송은 0~용지 길이, OFFSET은 ±25.4mm입니다. TSC auto는 GAP/BLINE 전체를 생략하고 명시적 0은 선택한 용지 유형과 이송 0을 적용합니다. Zebra ~TA는 ±120단계(600 DPI는 2도트/단계)."),
         ("media_type", "gap / black_mark / continuous", "갭 용지, 블랙마크 용지, 연속 용지 중 실제 라벨지를 선택합니다."),
         ("gap_mm", "예: 3", "갭 용지와 블랙마크 용지는 0보다 크게 입력합니다. 연속 용지는 0을 권장합니다."),
     ]
@@ -764,6 +767,35 @@ def main() -> None:
         raise FileNotFoundError("최신 UDI 편집 화면 캡처가 없습니다.")
     doc.add_picture(str(udi_screen), width=Inches(6.5))
     doc.add_paragraph("UDI 구성 화면에서 DI/PI를 입력하고 바코드 속성의 바코드 종류·크기와 표시문자에서 실제 크기를 확인합니다. 편집창을 적용한 뒤 메인 화면의 전체 데이터 검증으로 모든 DB 행을 검사합니다. 시험용 예제 번호를 실제 고객 발급값으로 사용하지 마세요.")
+    doc.add_page_break()
+    doc.add_heading("소수 규격과 도안 인식 사용법", level=1)
+    guide = (ROOT / "docs/MEDIA_AND_OCR_GUIDE.md").read_text(encoding="utf-8")
+    for line in guide.split('## 제조사별 고급 오프셋')[0].splitlines()[2:]:
+        if line.strip():
+            doc.add_paragraph(line.replace('**', ''))
+    doc.add_page_break()
+    doc.add_heading("제조사별 오프셋 조정", level=1)
+    doc.add_paragraph("센서·절취선 거리는 프린터 설정의 용지 종류 아래에서 조정합니다. 좌우·상하 보정은 인쇄 내용 위치를 이동하고, 공급 보정은 장비의 배출·정지 위치를 조정합니다. 실물 용지 이동은 방향·위치 미리보기에 표시되지 않습니다.")
+    offset_table = doc.add_table(rows=1, cols=3)
+    for cell, header in zip(offset_table.rows[0].cells, ("제조사", "센서 기준 보정", "배출·절취·커터 보정")):
+        fill_cell(cell, header, bold=True)
+    for row_data in (
+        ("BIXOLON SLCS", "갭·블랙마크 / SL p4\n200도트 예시, p4 최대값 미기재\n프로그램은 용지·페이지 길이 상한", "TA ±100도트\n절취·커터 정지\n프린터 영구 저장"),
+        ("TSC TSPL", "갭·블랙마크 GAP/BLINE 추가 이송\n0~용지 길이, auto는 명령 전체 생략", "OFFSET ±25.4mm\n별도 공급 보정"),
+        ("Zebra ZPL", "해당 보정은 장비에서 설정", "~TA ±120단계\n600 DPI는 2도트/단계\nHC100은 0 이상"),
+        ("SEWOO", "모델별 명령 확인 필요", "확인 전 고급 배출 보정 미제공"),
+    ):
+        for cell, text in zip(offset_table.add_row().cells, row_data):
+            fill_cell(cell, text)
+    style_table(offset_table, [1800, 3780, 3780])
+    doc.add_paragraph("mm 입력은 장비 단위로 반올림합니다. TSC에서 현재 설정 사용은 GAP/BLINE 명령 전체를 생략하고, 직접 0은 선택한 용지 유형의 추가 이송 0을 적용합니다. BIXOLON p4를 명시하면 SL과 함께 인쇄 전 후진용 SF1을 보냅니다. 이 프로그램의 p4 상한은 제조사 최대 허용값이 아니라 용지·페이지 길이를 기준으로 한 안전 제한입니다.")
+    doc.add_paragraph("설정 저장은 config.ini만 변경하며 실제 명령은 출력 작업에 포함됩니다. 빅솔론 TA는 프린터에 영구 저장되므로 기존 값을 기록하세요. 현재 프린터 설정 사용은 장비에 저장됐던 과거 값을 복원하는 기능이 아닙니다. 제조사·용지마다 별도 입력 초안을 사용합니다. 구버전 빅솔론의 비활성 칸에 저장된 기본 0은 장비 설정 유지로 불러옵니다.")
+    doc.add_paragraph("Windows RAW 전송에는 드라이버 보정이 자동 적용되지 않습니다. 실제 1장으로 첫 장과 다음 장 시작 위치·배출·커터·스캔을 확인합니다. 제조사 명령 검증은 실물 모델 호환성 승인과 별도입니다.")
+    doc.add_page_break()
+    doc.add_heading("작은 라벨 자동 배치", level=1)
+    doc.add_paragraph("자동 기본 배치에서도 현재 도안 미리보기를 사용할 수 있습니다. 40×20mm의 네 항목은 글자 폭·높이를 측정해 두 열 또는 여러 줄로 배치합니다. 8pt부터 최소 5pt까지 맞추며 값·항목·바코드 필수 여백은 보존합니다. 들어가지 않는 긴 값은 용지 크기나 저장 도안을 조정하세요. 미리보기는 원본 DB·인쇄 데이터·설정을 변경하거나 프린터로 전송하지 않습니다. 닫기 또는 Esc로 돌아갑니다.")
+    doc.add_picture(str(ROOT / "outputs/ui-redesign-preview/manager-compact-preview.png"), width=Inches(6.5))
+    doc.add_paragraph("자동 기본 배치 사용 → 현재 도안 미리보기에서 첫 출력 대상을 확인합니다. 그림은 시험용 예제이며 실제 상품명·상품 코드·LOT·수량·바코드를 대조하세요. 실제 출력용 흑백 도트를 미리 보여 주며 프린터로 보내지 않습니다. 첫 장에서 글자 크기·인쇄 위치와 스캔 결과를 확인합니다.")
     doc.core_properties.subject = "Excel 기반 라벨 출력 패키지 사용 설명서"
     doc.core_properties.author = "채움랩"
     doc.save(OUTPUT_DOCX)

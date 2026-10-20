@@ -10,6 +10,7 @@ from pathlib import Path
 from .barcode_catalog import SUPPORTED_BARCODE_TYPES
 from .errors import ConfigError
 from .runtime_paths import runtime_base_dir
+from .printer_offsets import validate_offsets
 
 
 @dataclass(frozen=True)
@@ -31,11 +32,15 @@ class PrinterConfig:
 
 @dataclass(frozen=True)
 class LabelConfig:
-    width_mm: int
-    height_mm: int
+    width_mm: float
+    height_mm: float
     dpi: int
     gap_mm: float
     media_type: str
+    offset_x_mm: float = 0.0
+    offset_y_mm: float = 0.0
+    gap_offset_mm: float | None = None
+    feed_offset_mm: float | None = None
 
 
 @dataclass(frozen=True)
@@ -180,7 +185,7 @@ DEFAULT_DENSITY_BY_LANGUAGE = {
 
 SUPPORTED_LANGUAGES = {"slcs", "tspl", "zpl"}
 SUPPORTED_PRINT_METHODS = {"direct_thermal", "thermal_transfer"}
-SUPPORTED_PRINT_ORIENTATIONS = {"normal", "rotate_180"}
+SUPPORTED_PRINT_ORIENTATIONS = {"normal", "landscape", "rotate_180", "landscape_180"}
 SUPPORTED_MEDIA_HANDLING = {"tear_off", "cutter", "peeler"}
 SUPPORTED_MEDIA_TYPES = {"gap", "black_mark", "continuous"}
 SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE = {
@@ -216,7 +221,7 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
         raise ConfigError("printer.print_method must be 'direct_thermal' or 'thermal_transfer'.")
     print_orientation = parser.get("printer", "print_orientation", fallback="normal").strip().lower()
     if print_orientation not in SUPPORTED_PRINT_ORIENTATIONS:
-        raise ConfigError("printer.print_orientation must be 'normal' or 'rotate_180'.")
+        raise ConfigError("인쇄 방향은 세로, 가로, 세로 180도, 가로 180도 중 하나여야 합니다.")
     media_handling = parser.get("printer", "media_handling", fallback="tear_off").strip().lower()
     if media_handling not in SUPPORTED_MEDIA_HANDLING:
         raise ConfigError("printer.media_handling must be 'tear_off', 'cutter', or 'peeler'.")
@@ -237,6 +242,20 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
     output_dir = _resolve_path(data_base_dir, parser.get("data", "output_dir"))
     port = _read_optional_port(parser)
 
+    offsets = {key: read_media_number(parser, key, default=("0" if key in {"offset_x_mm", "offset_y_mm"} or (key == "gap_offset_mm" and language == "tspl") else "auto"))
+               for key in ("offset_x_mm", "offset_y_mm", "gap_offset_mm", "feed_offset_mm")}
+    offsets["gap_offset_mm"] = read_gap_offset(parser, brand, language)
+    if read_media_number(parser, "gap_mm", default="0") < 0:
+        raise ConfigError("라벨 간격은 0 이상의 유한한 숫자여야 합니다.")
+    if any(abs(offsets[key]) > 300 for key in ("offset_x_mm", "offset_y_mm")):
+        raise ConfigError("좌우·상하 보정은 -300~300mm 사이여야 합니다.")
+    gap_offset, feed_offset = offsets["gap_offset_mm"], offsets["feed_offset_mm"]
+    try:
+        validate_offsets(language, media_type, read_label_dimension(parser, "height_mm"),
+                         parser.getint("label", "dpi"), gap_offset, feed_offset,
+                         brand=brand, model=model)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
     return AppConfig(
         printer=PrinterConfig(
             brand=brand,
@@ -254,15 +273,53 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
             windows_printer_name=windows_printer_name,
         ),
         label=LabelConfig(
-            width_mm=parser.getint("label", "width_mm"),
-            height_mm=parser.getint("label", "height_mm"),
+            width_mm=read_label_dimension(parser, "width_mm"),
+            height_mm=read_label_dimension(parser, "height_mm"),
             dpi=parser.getint("label", "dpi"),
             gap_mm=parser.getfloat("label", "gap_mm"),
             media_type=media_type,
+            offset_x_mm=read_media_number(parser, "offset_x_mm", default="0"),
+            offset_y_mm=read_media_number(parser, "offset_y_mm", default="0"),
+            gap_offset_mm=gap_offset,
+            feed_offset_mm=feed_offset,
         ),
         barcode=_read_barcode_config(parser, language),
         data=DataConfig(excel_file=excel_file, output_dir=output_dir),
     )
+
+
+def read_media_number(parser: ConfigParser, key: str, *, default: str = "auto") -> float | None:
+    raw = parser.get("label", key, fallback=default).strip().lower()
+    if raw == "auto" and key in {"gap_offset_mm", "feed_offset_mm"}:
+        return None
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ConfigError(f"label.{key}: 유한한 숫자를 입력하세요.") from exc
+    if not math.isfinite(value):
+        raise ConfigError(f"label.{key}: 유한한 숫자를 입력하세요.")
+    return value
+
+
+def read_gap_offset(parser: ConfigParser, brand: str, language: str | None = None) -> float | None:
+    language = language or DEFAULT_LANGUAGE_BY_BRAND.get(brand)
+    value = read_media_number(parser, "gap_offset_mm", default="0" if language == "tspl" else "auto")
+    # Before manufacturer offsets existed, the disabled BIXOLON control saved
+    # zero even though no SL p4 was sent. Preserve that device state on upgrade.
+    # New settings saves mark intentional zero so a user can explicitly reset it.
+    if brand == "bixolon" and language == "slcs" and value == 0 and parser.get(
+        "label", "offsets_profile", fallback=""
+    ).strip().lower() != "bixolon":
+        return None
+    return value
+
+
+def read_label_dimension(parser: ConfigParser, key: str) -> float:
+    value = read_media_number(parser, key, default="0")
+    dpi = parser.getint("label", "dpi", fallback=203)
+    if value is None or not 0 < value <= 300 or round(value / 25.4 * dpi) < 1:
+        raise ConfigError("용지 가로·세로는 0보다 크고 300mm 이하이며 최소 1도트여야 합니다.")
+    return value
 
 
 def _resolve_path(base_dir: Path, value: str) -> Path:

@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE_GUI_MODULES = (
+    'tests/test_media_settings_ui.py',
     'tests/test_ui_visibility.py',
     'tests/test_barcode_dialogs.py',
     'tests/test_value_rules_dialog.py',

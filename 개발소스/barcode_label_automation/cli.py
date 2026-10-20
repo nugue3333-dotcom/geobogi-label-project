@@ -130,6 +130,8 @@ def _main(argv: list[str] | None = None) -> int:
             config.printer.media_handling,
             config.label.media_type,
             config.printer.print_orientation,
+            offset_x_mm=config.label.offset_x_mm, offset_y_mm=config.label.offset_y_mm,
+            gap_offset_mm=config.label.gap_offset_mm, feed_offset_mm=config.label.feed_offset_mm,
         )
         prepared.append((row_index, row, command))
 

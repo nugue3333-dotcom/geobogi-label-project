@@ -4,6 +4,7 @@ from .label_media import write_config_atomic
 
 import argparse
 import json
+import math
 import os
 import sys
 import tkinter as tk
@@ -16,6 +17,8 @@ from .barcode_catalog import BARCODE_TYPES as CATALOG_TYPES, BARCODE_1D_TYPES
 from .brand_assets import apply_window_icon, load_header_logo
 from .config import (
     DEFAULTS,
+    read_media_number,
+    read_gap_offset,
     read_encoder_options,
     SUPPORTED_BARCODE_TYPES,
     SUPPORTED_MEDIA_HANDLING,
@@ -31,6 +34,7 @@ from .runtime_paths import executable_dir, runtime_base_dir
 from .ui_tokens import COLORS, SPACING, TYPOGRAPHY
 from .ui_style import configure_suite_style
 from .ui_window import set_initial_window_size
+from .printer_offsets import validate_offsets
 
 
 BRAND_LABELS = {
@@ -48,8 +52,10 @@ PRINT_METHOD_LABELS = {
     "thermal_transfer": "\uc5f4\uc804\uc0ac / \ub9ac\ubcf8",
 }
 PRINT_ORIENTATION_LABELS = {
-    "normal": "정방향 (기존 출력)",
-    "rotate_180": "180도 회전",
+    "normal": "세로",
+    "landscape": "가로",
+    "rotate_180": "세로 180도",
+    "landscape_180": "가로 180도",
 }
 MEDIA_HANDLING_LABELS = {
     "tear_off": "뜯어내기",
@@ -90,10 +96,14 @@ class PrinterSettings:
     ip: str
     port: int
     windows_printer_name: str
-    width_mm: int
-    height_mm: int
+    width_mm: float
+    height_mm: float
     dpi: int
     gap_mm: float
+    offset_x_mm: float = 0.0
+    offset_y_mm: float = 0.0
+    gap_offset_mm: float | None = None
+    feed_offset_mm: float | None = None
     model: str = ""
     media_type: str = "gap"
     media_handling: str = "tear_off"
@@ -156,10 +166,14 @@ def load_settings(path: str | Path) -> PrinterSettings:
         ip=parser.get("printer", "ip", fallback="192.168.0.50").strip(),
         port=parser.getint("printer", "port", fallback=9100),
         windows_printer_name=parser.get("printer", "windows_printer_name", fallback="auto").strip(),
-        width_mm=parser.getint("label", "width_mm", fallback=50),
-        height_mm=parser.getint("label", "height_mm", fallback=30),
+        width_mm=parser.getfloat("label", "width_mm", fallback=50),
+        height_mm=parser.getfloat("label", "height_mm", fallback=30),
         dpi=parser.getint("label", "dpi", fallback=203),
         gap_mm=parser.getfloat("label", "gap_mm", fallback=3),
+        offset_x_mm=read_media_number(parser, "offset_x_mm", default="0"),
+        offset_y_mm=read_media_number(parser, "offset_y_mm", default="0"),
+        gap_offset_mm=read_gap_offset(parser, brand),
+        feed_offset_mm=read_media_number(parser, "feed_offset_mm"),
         media_type=media_type if media_type in SUPPORTED_MEDIA_TYPES else "gap",
         print_speed=print_speed,
         print_density=print_density,
@@ -212,6 +226,10 @@ def save_settings(path: str | Path, settings: PrinterSettings) -> None:
     parser.set("label", "height_mm", str(settings.height_mm))
     parser.set("label", "dpi", str(settings.dpi))
     parser.set("label", "gap_mm", _format_float(settings.gap_mm))
+    for key in ("offset_x_mm", "offset_y_mm", "gap_offset_mm", "feed_offset_mm"):
+        value = getattr(settings, key)
+        parser.set("label", key, "auto" if value is None else _format_float(value))
+    parser.set("label", "offsets_profile", settings.brand)
     parser.set("label", "media_type", settings.media_type)
 
     parser.set("barcode", "type", settings.barcode_type)
@@ -273,7 +291,7 @@ def validate_settings(settings: PrinterSettings) -> SettingsValidationReport:
     if settings.print_method not in SUPPORTED_PRINT_METHODS:
         errors.append("인쇄 방식을 선택하세요.")
     if settings.print_orientation not in SUPPORTED_PRINT_ORIENTATIONS:
-        errors.append("인쇄 방향은 정방향 또는 180도 회전 중 하나를 선택하세요.")
+        errors.append("인쇄 방향은 세로, 가로, 세로 180도, 가로 180도 중 하나를 선택하세요.")
     if settings.media_handling not in SUPPORTED_MEDIA_HANDLING:
         errors.append("인쇄후작업을 선택하세요.")
     if settings.media_handling in SUPPORTED_MEDIA_HANDLING:
@@ -293,13 +311,24 @@ def validate_settings(settings: PrinterSettings) -> SettingsValidationReport:
         read_encoder_options(option_parser, settings.barcode_type)
     except (ConfigError, ValueError, TypeError) as exc:
         errors.append(str(exc))
-    if settings.width_mm <= 0 or settings.height_mm <= 0:
-        errors.append("용지 가로, 세로는 1mm 이상이어야 합니다.")
-    if settings.width_mm > 300 or settings.height_mm > 300:
-        warnings.append("300mm가 넘는 라벨은 프린터 모델별 최대 출력 폭/길이를 먼저 확인하세요.")
+    for dimension in (settings.width_mm, settings.height_mm):
+        if isinstance(dimension, bool) or not math.isfinite(dimension) or not 0 < dimension <= 300:
+            errors.append("용지 가로·세로는 0보다 크고 300mm 이하인 숫자로 입력하세요.")
+        elif round(dimension / 25.4 * settings.dpi) < 1:
+            errors.append("용지 규격은 현재 DPI에서 최소 1도트여야 합니다.")
+    for value in (settings.offset_x_mm, settings.offset_y_mm):
+        if isinstance(value, bool) or not math.isfinite(value) or abs(value) > 300:
+            errors.append("좌우·상하 보정은 -300부터 300mm 사이 유한한 숫자로 입력하세요.")
+    try:
+        validate_offsets({"bixolon": "slcs", "tsc": "tspl", "zebra": "zpl", "sewoo": "zpl"}.get(settings.brand),
+                         settings.media_type, settings.height_mm, settings.dpi,
+                         settings.gap_offset_mm, settings.feed_offset_mm,
+                         brand=settings.brand, model=settings.model)
+    except ValueError as exc:
+        errors.append(str(exc))
     if settings.dpi not in {203, 300, 600}:
         errors.append("DPI는 203, 300, 600 중 하나로 입력하세요.")
-    if settings.gap_mm < 0:
+    if not math.isfinite(settings.gap_mm) or settings.gap_mm < 0:
         errors.append("라벨 간격은 0 이상이어야 합니다.")
     if settings.media_type not in SUPPORTED_MEDIA_TYPES:
         errors.append("용지 유형을 선택하세요.")
@@ -398,7 +427,10 @@ def _parse_float_field(text: str, label: str, *, default: float | None = None) -
             return default
         raise ValueError(f"{label}을 입력하세요.")
     try:
-        return float(value)
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError("유한한 숫자가 필요합니다.")
+        return number
     except ValueError as exc:
         raise ValueError(f"{label}은 숫자로 입력하세요.") from exc
 
@@ -448,6 +480,10 @@ class SettingsApp(tk.Tk):
         self.height_var = tk.StringVar()
         self.dpi_var = tk.StringVar()
         self.gap_var = tk.StringVar()
+        self.offset_x_var = tk.StringVar()
+        self.offset_y_var = tk.StringVar()
+        self.gap_offset_var = tk.StringVar()
+        self.feed_offset_var = tk.StringVar()
         self.media_type_var = tk.StringVar()
         self.encoder_options: dict[str, object] = {}
         self._encoder_options_type = "code128"
@@ -485,6 +521,7 @@ class SettingsApp(tk.Tk):
         self.load_from_file(confirm_discard=False)
         self._install_dirty_tracking()
         self.bind("<Control-s>", self._save_shortcut)
+        self.bind("<Escape>", lambda _event: self._confirm_close())
         self.protocol("WM_DELETE_WINDOW", self._confirm_close)
 
     def _resolve_display_scale(self) -> float:
@@ -537,6 +574,10 @@ class SettingsApp(tk.Tk):
         self._build_buttons(ribbon, 0, save_text="설정 저장")
         footer = ttk.Frame(self, style="StatusBar.TFrame", padding=(16, 6))
         footer.pack(side="bottom", fill="x")
+        self._cancel_button = ttk.Button(footer, text="닫기 / 변경 취소", command=self._confirm_close, style="Secondary.TButton")
+        self._cancel_button.pack(side="right", padx=(12, 0))
+        self._footer_save_button = ttk.Button(footer, text="설정 저장", command=self.save_to_file, style="Primary.TButton")
+        self._footer_save_button.pack(side="right", padx=(12, 0))
         ttk.Label(footer, textvariable=self.status_var, style="FooterStatus.TLabel", wraplength=1100).pack(anchor="w")
 
         container = tk.Frame(self, bg=COLORS.background)
@@ -726,12 +767,6 @@ class SettingsApp(tk.Tk):
             button = ttk.Radiobutton(handling_frame, text=label, value=label, variable=self.media_handling_var)
             button.pack(side="left", padx=(0, 12))
             self.media_handling_buttons[value] = button
-        ttk.Label(frame, text="\uc778\uc1c4 \ubc29\ud5a5").grid(row=3, column=0, sticky="w", padx=(0, 12), pady=3)
-        orientation_frame = ttk.Frame(frame, style="Surface.TFrame")
-        orientation_frame.grid(row=3, column=1, sticky="ew", pady=3)
-        orientation_buttons = [ttk.Radiobutton(orientation_frame, text=label, value=label, variable=self.print_orientation_var)
-                               for label in PRINT_ORIENTATION_VALUES]
-        self._wrap_radio_choices(orientation_frame, orientation_buttons)
         ttk.Label(frame, text="\ucd9c\ub825 \uac15\ub3c4").grid(row=4, column=0, sticky="w", padx=(0, 12), pady=3)
         tuning_frame = ttk.Frame(frame, style="Surface.TFrame")
         tuning_frame.grid(row=4, column=1, sticky="ew", pady=3)
@@ -793,7 +828,7 @@ class SettingsApp(tk.Tk):
         entries = [
             ("\uac00\ub85c(mm)", self.width_var),
             ("\uc138\ub85c(mm)", self.height_var),
-            ("\uac04\uaca9(mm)", self.gap_var),
+            ("갭/마크 크기(mm)", self.gap_var),
             ("DPI", self.dpi_var),
         ]
         for idx, (label, var) in enumerate(entries):
@@ -801,19 +836,107 @@ class SettingsApp(tk.Tk):
             widget = (
                 ttk.Combobox(frame, textvariable=var, values=["203", "300", "600"], width=6)
                 if label == "DPI"
-                else ttk.Entry(frame, textvariable=var, width=6)
+                else ttk.Spinbox(frame, textvariable=var, from_=0.1 if idx < 2 else 0, to=300, increment=0.1, width=6)
             )
             widget.grid(row=1, column=idx, sticky="ew", padx=(0 if idx == 0 else 8, 2))
         ttk.Label(frame, text="용지 유형").grid(row=2, column=0, sticky="w", pady=(8, 2))
-        ttk.Combobox(
+        self._media_type_box = ttk.Combobox(
             frame,
             textvariable=self.media_type_var,
             values=list(MEDIA_TYPE_VALUES),
             state="readonly",
             width=16,
-        ).grid(
-            row=3, column=0, columnspan=4, sticky="ew"
         )
+        self._media_type_box.grid(row=3, column=0, columnspan=4, sticky="ew")
+
+        sensor_frame = ttk.Frame(frame, style="Surface.TFrame")
+        sensor_frame.columnconfigure(1, weight=1)
+        sensor_frame.grid(row=4, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        sensor_label = ttk.Label(sensor_frame, text="감지 기준 → 절취선(mm)")
+        sensor_label.grid(row=0, column=0, sticky="w", padx=(0, 8))
+        sensor_widget = ttk.Combobox(
+            sensor_frame,
+            textvariable=self.gap_offset_var,
+            values=["현재 프린터 설정 사용", "0"],
+            width=18,
+        )
+        sensor_widget.grid(row=0, column=1, sticky="ew")
+        self._primary_sensor_hint = ttk.Label(
+            sensor_frame,
+            text="",
+            wraplength=420,
+            style="Hint.TLabel",
+        )
+        self._primary_sensor_hint.grid(row=1, column=0, columnspan=2, sticky="w", pady=(3, 0))
+        self._sensor_offset_frame = sensor_frame
+
+        ttk.Label(frame, text="인쇄 방향").grid(row=5, column=0, columnspan=4, sticky="w", pady=(8, 2))
+        orientation_frame = ttk.Frame(frame, style="Surface.TFrame")
+        orientation_frame.grid(row=6, column=0, columnspan=4, sticky="ew")
+        self._wrap_radio_choices(orientation_frame, [
+            ttk.Radiobutton(orientation_frame, text=label, value=label, variable=self.print_orientation_var)
+            for label in PRINT_ORIENTATION_VALUES
+        ])
+        for column, (label, variable) in enumerate((("좌우 보정(mm) +오른쪽", self.offset_x_var), ("상하 보정(mm) +아래쪽", self.offset_y_var))):
+            ttk.Label(frame, text=label).grid(row=7, column=column * 2, columnspan=2, sticky="w", pady=(8, 2))
+            ttk.Spinbox(frame, textvariable=variable, from_=-300, to=300, increment=0.1, width=10).grid(row=8, column=column * 2, columnspan=2, sticky="ew", padx=(0, 8))
+        advanced = ttk.Frame(frame, style="Surface.TFrame")
+        advanced.columnconfigure(1, weight=1)
+        self._advanced_offset_container = advanced
+        def toggle_advanced():
+            if advanced.winfo_manager():
+                advanced.grid_remove()
+            else:
+                advanced.grid(row=10, column=0, columnspan=4, sticky="ew")
+        ttk.Button(frame, text="고급 · 인쇄 후 정지 위치", command=toggle_advanced).grid(row=9, column=0, columnspan=4, sticky="w", pady=(8, 2))
+        feed_label = ttk.Label(advanced, text="출력 후 정지 보정(mm)")
+        feed_label.grid(row=0, column=0, sticky="w", padx=(0, 8), pady=3)
+        feed_widget = ttk.Combobox(
+            advanced,
+            textvariable=self.feed_offset_var,
+            values=["현재 프린터 설정 사용", "0"],
+            width=22,
+        )
+        feed_widget.grid(row=0, column=1, sticky="ew")
+        self._advanced_offset_widgets = [sensor_widget, feed_widget]
+        self._advanced_offset_labels = [sensor_label, feed_label]
+        self._advanced_offset_hint = ttk.Label(advanced, text="", wraplength=340)
+        self._advanced_offset_hint.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Button(frame, text="방향·위치 미리보기", command=self._show_media_preview, style="Secondary.TButton").grid(row=11, column=0, columnspan=4, sticky="w", pady=(8, 2))
+
+    def _show_media_preview(self) -> None:
+        """Preview a reference marker through the same physical-page transform as printing."""
+        from PIL import Image, ImageDraw, ImageTk
+        from .media_geometry import logical_size, transform_page
+        try:
+            settings = self._collect_settings()
+            report = validate_settings(settings)
+            if report.errors:
+                raise ValueError("\n".join(report.errors))
+            scale = min(360 / settings.width_mm, 280 / settings.height_mm)
+            physical = (max(1, round(settings.width_mm * scale)), max(1, round(settings.height_mm * scale)))
+            logical = logical_size(*physical, settings.print_orientation)
+            sample = Image.new("RGB", logical, "white")
+            draw = ImageDraw.Draw(sample)
+            cx, cy = logical[0] // 2, logical[1] // 2
+            arm = max(2, min(logical) // 6)
+            draw.line((cx, cy + arm, cx, cy - arm), fill=COLORS.primary, width=3)
+            draw.polygon([(cx, cy - arm), (cx - arm // 2, cy), (cx + arm // 2, cy)], fill=COLORS.primary)
+            draw.text((cx + 5, cy), "TOP", fill=COLORS.primary)
+            rendered = transform_page(sample, physical, settings.print_orientation, settings.offset_x_mm * scale, settings.offset_y_mm * scale)
+        except (ValueError, ConfigError) as exc:
+            messagebox.showwarning("미리보기 확인", str(exc), parent=self)
+            return
+        window = tk.Toplevel(self)
+        window.title("방향·위치 미리보기")
+        window.transient(self)
+        picture = ImageTk.PhotoImage(rendered, master=window)
+        label = ttk.Label(window, image=picture, relief="solid")
+        label.image = picture
+        label.pack(padx=20, pady=15)
+        ttk.Label(window, text=f"용지 {settings.width_mm:g} × {settings.height_mm:g} mm · {PRINT_ORIENTATION_LABELS[settings.print_orientation]}\n방향 확인용 예시입니다. 실제 도안은 라벨 디자이너에서 확인하세요.", justify="center").pack(padx=12, pady=6)
+        ttk.Button(window, text="닫기", command=window.destroy).pack(pady=12)
+        window.bind("<Escape>", lambda _event: window.destroy())
 
     def _build_barcode_section(self, parent: ttk.Frame, row: int) -> None:
         frame = self._section_card(parent, row, "4. 자동 기본 배치용 바코드")
@@ -998,6 +1121,8 @@ class SettingsApp(tk.Tk):
             messagebox.showerror("\uc124\uc815 \uc77d\uae30 \uc2e4\ud328", str(exc))
             return
         self._suspend_dirty_tracking = True
+        self._offset_context = None
+        self._offset_drafts = {}
         self.brand_var.set(BRAND_LABELS[settings.brand])
         self._saved_model = settings.model
         self.mode_var.set(MODE_LABELS[settings.mode])
@@ -1011,6 +1136,10 @@ class SettingsApp(tk.Tk):
         self.height_var.set(str(settings.height_mm))
         self.dpi_var.set(str(settings.dpi))
         self.gap_var.set(_format_float(settings.gap_mm))
+        self.offset_x_var.set(_format_float(settings.offset_x_mm))
+        self.offset_y_var.set(_format_float(settings.offset_y_mm))
+        self.gap_offset_var.set("현재 프린터 설정 사용" if settings.gap_offset_mm is None else _format_float(settings.gap_offset_mm))
+        self.feed_offset_var.set("현재 프린터 설정 사용" if settings.feed_offset_mm is None else _format_float(settings.feed_offset_mm))
         self.media_type_var.set(MEDIA_TYPE_LABELS[settings.media_type])
         self.print_speed_var.set(str(settings.print_speed))
         self.print_density_var.set(str(settings.print_density))
@@ -1041,6 +1170,7 @@ class SettingsApp(tk.Tk):
         self._set_settings_dirty(False)
         self.status_var.set("\ud604\uc7ac \uc124\uc815\uc744 \ubd88\ub7ec\uc654\uc2b5\ub2c8\ub2e4.")
         self._update_validation_summary()
+        self._sync_advanced_media_state()
 
     def _save_shortcut(self, _event: tk.Event | None = None) -> str:
         self.save_to_file()
@@ -1078,6 +1208,10 @@ class SettingsApp(tk.Tk):
             self.height_var,
             self.dpi_var,
             self.gap_var,
+            self.offset_x_var,
+            self.offset_y_var,
+            self.gap_offset_var,
+            self.feed_offset_var,
             self.media_type_var,
             self.barcode_type_var,
             self.barcode_auto_layout_var,
@@ -1104,6 +1238,90 @@ class SettingsApp(tk.Tk):
             return
         self._set_settings_dirty(True)
         self.status_var.set("변경사항 있음 · 저장 필요")
+        self._sync_advanced_media_state()
+
+    def _sync_advanced_media_state(self) -> None:
+        widgets = getattr(self, "_advanced_offset_widgets", ())
+        if not widgets:
+            return
+        if self._suspend_dirty_tracking:
+            return
+        brand = BRAND_VALUES.get(self.brand_var.get())
+        media = MEDIA_TYPE_VALUES.get(self.media_type_var.get())
+        context = (brand, media)
+        previous = getattr(self, "_offset_context", None)
+        drafts = getattr(self, "_offset_drafts", {})
+        if previous is not None and previous != context:
+            drafts[previous] = (self.gap_offset_var.get(), self.feed_offset_var.get())
+            self._offset_context = context
+            self._offset_drafts = drafts
+            default_gap = "0" if brand == "tsc" else "현재 프린터 설정 사용"
+            gap, feed = drafts.get(context, (default_gap, "현재 프린터 설정 사용"))
+            self._suspend_dirty_tracking = True
+            try:
+                self.gap_offset_var.set(gap)
+                self.feed_offset_var.set(feed)
+            finally:
+                self._suspend_dirty_tracking = False
+        self._offset_context = context
+        has_media_distance = (
+            brand == "bixolon" and media in {"gap", "black_mark"}
+        ) or (
+            brand == "tsc" and media in {"gap", "black_mark"}
+        )
+        supported_feed = brand in {"tsc", "bixolon", "zebra"}
+        if has_media_distance:
+            self._sensor_offset_frame.grid()
+        else:
+            self._sensor_offset_frame.grid_remove()
+        widgets[0].configure(state="normal" if has_media_distance else "disabled")
+        for widget in (widgets[1], self._advanced_offset_labels[1]):
+            widget.grid() if supported_feed else widget.grid_remove()
+        widgets[1].configure(state="normal" if supported_feed else "disabled")
+        self._advanced_offset_labels[1].configure(
+            text={
+                "bixolon": "절취·커터 정지 위치 보정(mm)",
+                "tsc": "출력 후 위치·복귀 보정(mm)",
+                "zebra": "절취 위치 보정(mm)",
+            }.get(brand, "출력 후 정지 보정(mm)")
+        )
+        try:
+            dpi = int(self.dpi_var.get())
+            if dpi not in {203, 300, 600}: raise ValueError
+        except ValueError:
+            dpi = 203
+        if brand == "bixolon":
+            try:
+                label_height_dots = round(float(self.height_var.get()) * dpi / 25.4)
+                p4_limit_mm = min(label_height_dots, 2432) * 25.4 / dpi
+            except ValueError:
+                p4_limit_mm = 0
+            sensor_caption = "마크 기준 → 절취선 거리(mm)"
+            sensor_hint = (
+                "갭/블랙마크 폭이 아니라 센서 감지 기준부터 절취선까지의 거리입니다. "
+                f"현재 앱 입력 제한은 한 장 길이 기준 ±{p4_limit_mm:.2f}mm입니다. "
+                "이는 SL p4의 제조사 최대값 표기가 아닙니다. "
+                "설정값은 SL p4로 전달하고 다음 인쇄 전 복귀 명령을 함께 적용합니다."
+            )
+        elif brand == "tsc":
+            sensor_caption = "감지 후 추가 배출(mm)"
+            sensor_hint = (
+                "GAP/BLINE은 감지 방식과 추가 배출을 함께 설정합니다. 숫자를 입력하면 선택한 방식이 적용되고, "
+                "0은 추가 배출 없이 설정합니다. ‘현재 프린터 설정 사용’은 이 명령 전체를 생략합니다. "
+                "출력 후 정지·복귀 보정은 고급 항목에서 따로 조정합니다."
+            )
+        else:
+            sensor_caption = "감지 기준 → 절취선 거리(mm)"
+            sensor_hint = "이 제조사에서 같은 용지 거리 명령을 확인하지 못해 입력을 숨겼습니다."
+        self._advanced_offset_labels[0].configure(text=sensor_caption)
+        self._primary_sensor_hint.configure(text=sensor_hint)
+        hints = {
+            "bixolon": f"빅솔론 p4 앱 상한은 용지 길이와 SL p1 페이지 길이(최대 2432도트) 중 작은 값입니다. 이는 p4 제조사 최대값이 아닙니다. TA 정지 보정만 ±100도트(±{100*25.4/dpi:.2f}mm)이며 인쇄 시 프린터에 영구 저장됩니다. 명령 전송은 실물 절취 위치를 보증하지 않습니다.",
+            "tsc": "TSC TSPL · GAP/BLINE 추가 이송은 용지 길이 이내입니다. OFFSET은 ±25.4mm이며 다음 인쇄 전 복귀에 사용됩니다. 두 항목에 같은 거리값을 중복 입력하지 마세요.",
+            "zebra": f"Zebra ZPL · 배출 보정 ±120단계(±{120*25.4/dpi*(2 if dpi == 600 else 1):.2f}mm). 600 DPI는 1단계 2도트입니다. 센서 위치는 장비에서 설정합니다.",
+            "sewoo": "세우테크는 모델별 보정 명령 확인이 필요합니다. 센서·배출 위치는 장비에서 설정하세요. 좌우·상하 내용 보정은 위에서 조정합니다.",
+        }
+        self._advanced_offset_hint.configure(text=hints.get(brand, "제조사를 선택하세요.") + "\n현재 프린터 설정 사용: 보정 명령 생략 / 0: 보정값 초기화. 저장은 파일만 변경하며 인쇄할 때 적용됩니다.")
 
     def _set_settings_dirty(self, dirty: bool) -> None:
         self._settings_dirty = dirty
@@ -1171,6 +1389,12 @@ class SettingsApp(tk.Tk):
             return
         self.validation_var.set("저장 가능: 필수 설정이 정상입니다.")
 
+    @staticmethod
+    def _advanced_offset(value: str, label: str) -> float | None:
+        if value.strip() in {"", "auto", "현재 프린터 설정 사용"}:
+            return None
+        return _parse_float_field(value, label)
+
     def _collect_settings(self) -> PrinterSettings:
         settings = PrinterSettings(
             brand=BRAND_VALUES.get(self.brand_var.get(), ""),
@@ -1182,10 +1406,14 @@ class SettingsApp(tk.Tk):
             ip=self.ip_var.get().strip(),
             port=_parse_int_field(self.port_var.get(), "포트", default=9100),
             windows_printer_name=self.printer_name_var.get().strip(),
-            width_mm=_parse_int_field(self.width_var.get(), "용지 가로(mm)"),
-            height_mm=_parse_int_field(self.height_var.get(), "용지 세로(mm)"),
+            width_mm=_parse_float_field(self.width_var.get(), "용지 가로(mm)"),
+            height_mm=_parse_float_field(self.height_var.get(), "용지 세로(mm)"),
             dpi=_parse_int_field(self.dpi_var.get(), "DPI"),
             gap_mm=_parse_float_field(self.gap_var.get(), "간격(mm)", default=0),
+            offset_x_mm=_parse_float_field(self.offset_x_var.get(), "좌우 보정", default=0),
+            offset_y_mm=_parse_float_field(self.offset_y_var.get(), "상하 보정", default=0),
+            gap_offset_mm=self._advanced_offset(self.gap_offset_var.get(), "간격 오프셋"),
+            feed_offset_mm=self._advanced_offset(self.feed_offset_var.get(), "용지 공급 오프셋"),
             media_type=MEDIA_TYPE_VALUES.get(self.media_type_var.get(), ""),
             print_speed=_parse_int_field(self.print_speed_var.get(), "인쇄속도"),
             print_density=_parse_int_field(self.print_density_var.get(), "농도"),

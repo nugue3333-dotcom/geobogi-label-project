@@ -92,7 +92,7 @@ def test_shared_paper_save_preserves_all_other_config_sections(tmp_path):
     assert not list(tmp_path.glob('.label-settings-*.tmp'))
 
 
-@pytest.mark.parametrize('value', [0, -1, 301, 10.5, True, float('nan'), float('inf')])
+@pytest.mark.parametrize('value', [0, -1, 301, True, float('nan'), float('inf')])
 def test_invalid_paper_size_cannot_modify_settings(tmp_path, value):
     path = tmp_path / 'config.ini'
     _config(path)

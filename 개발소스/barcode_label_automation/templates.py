@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import re
+from types import SimpleNamespace
 
 from dataclasses import replace
 from pathlib import Path
@@ -14,10 +15,12 @@ from .barcode_engine import render_barcode
 from .config import BarcodeConfig, SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE
 from .excel_reader import LabelRow
 from .sanitizer import sanitize_barcode, sanitize_slcs_text, sanitize_tspl_text, sanitize_zpl_text
+from .printer_offsets import validate_offsets, slcs_media_commands, zebra_feed_command
 
 CommandPayload: TypeAlias = str | bytes
 ONE_D_BARCODE_TYPES = BARCODE_1D_TYPES
 NATIVE_1D_TYPES = {"code128", "code39", "ean13", "ean8", "upca", "itf"}
+_DEFAULT_GAP_OFFSET = object()
 
 
 def mm_to_dots(mm: int | float, dpi: int) -> int:
@@ -60,8 +63,14 @@ def render_slcs(
     media_handling: str = "tear_off",
     media_type: str = "gap",
     print_orientation: str = "normal",
+    *, gap_offset_mm: float | None = None, feed_offset_mm: float | None = None,
 ) -> CommandPayload:
     config = barcode_config or default_barcode_config(one_d_wide=6)
+    if _needs_compact_auto(row, height_mm, config):
+        return render_label('slcs', row, width_mm, height_mm, dpi, gap_mm, print_method, config,
+                            print_speed=print_speed, print_density=print_density, media_handling=media_handling,
+                            media_type=media_type, print_orientation=print_orientation,
+                            gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
     gap_dot = mm_to_dots(gap_mm, dpi)
@@ -103,7 +112,7 @@ def render_slcs(
         f"{_slcs_print_method_command(print_method)}"
         f"{_slcs_media_handling_command(media_handling)}"
         f"SW{width_dot}\n"
-        f"{_slcs_media_type_command(height_dot, gap_dot, media_type)}"
+        f"{slcs_media_commands(height_dot, gap_dot, media_type, dpi, gap_offset_mm, feed_offset_mm)}"
         f"{print_orientation_command('slcs', print_orientation)}"
         f"{text_commands}"
     )
@@ -128,6 +137,9 @@ def render_tspl(
     print_orientation: str = "normal",
 ) -> bytes:
     config = barcode_config or default_barcode_config(one_d_wide=2)
+    if _needs_compact_auto(row, height_mm, config):
+        return render_label('tspl', row, width_mm, height_mm, dpi, gap_mm, print_method, config,
+                            command_encoding, print_speed, print_density, media_handling, media_type, print_orientation)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
     barcode = sanitize_barcode(row.barcode)
@@ -148,7 +160,7 @@ def render_tspl(
     speed = 4 if print_speed is None else print_speed
     density = 8 if print_density is None else print_density
     header = (
-        f"SIZE {width_mm} mm,{height_mm} mm\n"
+        f"SIZE {width_mm:g} mm,{height_mm:g} mm\n"
         f"{_tspl_media_type_command(gap_mm, media_type)}"
         f"{_tspl_codepage_command(command_encoding)}"
         f"DENSITY {density}\n"
@@ -187,8 +199,13 @@ def render_zpl(
     media_handling: str = "tear_off",
     media_type: str = "gap",
     print_orientation: str = "normal",
-) -> str:
+    *, feed_offset_mm: float | None = None,
+) -> CommandPayload:
     config = barcode_config or default_barcode_config(one_d_wide=2)
+    if _needs_compact_auto(row, height_mm, config):
+        return render_label('zpl', row, width_mm, height_mm, dpi, gap_mm, print_method, config,
+                            command_encoding, print_speed, print_density, media_handling, media_type, print_orientation,
+                            feed_offset_mm=feed_offset_mm)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
 
@@ -212,7 +229,8 @@ def render_zpl(
     )
 
     return (
-        "^XA\n"
+        zebra_feed_command(dpi, feed_offset_mm)
+        + "^XA\n"
         "^CI28\n"
         f"{print_orientation_command('zpl', print_orientation)}"
         f"{_zpl_print_method_command(print_method)}"
@@ -244,7 +262,32 @@ def render_label(
     media_handling: str = "tear_off",
     media_type: str = "gap",
     print_orientation: str = "normal",
+    *,
+    offset_x_mm: float = 0,
+    offset_y_mm: float = 0,
+    gap_offset_mm: float | None | object = _DEFAULT_GAP_OFFSET,
+    feed_offset_mm: float | None = None,
 ) -> CommandPayload:
+    # Omitted arguments retain the historical vendor command. Explicit None
+    # means inherit; explicit zero must remain available to reset the device.
+    if gap_offset_mm is _DEFAULT_GAP_OFFSET:
+        gap_offset_mm = 0 if language == "tspl" else None
+    from .media_geometry import logical_size
+    logical_height = logical_size(width_mm, height_mm, print_orientation)[1]
+    compact = _needs_compact_auto(row, logical_height, barcode_config or default_barcode_config())
+    if compact or print_orientation in {"landscape", "landscape_180"} or offset_x_mm or offset_y_mm:
+        config = SimpleNamespace(
+            label=SimpleNamespace(width_mm=width_mm, height_mm=height_mm, dpi=dpi, gap_mm=gap_mm,
+                                  media_type=media_type, offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm,
+                                  gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm),
+            printer=SimpleNamespace(language=language, print_method=print_method,
+                                    print_speed=print_speed, print_density=print_density,
+                                    media_handling=media_handling, print_orientation=print_orientation,
+                                    command_encoding=command_encoding))
+        from .media_geometry import transform_image
+        image = render_auto_page(row, width_mm, height_mm, dpi, barcode_config, print_orientation, language)
+        return render_media_bitmap(transform_image(image, config), config, row.print_qty)
+    validate_offsets(language, media_type, height_mm, dpi, gap_offset_mm, feed_offset_mm)
     if language == "slcs":
         return render_slcs(
             row,
@@ -259,9 +302,10 @@ def render_label(
             media_handling,
             media_type,
             print_orientation,
+            gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm,
         )
     if language == "tspl":
-        return render_tspl(
+        command = render_tspl(
             row,
             width_mm,
             height_mm,
@@ -276,6 +320,9 @@ def render_label(
             media_type,
             print_orientation,
         )
+        old_media = _tspl_media_type_command(gap_mm, media_type).encode("ascii")
+        new_media = tspl_media_commands(gap_mm, media_type, gap_offset_mm, feed_offset_mm).encode("ascii")
+        return command.replace(old_media, new_media, 1)
     if language == "zpl":
         return render_zpl(
             row,
@@ -291,6 +338,7 @@ def render_label(
             media_handling,
             media_type,
             print_orientation,
+            feed_offset_mm=feed_offset_mm,
         )
     raise ValueError("language must be 'slcs', 'tspl', or 'zpl'")
 
@@ -588,6 +636,139 @@ def _tspl_media_type_command(gap_mm: int | float, media_type: str) -> str:
     raise ValueError("media_type must be 'gap', 'black_mark', or 'continuous'.")
 
 
+def tspl_media_commands(gap_mm, media_type, gap_offset_mm=None, feed_offset_mm=None):
+    """None retains the device media/feed setup; zero explicitly sets no extra feed."""
+    import math
+    if media_type not in {"gap", "black_mark", "continuous"}:
+        raise ValueError("지원하지 않는 용지 종류입니다.")
+    if gap_offset_mm is not None and (
+        isinstance(gap_offset_mm, bool) or not math.isfinite(float(gap_offset_mm)) or gap_offset_mm < 0
+    ):
+        raise ValueError("갭·블랙마크 추가 이송은 0 이상의 유한한 숫자여야 합니다.")
+    if media_type == "continuous":
+        if gap_offset_mm not in (None, 0):
+            raise ValueError("연속 용지는 추가 이송을 사용할 수 없습니다.")
+        command = "GAP 0,0\n" if gap_offset_mm is not None else ""
+    elif gap_offset_mm is None:
+        # TSPL couples the sensor type and extra-feed distance in one command.
+        # Omitting it is the only way to preserve both device-side values.
+        command = ""
+    else:
+        name = "BLINE" if media_type == "black_mark" else "GAP"
+        extra_feed = float(gap_offset_mm)
+        command = f"{name} {gap_mm:g} mm,{extra_feed:g} mm\n"
+    if feed_offset_mm is not None:
+        if (isinstance(feed_offset_mm, bool) or not math.isfinite(float(feed_offset_mm))
+                or abs(float(feed_offset_mm)) > 25.4):
+            raise ValueError("공급 오프셋은 -25.4~25.4mm 범위여야 합니다.")
+        command += f"OFFSET {float(feed_offset_mm):g} mm\n"
+    return command
+
+
+def render_media_bitmap(image, config, print_qty):
+    """Encode an already transformed physical page. Never rotate it again."""
+    from .print_quantity import parse_print_quantity
+    print_qty = parse_print_quantity(print_qty)
+    p, label = config.printer, config.label
+    width, height = mm_to_dots(label.width_mm, label.dpi), mm_to_dots(label.height_mm, label.dpi)
+    if image.size != (width, height):
+        raise ValueError("인쇄 이미지와 실제 용지 크기가 다릅니다.")
+    _ensure_media_handling_supported(p.language, p.media_handling)
+    validate_offsets(p.language, label.media_type, label.height_mm, label.dpi,
+                     getattr(label, "gap_offset_mm", None), getattr(label, "feed_offset_mm", None),
+                     brand=getattr(p, "brand", None), model=getattr(p, "model", ""))
+    image = image.convert("1", dither=Image.Dither.NONE)
+    speed = p.print_speed if p.print_speed is not None else (3 if p.language == "slcs" else 4)
+    density = p.print_density if p.print_density is not None else {"slcs": 20, "tspl": 8, "zpl": 10}.get(p.language, 8)
+    if p.language == "tspl":
+        media = tspl_media_commands(label.gap_mm, label.media_type,
+                                    getattr(label, "gap_offset_mm", None), getattr(label, "feed_offset_mm", None))
+        header = (f"SIZE {label.width_mm:g} mm,{label.height_mm:g} mm\n" + media
+                  + _tspl_codepage_command(p.command_encoding)
+                  + f"DENSITY {density}\nSPEED {speed}\n" + _tspl_print_method_command(p.print_method)
+                  + "DIRECTION 1\nREFERENCE 0,0\nCLS\n")
+        return (header.encode("ascii") + _tspl_bitmap_command(0, 0, image)
+                + _tspl_media_handling_command(p.media_handling).encode("ascii")
+                + f"PRINT 1,{print_qty}\n".encode("ascii"))
+    if p.language == "slcs":
+        header = (f"CB\nSS{speed}\nSD{density}\nCS13,0\n" + _slcs_print_method_command(p.print_method)
+                  + _slcs_media_handling_command(p.media_handling) + f"SW{width}\n"
+                  + slcs_media_commands(height, mm_to_dots(label.gap_mm, label.dpi), label.media_type,
+                                        label.dpi, getattr(label, "gap_offset_mm", None),
+                                        getattr(label, "feed_offset_mm", None)) + "SOT\n")
+        data = io.BytesIO()
+        image.save(data, format="BMP")
+        return header.encode("ascii") + b"BMP0,0\r\n" + data.getvalue() + f"\r\nP{print_qty}\n".encode("ascii")
+    if p.language == "zpl":
+        width_bytes = (width + 7) // 8
+        # Pillow packs white as 1; ZPL graphics pack black as 1.
+        # Fill the byte-alignment columns with white before inversion. Pillow's
+        # unused trailing bits are zero, which would otherwise become black ink.
+        padded = Image.new("1", (width_bytes * 8, height), 1)
+        padded.paste(image, (0, 0))
+        payload = bytes(value ^ 255 for value in padded.tobytes())
+        total = len(payload)
+        header = (zebra_feed_command(label.dpi, getattr(label, "feed_offset_mm", None),
+                                    brand=getattr(p, "brand", None), model=getattr(p, "model", ""))
+                  + "^XA\n^CI28\n^PON\n" + _zpl_print_method_command(p.print_method)
+                  + _zpl_media_handling_command(p.media_handling) + _zpl_media_type_command(label.media_type)
+                  + f"^PR{speed}\n^MD{density}\n^PW{width}\n^LL{height}\n")
+        return (header + f"^FO0,0^GFA,{total},{total},{width_bytes},{payload.hex().upper()}^FS\n"
+                + f"^PQ{print_qty}\n^XZ\n").encode("ascii")
+    raise ValueError("지원하지 않는 프린터 언어입니다.")
+
+
+def render_auto_page(row, width_mm, height_mm, dpi, barcode_config=None, orientation="normal", language="tspl"):
+    """Rasterize the ordinary DB label on the logical page before paper rotation."""
+    from .media_geometry import logical_size
+    config = barcode_config or default_barcode_config(one_d_wide=6 if language == "slcs" else 2)
+    logical_width, logical_height = logical_size(width_mm, height_mm, orientation)
+    if _needs_compact_auto(row, logical_height, config):
+        from .compact_auto_layout import render_compact_page
+        return render_compact_page(row, logical_width, logical_height, dpi, config, language)
+    width, height = mm_to_dots(logical_width, dpi), mm_to_dots(logical_height, dpi)
+    barcode = sanitize_barcode(row.barcode)
+    lines = _display_text_lines(row, lambda text: text, _max_text_lines(logical_height))
+    layout = _auto_label_layout(width, height, config, barcode, len(lines),
+                               max_text_chars=max(map(len, lines), default=1),
+                               large_label=logical_width >= 80 and logical_height >= 80)
+    positioned = (_auto_positioned_barcode_config(language, width, height, barcode, config, layout)
+                  if config.auto_layout else config)
+    symbol = render_barcode(config.barcode_type, barcode, _encoder_settings(positioned)).convert("RGB")
+    if config.barcode_type in ONE_D_BARCODE_TYPES and config.one_d_human_readable:
+        display = barcode
+        if config.barcode_type in GS1_TYPES:
+            from .gs1 import build_gs1, parse_gs1
+            display = build_gs1(parse_gs1(barcode)).hri
+        font = _fit_font(display, symbol.width, max(14, layout["text_font"] // 2))
+        box = font.getbbox(display)
+        hri_height = box[3] - box[1] + 6
+        combined = Image.new("RGB", (symbol.width, symbol.height + hri_height), "white")
+        combined.paste(symbol, (0, 0))
+        ImageDraw.Draw(combined).text(((symbol.width - (box[2] - box[0])) // 2 - box[0], symbol.height + 3 - box[1]),
+                                     display, font=font, fill="black")
+        symbol = combined
+    if positioned.rotation not in {0, 90, 180, 270}:
+        raise ValueError("바코드 회전은 0, 90, 180, 270도여야 합니다.")
+    if positioned.rotation:
+        symbol = symbol.rotate(-positioned.rotation, expand=True)
+    x = (width - symbol.width) // 2 if config.auto_layout else positioned.x
+    y = layout["barcode_y"] if config.auto_layout else positioned.y
+    if x < 0 or y < 0 or x + symbol.width > width or y + symbol.height > height:
+        raise ValueError("바코드가 라벨 영역을 넘습니다. 라벨 또는 모듈 크기를 확인하세요.")
+    page = Image.new("RGB", (width, height), "white")
+    page.paste(symbol, (x, y))
+    page.info["protected_bounds"] = [(x, y, symbol.width, symbol.height)]
+    draw = ImageDraw.Draw(page)
+    for text, y in zip(lines, layout["text_line_ys"]):
+        font = _fit_font(text, layout["text_width"], layout["text_font"])
+        box = draw.textbbox((0, 0), text, font=font)
+        if layout["margin_x"] + box[2] - box[0] > width or y + box[3] - box[1] > height:
+            raise ValueError("문자가 라벨 영역을 넘습니다. 용지 크기를 확인하세요.")
+        draw.text((layout["margin_x"] - box[0], y - box[1]), text, font=font, fill="black")
+    return page
+
+
 def _tspl_codepage_command(command_encoding: str) -> str:
     normalized = command_encoding.strip().replace("_", "-").lower()
     if normalized in {"cp949", "ms949", "949", "ks-c-5601", "ks-c-5601-1987", "euc-kr"}:
@@ -681,7 +862,11 @@ def _max_text_lines(height_mm: int | float) -> int:
     return _clamp(int(float(height_mm) // 8), 5, 8)
 
 
-def _display_text_lines(row: LabelRow, sanitize_text, max_lines: int = 4) -> tuple[str, ...]:
+def _needs_compact_auto(row, height_mm, config):
+    return config.auto_layout and bool(row.source_fields) and len(_display_text_lines(row, lambda text: text, None)) > _max_text_lines(height_mm)
+
+
+def _display_text_lines(row: LabelRow, sanitize_text, max_lines: int | None = 4) -> tuple[str, ...]:
     if row.source_fields:
         fields = row.source_fields
         reject_overflow = True
@@ -702,12 +887,12 @@ def _display_text_lines(row: LabelRow, sanitize_text, max_lines: int = 4) -> tup
         lines.append(f"{label}: {value}" if label else value)
     if not lines:
         lines.append(sanitize_text(row.barcode))
-    if reject_overflow and len(lines) > max_lines:
+    if max_lines is not None and reject_overflow and len(lines) > max_lines:
         raise ValueError(
             f"라벨 높이에 표시 가능한 DB 항목은 최대 {max_lines}개입니다. "
             f"현재 값이 있는 항목은 {len(lines)}개입니다. 템플릿에서 항목을 줄이거나 라벨 높이를 늘리세요."
         )
-    return tuple(lines[:max_lines])
+    return tuple(lines if max_lines is None else lines[:max_lines])
 
 
 def _slcs_text_font(index: int) -> str:

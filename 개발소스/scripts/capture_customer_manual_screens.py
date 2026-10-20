@@ -20,12 +20,13 @@ if str(ROOT) not in sys.path:
 
 from barcode_label_automation.label_designer_app import LabelDesignerApp
 from barcode_label_automation.label_manager_app import LabelManagerApp
-from barcode_label_automation.settings_app import SettingsApp
+from barcode_label_automation.settings_app import SettingsApp, BRAND_LABELS
 from barcode_label_automation.workflow_probe import run_workflow_probe
 
 
 OUTPUT = ROOT / "outputs" / "ui-redesign-preview"
 UI_SOURCES = tuple(ROOT / "barcode_label_automation" / name for name in (
+    "config.py", "media_geometry.py", "ocr_orientation.py", "printer_offsets.py", "templates.py", "compact_auto_layout.py",
     "label_designer_app.py", "label_manager_app.py", "settings_app.py", "ui_tokens.py", "ui_window.py", "ui_style.py", "brand_assets.py",
     "gs1_editor.py", "barcode_options_dialog.py", "barcode_engine.py", "barcode_catalog.py", "gs1.py", "designer_clipboard.py", "label_media.py", "tool_icons.py", "print_quantity.py", "designer_print_dispatch.py",
     "job_profile.py", "template_output.py", "profile_dialogs.py", "value_rules.py", "value_rules_dialog.py", "value_jobs.py", "saved_output.py", "data_store.py", "barcode_layout.py", "hibc.py", "udi_editor.py", "workflow_probe.py", "barcode_editor_preview.py",
@@ -100,7 +101,42 @@ def main() -> None:
         designer_data.save_template()
         screenshots.append(_capture(designer_data, OUTPUT / "label-designer-data.png"))
         screenshots.append(_capture(LabelManagerApp(runtime, template_path=sample_template), OUTPUT / "label-manager-final.png"))
+        # A disposable 40x20 example uses the real manager preview path.
+        from configparser import ConfigParser
+        from barcode_label_automation.label_media import write_config_atomic
+        import tkinter as tk
+        parser = ConfigParser(interpolation=None)
+        parser.read(runtime / 'config.ini', encoding='utf-8-sig')
+        parser.set('printer', 'brand', 'bixolon')
+        parser.set('printer', 'language', 'slcs')
+        parser.set('printer', 'media_handling', 'tear_off')
+        parser.set('printer', 'print_orientation', 'normal')
+        for key, value in (('width_mm', '40'), ('height_mm', '20'), ('offset_x_mm', '0'), ('offset_y_mm', '0')):
+            parser.set('label', key, value)
+        compact_config = runtime / 'compact-preview.ini'
+        write_config_atomic(compact_config, parser)
+        preview_app = LabelManagerApp(runtime)
+        preview_app.config_path = compact_config
+        preview_app.output_template = None
+        preview_app.label_rows = [dict(item_code='00001', item_name='SENSOR BRACKET', barcode='001234567890',
+                                      lot_no='LOT250531', qty='100', print_qty='1')]
+        preview_app.label_headers = tuple(preview_app.label_rows[0])
+        preview_app.selected_label_indexes = {0}
+        preview_app.preview_output_template()
+        preview_app.update()
+        preview_dialog = next(child for child in preview_app.winfo_children() if isinstance(child, tk.Toplevel))
+        screenshots.append(_capture(preview_dialog, OUTPUT / 'manager-compact-preview.png', geometry='720x350+80+80'))
+        preview_app.destroy()
         screenshots.append(_capture(SettingsApp(runtime / "config.ini"), OUTPUT / "printer-settings.png"))
+        offsets = SettingsApp(runtime / "config.ini")
+        offsets.brand_var.set(BRAND_LABELS['bixolon'])
+        offsets._sync_media_handling_state()
+        offsets.media_handling_var.set('커터')
+        offsets.printer_name_var.set('BIXOLON 프린터 (설치 이름 예시)')
+        offsets.gap_offset_var.set('-1')
+        offsets.feed_offset_var.set('1')
+        offsets._advanced_offset_container.grid(row=10, column=0, columnspan=4, sticky='ew')
+        screenshots.append(_capture(offsets, OUTPUT / 'printer-offsets-bixolon.png'))
 
     if run_workflow_probe(OUTPUT) != 0:
         raise RuntimeError("실제 바코드 속성 UI 검증 또는 GS1/UDI 화면 캡처에 실패했습니다.")
