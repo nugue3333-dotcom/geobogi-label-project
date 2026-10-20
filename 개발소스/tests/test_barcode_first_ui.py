@@ -139,6 +139,83 @@ def test_new_matrix_defaults_to_size_first_but_one_d_keeps_existing_layout(app):
     assert "barcode_layout" not in app.elements[-1]
 
 
+def test_element_editor_opens_serial_settings_and_cancel_restores_rule_and_binding(app):
+    element = designer._element("text", "고정 문구", 2, 2, 25, 8)
+    app.elements = [element]
+    app.selected_id = str(element["id"])
+    app.selected_ids = {str(element["id"])}
+    app._reset_history()
+    original_element = deepcopy(element)
+    original_rules = deepcopy(app.template.get("value_rules", []))
+
+    editor = open_editor(app, element)
+    widget_with_text(editor, "일련화 설정…", ttk.Button).invoke()
+    settle(app)
+    dialog = next(widget for widget in descendants(editor)
+                  if isinstance(widget, tk.Toplevel) and widget.title() == "값 생성 규칙 · 번호 / 날짜 / 문자")
+    variables = dialog._value_rules_variables
+    rule_name = variables["name"].get()
+    assert rule_name.startswith("일련번호")
+    variables["start"].set("7")
+    variables["digits"].set("3")
+    variables["copies_per_value"].set("2")
+    variables["direction"].set("감소")
+    dialog._value_rules_apply()
+    settle(app)
+    assert app.template["value_rules"][0]["direction"] == "down"
+    assert element["field"] == rule_name
+    assert element["text"] == "{{" + rule_name + "}}"
+    assert app.preview_row[rule_name] == "007"
+    widget_with_text(editor, "취소", ttk.Button).invoke()
+    settle(app)
+    assert element == original_element
+    assert app.template.get("value_rules", []) == original_rules
+
+
+def test_element_editor_serial_settings_commit_to_template_on_confirm(app):
+    element = designer._element("text", "고정 문구", 2, 2, 25, 8)
+    app.elements = [element]
+    app.selected_id = str(element["id"])
+    app.selected_ids = {str(element["id"])}
+    app._reset_history()
+    editor = open_editor(app, element)
+    widget_with_text(editor, "일련화 설정…", ttk.Button).invoke()
+    settle(app)
+    dialog = next(widget for widget in descendants(editor)
+                  if isinstance(widget, tk.Toplevel) and widget.title() == "값 생성 규칙 · 번호 / 날짜 / 문자")
+    variables = dialog._value_rules_variables
+    variables["alphabet"].set("영문 대문자")
+    settle(app)
+    rule_name = variables["name"].get()
+    assert variables["start"].get() == "A"
+    assert variables["width_mode"].get() == "자동 자리수"
+    dialog._value_rules_apply()
+    settle(app)
+    widget_with_text(editor, "확인", ttk.Button).invoke()
+    settle(app)
+    assert element["field"] == rule_name
+    assert app.template["value_rules"][0]["alphabet"] == "uppercase"
+    assert app.template["value_rules"][0]["preserve_width"] is False
+
+
+def test_barcode_editor_serial_settings_generate_preview_and_confirm(app):
+    element = install_element(app)
+    editor = open_editor(app, element)
+    widget_with_text(editor, "일련화 설정…", ttk.Button).invoke()
+    settle(app)
+    dialog = next(widget for widget in descendants(editor)
+                  if isinstance(widget, tk.Toplevel) and widget.title() == "값 생성 규칙 · 번호 / 날짜 / 문자")
+    rule_name = dialog._value_rules_variables["name"].get()
+    dialog._value_rules_apply()
+    settle(app)
+    assert app.preview_row[rule_name] == "000001"
+    assert editor._barcode_preview_panel.result["value"] == "000001"
+    widget_with_text(editor, "확인", ttk.Button).invoke()
+    settle(app)
+    assert element["field"] == rule_name
+    assert app.template["value_rules"][0]["name"] == rule_name
+
+
 def test_actual_editor_changes_symbol_size_then_places_hri_without_shrinking(app):
     element = install_element(app)
     original = deepcopy(element)

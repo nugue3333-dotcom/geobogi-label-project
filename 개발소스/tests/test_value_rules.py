@@ -32,6 +32,32 @@ def test_serial_step_prefix_suffix():
     assert expanded(compile_generated_labels([{}], [3], [rule])) == ["LOT-0007-A", "LOT-0010-A", "LOT-0013-A"]
 
 
+def test_serial_decrement_preserves_width_and_stops_before_underflow():
+    rule = serial(start=3, digits=2, direction="down")
+    assert expanded(compile_generated_labels([{}], [3], [rule])) == ["03", "02", "01"]
+    with pytest.raises(ValueError, match="시작 범위보다 작아졌습니다"):
+        compile_generated_labels([{}], [5], [rule])
+
+
+@pytest.mark.parametrize(("alphabet", "start", "digits", "expected"), [
+    ("uppercase", "AZ", 2, ["AZ", "BA", "BB"]),
+    ("lowercase", "y", 2, ["y", "z", "aa"]),
+    ("alphanumeric", "0Z", 2, ["0Z", "10", "11"]),
+])
+def test_alpha_serial_rollover(alphabet, start, digits, expected):
+    rule = serial(name="순번", start=start, alphabet=alphabet, digits=digits,
+                  preserve_width=(alphabet == "alphanumeric"))
+    assert expanded(compile_generated_labels([{}], [len(expected)], [rule]), "순번") == expected
+
+
+def test_serial_replaces_selected_db_substring_without_changing_source():
+    source = {"원본": "LOT-ABCD-X"}
+    rule = serial(name="가공값", digits=4, target_field="원본", target_start=5, target_length=4)
+    labels = compile_generated_labels([source], [2], [rule])
+    assert expanded(labels, "가공값") == ["LOT-0001-X", "LOT-0002-X"]
+    assert source == {"원본": "LOT-ABCD-X"}
+
+
 def test_copy_groups_continue_across_db_rows():
     rule = serial()
     rule["copies_per_value"] = 2
@@ -69,7 +95,7 @@ def test_date_expiry_join_and_extract_chained():
     ({"name": "", "kind": "serial"}, "필드 이름"),
     ({"name": "__cl_id", "kind": "serial"}, "필드 이름"),
     ({"name": "품번", "kind": "serial"}, "DB 열"),
-    ({"name": "번호", "kind": "serial", "step": 0}, "증가량"),
+    ({"name": "번호", "kind": "serial", "step": 0}, "변화량"),
     ({"name": "번호", "kind": "serial", "start": -1}, "시작 번호"),
     ({"name": "번호", "kind": "serial", "digits": 31}, "자리수"),
     ({"name": "번호", "kind": "serial", "digits": 1, "start": 10}, "자리수"),
@@ -79,6 +105,7 @@ def test_date_expiry_join_and_extract_chained():
     ({"name": "날짜", "kind": "date", "format": "%s"}, "표시 형식"),
     ({"name": "부분", "kind": "slice", "field": "품번", "start": 0}, "시작 위치"),
     ({"name": "부분", "kind": "slice", "field": "missing"}, "원본 열"),
+    ({"name": "번호", "kind": "serial", "digits": 4, "target_field": "품번", "target_length": 3}, "같게 설정"),
     ({"name": "결합", "kind": "text", "template": "{{결합}}"}, "앞에 정의"),
 ])
 def test_invalid_rules_block(rule, match):

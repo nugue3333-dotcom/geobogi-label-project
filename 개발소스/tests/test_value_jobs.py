@@ -3,6 +3,7 @@ import json
 import pytest
 
 from barcode_label_automation.value_jobs import ValueJobStore, read_ledger, validate_ledger_bytes
+from barcode_label_automation.value_jobs import _digest, _sequence_key
 from barcode_label_automation.value_rules import ValueGenerationCancelled
 from barcode_label_automation.print_progress import PrintProgress
 
@@ -43,6 +44,42 @@ def test_partial_copy_reservation_and_template_isolation(tmp_path):
     assert [label.copies for label in first.labels] == [2, 1]
     assert store.peek_start_overrides("A", rules) == {"번호": 3}
     assert store.peek_start_overrides("B", rules) == {"번호": 1}
+
+
+def test_decrement_sequence_continues_and_blocks_underflow(tmp_path):
+    store = ValueJobStore(tmp_path)
+    rule = serial(start=3, digits=2, direction="down")
+    job = store.prepare_job([{}], [2], [rule], template_key="down")
+    assert [label.row["번호"] for label in job.labels] == ["03", "02"]
+    assert ValueJobStore(tmp_path).peek_start_overrides("down", [rule]) == {"번호": 1}
+    store.prepare_job([{}], [1], [rule], template_key="down")
+    assert store.peek_start_overrides("down", [rule]) == {"번호": 0}
+    before = store.path.read_bytes()
+    with pytest.raises(ValueError, match="시작 범위보다 작아졌습니다"):
+        store.prepare_job([{}], [2], [rule], template_key="down")
+    assert store.path.read_bytes() == before
+
+
+def test_alphabetic_continue_stores_counter_and_returns_formatted_value(tmp_path):
+    store = ValueJobStore(tmp_path)
+    rule = serial(start="Z", digits=2, alphabet="uppercase")
+    job = store.prepare_job([{}], [2], [rule], template_key="alpha")
+    assert [label.row["번호"] for label in job.labels] == ["Z", "AA"]
+    assert store.peek_start_overrides("alpha", [rule]) == {"번호": "AB"}
+
+
+def test_continue_sequence_accepts_pre_direction_ledger_digest(tmp_path):
+    store = ValueJobStore(tmp_path)
+    rule = serial()
+    store.prepare_job([{}], [1], [rule], template_key="legacy")
+    ledger = store._load()
+    key = _sequence_key("legacy", "번호")
+    ledger["sequences"][key]["rule_digest"] = _digest({
+        "name": "번호", "kind": "serial", "start": 1, "step": 1,
+        "digits": 5, "copies_per_value": 1, "reset": "continue", "prefix": "", "suffix": "",
+    })
+    store._save(ledger)
+    assert store.peek_start_overrides("legacy", [rule]) == {"번호": 2}
 
 
 def test_job_reset_mode_never_reserves_continue_counter(tmp_path):

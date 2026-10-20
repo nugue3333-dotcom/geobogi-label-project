@@ -11,7 +11,10 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from .value_rules import GeneratedLabel, compile_generated_labels, job_date_value, validate_value_rules
+from .value_rules import (
+    SERIAL_ALPHABETS, GeneratedLabel, _format_serial, _serial_index,
+    compile_generated_labels, job_date_value, validate_value_rules,
+)
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,12 @@ def _sequence_key(template_key: str, name: str) -> str:
     return _digest([template_key, name])
 
 
+def _legacy_rule_digest(rule: Mapping[str, object]) -> str:
+    """Match ledgers written before direction/alphabet/partial-target defaults existed."""
+    legacy = {key: value for key, value in rule.items() if key not in {"alphabet", "direction", "preserve_width", "target_field", "target_start", "target_length"}}
+    return _digest(legacy)
+
+
 def validate_ledger_bytes(content: bytes) -> dict[str, object]:
     """Validate backup bytes without creating files or changing issued numbers."""
     try:
@@ -49,7 +58,7 @@ def validate_ledger_bytes(content: bytes) -> dict[str, object]:
         for key, item in stored["sequences"].items():
             if not isinstance(key, str) or len(key) != 64:
                 raise ValueError("발급 키 오류")
-            if not isinstance(item, dict) or isinstance(item.get("next"), bool) or not isinstance(item.get("next"), int) or item["next"] < 0:
+            if not isinstance(item, dict) or isinstance(item.get("next"), bool) or not isinstance(item.get("next"), int):
                 raise ValueError("발급 번호 오류")
             if not isinstance(item.get("rule_digest"), str) or len(item["rule_digest"]) != 64:
                 raise ValueError("발급 규칙 오류")
@@ -126,22 +135,26 @@ class ValueJobStore:
         finally:
             temporary.unlink(missing_ok=True)
 
-    def _overrides(self, ledger: Mapping[str, object], template_key: str, rules: Sequence[Mapping[str, object]]) -> dict[str, int]:
-        output: dict[str, int] = {}
+    def _overrides(self, ledger: Mapping[str, object], template_key: str, rules: Sequence[Mapping[str, object]]) -> dict[str, int | str]:
+        output: dict[str, int | str] = {}
         for rule in rules:
             if rule["kind"] != "serial" or rule["reset"] != "continue":
                 continue
             name = str(rule["name"])
             recorded = ledger["sequences"].get(_sequence_key(template_key, name))
             if recorded is None:
-                output[name] = int(rule["start"])
+                output[name] = rule["start"]  # type: ignore[assignment]
             else:
-                if recorded["rule_digest"] != _digest(rule):
+                if recorded["rule_digest"] not in (_digest(rule), _legacy_rule_digest(rule)):
                     raise ValueError(f"{name}: 계속 발급 규칙이 이전 기록과 다릅니다. 규칙을 되돌리거나 번호 초기화를 명시적으로 확인하세요.")
-                output[name] = int(recorded["next"])
+                alphabet = SERIAL_ALPHABETS[str(rule["alphabet"])]
+                output[name] = (
+                    int(recorded["next"]) if str(rule["alphabet"]) == "numeric"
+                    else _format_serial(int(recorded["next"]), alphabet, int(rule["digits"]), name, bool(rule["preserve_width"]))
+                )
         return output
 
-    def peek_start_overrides(self, template_key: str, rules: Sequence[Mapping[str, object]]) -> dict[str, int]:
+    def peek_start_overrides(self, template_key: str, rules: Sequence[Mapping[str, object]]) -> dict[str, int | str]:
         """Read only: neither creates storage nor consumes a serial."""
         return self._overrides(self._load(), str(template_key), validate_value_rules(rules))
 
@@ -164,11 +177,16 @@ class ValueJobStore:
             total = sum(label.copies for label in labels)
             for rule in normalized:
                 if rule["kind"] == "serial" and rule["reset"] == "continue":
+                    name = str(rule["name"])
+                    alphabet = SERIAL_ALPHABETS[str(rule["alphabet"])]
+                    start_value = overrides.get(name, rule["start"])
+                    start_index = _serial_index(start_value, alphabet, name)
                     copies = int(rule["copies_per_value"])
                     # A partially used copy group is still issued; unused copies
                     # are never reused by a later job without explicit reprinting.
-                    next_value = overrides[str(rule["name"])] + ((total + copies - 1) // copies) * int(rule["step"])
-                    ledger["sequences"][_sequence_key(str(template_key), str(rule["name"]))] = {
+                    direction = 1 if rule["direction"] == "up" else -1
+                    next_value = start_index + direction * ((total + copies - 1) // copies) * int(rule["step"])
+                    ledger["sequences"][_sequence_key(str(template_key), name)] = {
                         "next": next_value, "rule_digest": _digest(rule),
                     }
             snapshot_id = uuid4().hex

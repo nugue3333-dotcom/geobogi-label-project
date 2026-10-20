@@ -327,7 +327,7 @@ def page_header(canvas, doc) -> None:
     canvas.line(MARGIN_X, 12 * mm, PAGE_WIDTH - MARGIN_X, 12 * mm)
     canvas.setFont("ManualMalgun", 8)
     canvas.setFillColor(MUTED)
-    canvas.drawString(MARGIN_X, 7.4 * mm, "채움랩 고객용 사용 매뉴얼 | 2026.10.20.01")
+    canvas.drawString(MARGIN_X, 7.4 * mm, "채움랩 고객용 사용 매뉴얼 | 2026.10.20.02")
     canvas.drawRightString(PAGE_WIDTH - MARGIN_X, 7.4 * mm, str(doc.page))
     canvas.restoreState()
 
@@ -764,7 +764,7 @@ def main() -> None:
             Spacer(1, 3 * mm),
             step(3, "값 생성 규칙을 만듭니다", "디자이너 도구 > 값 생성 규칙에서 일련번호, 날짜 / 기한, 문자 붙이기, 부분 추출을 고릅니다. 생성 필드는 {{필드 이름}} 또는 GS1의 DB 열로 연결하고 도안을 저장합니다."),
             Spacer(1, 3 * mm),
-            step(4, "번호와 날짜의 기준을 정합니다", "일련번호의 시작 번호·증가량·자리수·같은 번호의 복사 수를 정합니다. 작업마다 시작 또는 계속 발급을 구분합니다. 날짜는 작업 날짜나 DB 날짜에 일수를 더하고 표시 형식을 정합니다."),
+            step(4, "번호와 날짜의 기준을 정합니다", "일련번호는 증가·감소, 숫자·영문 대문자·영문 소문자·숫자+영문 순번, 자리수 유지·자동 자리수와 번호당 복사 수를 정합니다. Z 다음은 AA로 이어집니다. 작업마다 시작·계속 발급을 선택합니다. DB 열 일부를 지정하면 1부터 세는 시작 위치와 바꿀 글자 수만큼 순번으로 바꾸고 나머지 원문을 보존합니다. 바꿀 글자 수와 순번 자리수는 같게 설정합니다. 날짜는 작업 날짜나 DB 날짜에 일수를 더해 형식을 정합니다."),
             Spacer(1, 3 * mm),
             step(5, "미리보기와 전체 검증을 합니다", "4장 미리보기는 번호를 소비하지 않습니다. 실제 계속 발급 번호와 모든 출력 데이터는 출력 전에 확인합니다. 작업이 확정되면 값과 기준일을 저장하므로 재개할 때 임의로 다시 계산하지 않습니다."),
             Spacer(1, 4 * mm),
@@ -799,7 +799,7 @@ def main() -> None:
         note("마지막 확인", "도안의 규격·방향은 저장파일에, 장비별 위치 보정은 config.ini에 저장됩니다. 다른 규격 도안은 열 때 적용 방법을 선택합니다. 인쇄파일과 미리보기를 확인한 뒤 실제 장비 1매의 규격·위치·배출·스캔을 확인하세요.", CAUTION),
     ]
     for filename, (story, manual_title) in manuals.items():
-        story.extend([PageBreak(), *heading("추가", "소수 규격과 도안 방향을 확인합니다", "2026.10.20.01 용지와 도안 인식 사용법", "media-ocr"), *guide_steps])
+        story.extend([PageBreak(), *heading("추가", "소수 규격과 도안 방향을 확인합니다", "2026.10.20.02 용지와 도안 인식 사용법", "media-ocr"), *guide_steps])
         build_pdf(OUTPUT / filename, story, manual_title)
 
     for destination in (CUSTOMER_RUNTIME / "docs/고객용_매뉴얼", TOP_LEVEL / "docs/고객용_매뉴얼"):

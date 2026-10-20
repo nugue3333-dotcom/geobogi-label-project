@@ -9,6 +9,12 @@ from datetime import date, datetime, timedelta, timezone
 FIELD_RE = re.compile(r"\{\{([^{}]+)\}\}")
 DATE_FORMATS = {"YYYYMMDD": "%Y%m%d", "YYMMDD": "%y%m%d", "YYYY-MM-DD": "%Y-%m-%d"}
 RULE_KINDS = ("serial", "date", "text", "slice")
+SERIAL_ALPHABETS = {
+    "numeric": "0123456789",
+    "uppercase": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "lowercase": "abcdefghijklmnopqrstuvwxyz",
+    "alphanumeric": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+}
 
 
 class ValueGenerationCancelled(ValueError):
@@ -28,6 +34,42 @@ def _integer(value: object, label: str, minimum: int = 0) -> int:
     if result < minimum:
         raise ValueError(f"{label}: {minimum} 이상의 정수를 입력하세요.")
     return result
+
+
+def _serial_index(value: object, alphabet: str, name: str) -> int:
+    text = str(value)
+    if not text or any(char not in alphabet for char in text):
+        raise ValueError(f"{name}: 선택한 순번 방식에 맞는 시작값을 입력하세요.")
+    if alphabet in (SERIAL_ALPHABETS["uppercase"], SERIAL_ALPHABETS["lowercase"]):
+        result = 0
+        for char in text:
+            result = result * len(alphabet) + alphabet.index(char) + 1
+        return result - 1
+    base = len(alphabet)
+    result = 0
+    for char in text:
+        result = result * base + alphabet.index(char)
+    return result
+
+
+def _format_serial(index: int, alphabet: str, digits: int, name: str, preserve_width: bool = True) -> str:
+    if index < 0:
+        raise ValueError(f"{name}: 시작 범위보다 작아졌습니다. 감소량 또는 발행 매수를 확인하세요.")
+    chars: list[str] = []
+    if alphabet in (SERIAL_ALPHABETS["uppercase"], SERIAL_ALPHABETS["lowercase"]):
+        number = index + 1
+        while number:
+            number, remainder = divmod(number - 1, len(alphabet))
+            chars.append(alphabet[remainder])
+    else:
+        number = index
+        while number:
+            number, remainder = divmod(number, len(alphabet))
+            chars.append(alphabet[remainder])
+    value = "".join(reversed(chars)) or alphabet[0]
+    if len(value) > digits:
+        raise ValueError(f"{name}: 마지막 번호/값이 {digits}자리 범위를 넘습니다. 출력 전에 자리수를 늘리세요.")
+    return value.rjust(digits, alphabet[0]) if preserve_width else value
 
 
 def job_date_value(value: date | str | None = None) -> date:
@@ -65,19 +107,48 @@ def validate_value_rules(rules: Sequence[Mapping[str, object]], headers: Sequenc
         item: dict[str, object] = {"name": name, "kind": kind}
         references: list[str] = []
         if kind == "serial":
+            alphabet_name = str(rule.get("alphabet", "numeric"))
+            alphabet = SERIAL_ALPHABETS.get(alphabet_name)
+            if alphabet is None:
+                raise ValueError(f"{name}: 순번 방식을 선택하세요.")
+            item["alphabet"] = alphabet_name
+            item["direction"] = str(rule.get("direction", "up"))
+            if item["direction"] not in ("up", "down"):
+                raise ValueError(f"{name}: 증가 또는 감소를 선택하세요.")
             for key, default, minimum, label in (
-                ("start", 1, 0, "시작 번호"), ("step", 1, 1, "증가량"),
+                ("step", 1, 1, "변화량"),
                 ("digits", 6, 1, "자리수"), ("copies_per_value", 1, 1, "번호당 복사 수"),
             ):
                 item[key] = _integer(rule.get(key, default), f"{name} · {label}", minimum)
             if int(item["digits"]) > 30:
                 raise ValueError(f"{name}: 자리수는 1~30자리로 지정하세요.")
+            preserve_width = rule.get("preserve_width", alphabet_name == "numeric")
+            if isinstance(preserve_width, str):
+                preserve_width = preserve_width.strip().casefold() in {"1", "true", "yes", "on", "자리수 유지"}
+            if not isinstance(preserve_width, bool):
+                raise ValueError(f"{name}: 문자 수 유지 옵션을 확인하세요.")
+            item["preserve_width"] = preserve_width
+            raw_start = rule.get("start", 1 if alphabet_name == "numeric" else alphabet[0])
+            if alphabet_name == "numeric":
+                item["start"] = _integer(raw_start, f"{name} · 시작 번호")
+            else:
+                item["start"] = str(raw_start)
+                _serial_index(item["start"], alphabet, name)
             if len(str(item["start"])) > int(item["digits"]):
                 raise ValueError(f"{name}: 시작 번호가 지정한 자리수를 넘습니다.")
             item["reset"] = str(rule.get("reset", "job"))
             if item["reset"] not in ("job", "continue"):
                 raise ValueError(f"{name}: 작업마다 시작 또는 계속 발급을 선택하세요.")
             item["prefix"], item["suffix"] = str(rule.get("prefix", "")), str(rule.get("suffix", ""))
+            item["target_field"] = str(rule.get("target_field", "")).strip()
+            if item["target_field"]:
+                item["target_start"] = _integer(rule.get("target_start", 1), f"{name} · 바꿀 위치", 1)
+                item["target_length"] = _integer(rule.get("target_length", item["digits"]), f"{name} · 바꿀 글자 수", 1)
+                if not preserve_width:
+                    raise ValueError(f"{name}: DB 값 일부 교체는 문자 수 유지를 켜세요.")
+                if item["target_length"] != item["digits"]:
+                    raise ValueError(f"{name}: 바꿀 글자 수와 순번 자릿수를 같게 설정하세요.")
+                references.append(item["target_field"])
         elif kind == "date":
             item["base"] = str(rule.get("base", "job"))
             if item["base"] not in ("job", "field"):
@@ -133,7 +204,7 @@ def _date_field(raw: str, name: str) -> date:
 def iter_generated_labels(
     rows: Sequence[Mapping[str, object]], quantities: Sequence[int],
     rules: Sequence[Mapping[str, object]], job_date: date | str | None = None,
-    start_overrides: Mapping[str, int] | None = None,
+    start_overrides: Mapping[str, int | str] | None = None,
     *, cancel_check: Callable[[], bool] | None = None,
 ) -> Iterator[GeneratedLabel]:
     """Expand variable values, compress only identical adjacent copies; no state writes."""
@@ -147,10 +218,15 @@ def iter_generated_labels(
     normalized_quantities = [_integer(value, "인쇄 매수", 1) for value in quantities]
     total = sum(normalized_quantities)
     for rule in serials:
-        start = _integer(overrides.get(str(rule["name"]), rule["start"]), f"{rule['name']} · 시작 번호")
-        last = start + ((total - 1) // int(rule["copies_per_value"])) * int(rule["step"]) if total else start
-        if len(str(last)) > int(rule["digits"]):
-            raise ValueError(f"{rule['name']}: 마지막 번호 {last}가 {rule['digits']}자리 범위를 넘습니다. 출력 전 자리수를 늘리세요.")
+        name = str(rule["name"])
+        alphabet = SERIAL_ALPHABETS[str(rule["alphabet"])]
+        start = overrides.get(name, rule["start"])
+        start_index = _serial_index(start, alphabet, name)
+        direction = 1 if rule["direction"] == "up" else -1
+        last_index = start_index + direction * ((total - 1) // int(rule["copies_per_value"])) * int(rule["step"]) if total else start_index
+        last_value = _format_serial(last_index, alphabet, int(rule["digits"]), name, bool(rule["preserve_width"]))
+        # Formatting this endpoint preflights both range underflow and overflow.
+        del last_value
     pending: GeneratedLabel | None = None
     position = 0
     for source, qty in zip(rows, normalized_quantities):
@@ -163,11 +239,20 @@ def iter_generated_labels(
             for rule in normalized:
                 name, kind = str(rule["name"]), rule["kind"]
                 if kind == "serial":
-                    start = _integer(overrides.get(name, rule["start"]), f"{name} · 시작 번호")
-                    number = start + (position // int(rule["copies_per_value"])) * int(rule["step"])
-                    if len(str(number)) > int(rule["digits"]):
-                        raise ValueError(f"{name}: {number}번이 {rule['digits']}자리 범위를 넘습니다. 출력 전 자리수를 늘리세요.")
-                    value = str(rule["prefix"]) + str(number).zfill(int(rule["digits"])) + str(rule["suffix"])
+                    alphabet = SERIAL_ALPHABETS[str(rule["alphabet"])]
+                    start_index = _serial_index(overrides.get(name, rule["start"]), alphabet, name)
+                    direction = 1 if rule["direction"] == "up" else -1
+                    sequence_index = start_index + direction * (position // int(rule["copies_per_value"])) * int(rule["step"])
+                    sequence_value = _format_serial(sequence_index, alphabet, int(rule["digits"]), name, bool(rule["preserve_width"]))
+                    if rule["target_field"]:
+                        original = _field_value(generated, str(rule["target_field"]), name)
+                        start_at = int(rule["target_start"]) - 1
+                        length = int(rule["target_length"])
+                        if start_at + length > len(original):
+                            raise ValueError(f"{name}: 바꿀 위치와 글자 수가 원본 {len(original)}글자를 벗어납니다.")
+                        value = original[:start_at] + sequence_value + original[start_at + length:]
+                    else:
+                        value = str(rule["prefix"]) + sequence_value + str(rule["suffix"])
                 elif kind == "date":
                     base = fixed_date if rule["base"] == "job" else _date_field(_field_value(generated, str(rule["field"]), name), name)
                     try:
@@ -199,7 +284,7 @@ def iter_generated_labels(
 def compile_generated_labels(
     rows: Sequence[Mapping[str, object]], quantities: Sequence[int],
     rules: Sequence[Mapping[str, object]], job_date: date | str | None = None,
-    start_overrides: Mapping[str, int] | None = None,
+    start_overrides: Mapping[str, int | str] | None = None,
     *, cancel_check: Callable[[], bool] | None = None,
 ) -> list[GeneratedLabel]:
     return list(iter_generated_labels(rows, quantities, rules, job_date, start_overrides, cancel_check=cancel_check))

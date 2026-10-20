@@ -5421,13 +5421,13 @@ class LabelDesignerApp(tk.Tk):
         target_element = element
         editor_before = copy.deepcopy(target_element)
         is_barcode_editor = _is_code_element(target_element)
+        editor_original_row = self.preview_row
+        editor_row = dict(editor_original_row)
+        self.preview_row = editor_row
         if is_barcode_editor:
             element = copy.deepcopy(target_element)
             self._editor_preview_element = element
             self._editor_preview_target_id = str(target_element.get("id", ""))
-            editor_original_row = self.preview_row
-            editor_row = dict(self.preview_row)
-            self.preview_row = editor_row
 
         editor = tk.Toplevel(self)
         editor.title("바코드 속성" if is_barcode_editor else "요소 편집")
@@ -5615,6 +5615,15 @@ class LabelDesignerApp(tk.Tk):
         field_var = tk.StringVar(value=str(element.get("field", "")))
         editor_headers = (tuple(getattr(self, "data_source_headers", ())) if self.data_source_path is not None and self.db_rows else ()) + tuple(str(rule["name"]) for rule in self.template.get("value_rules", []))
         editor_option_to_key, editor_key_to_option = _data_field_option_maps(editor_headers)
+        value_rules_before = copy.deepcopy(self.template.get("value_rules", []))
+        value_profile_before = self.template.get("value_profile_id", "")
+        value_rules_changed = [False]
+
+        def preview_generated_row(rules: list[dict[str, object]], source_row: dict[str, str] | None = None) -> dict[str, str]:
+            from .value_rules import compile_generated_labels
+            source = dict(editor_original_row if source_row is None else source_row)
+            generated = compile_generated_labels([source], [1], rules)
+            return generated[0].row if generated else source
         selected_field = field_var.get()
         if selected_field not in editor_key_to_option:
             selected_field = next(
@@ -5687,6 +5696,11 @@ class LabelDesignerApp(tk.Tk):
             values=list(editor_option_to_key),
             state="readonly",
         )
+        serial_action = ttk.Frame(frame, style="Surface.TFrame")
+        serial_action.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(4, 8))
+        ttk.Label(serial_action, text="번호를 자동으로 만들거나 DB 값 일부를 바꿉니다.", style="Hint.TLabel").pack(side="left")
+        serial_button = ttk.Button(serial_action, text="일련화 설정…")
+        serial_button.pack(side="right")
         align_combo = ttk.Combobox(size_frame, textvariable=align_var, values=list(ALIGNMENTS.values()), state="readonly")
         arrange_combo = ttk.Combobox(size_frame, textvariable=arrange_var, values=list(ARRANGE_MODES.values()), state="readonly")
         rotation_combo = ttk.Combobox(size_frame, textvariable=rotation_var, values=list(ELEMENT_ROTATION_LABELS.values()), state="readonly")
@@ -5982,6 +5996,64 @@ class LabelDesignerApp(tk.Tk):
                 text_var.set(value)
             field_var.set("")
 
+        def open_serial_settings() -> None:
+            if is_barcode_editor and source_kind_var.get() != "general":
+                messagebox.showinfo("일련화 설정", "먼저 일반 데이터 원본으로 전환한 뒤 설정하세요.", parent=editor)
+                return
+            from .value_rules_dialog import edit_value_rules
+            rules = copy.deepcopy(self.template.get("value_rules", []))
+            current_name = field_var.get()
+            existing = next((rule for rule in rules if rule.get("name") == current_name and rule.get("kind") == "serial"), None)
+            if existing is not None:
+                preferred_name = current_name
+            else:
+                base_name = f"{current_name}_일련번호" if current_name else "일련번호"
+                preferred_name = base_name
+                suffix = 2
+                occupied = set(editor_headers) | {str(rule.get("name", "")) for rule in rules}
+                while preferred_name in occupied:
+                    preferred_name = f"{base_name}{suffix}"
+                    suffix += 1
+                rules.append({
+                    "name": preferred_name, "kind": "serial", "start": 1, "step": 1,
+                    "digits": 6, "copies_per_value": 1, "reset": "job",
+                    "direction": "up", "alphabet": "numeric", "prefix": "", "suffix": "",
+                })
+
+            def apply_serial_rules(updated: list[dict[str, object]]) -> None:
+                nonlocal general_db_field
+                if not any(rule.get("name") == preferred_name and rule.get("kind") == "serial" for rule in updated):
+                    raise ValueError("현재 개체에 연결할 일련번호 규칙을 유지하거나 다시 추가하세요.")
+                self.template["value_rules"] = copy.deepcopy(updated)
+                if updated and not self.template.get("value_profile_id"):
+                    self.template["value_profile_id"] = uuid4().hex
+                value_rules_changed[0] = True
+                for rule in updated:
+                    name = str(rule["name"])
+                    option = _db_field_option_label(name)
+                    editor_option_to_key[option] = name
+                    editor_key_to_option[name] = option
+                editor_field_combo.configure(values=list(editor_option_to_key))
+                editor_field_option_var.set(editor_key_to_option[preferred_name])
+                if is_barcode_editor:
+                    general_mode_var.set("db")
+                    general_db_field = preferred_name
+                    source_drafts.setdefault("general", {})["field"] = preferred_name
+                apply_editor_data_field()
+                editor_row.clear()
+                editor_row.update(preview_generated_row(updated))
+                self.refresh_sample_options()
+                self.redraw()
+                if is_barcode_editor:
+                    apply_live()
+                    editor.after_idle(refresh_editor_preview)
+                self.status_var.set("일련화 규칙을 개체에 연결했습니다. 도안을 저장하고 전체 데이터를 검증하세요.")
+
+            edit_value_rules(editor, rules, tuple(self.data_source_headers), apply_serial_rules,
+                             sample_row=editor_original_row, preferred_name=preferred_name)
+
+        serial_button.configure(command=open_serial_settings)
+
         def sync_code_state() -> None:
             nonlocal last_editor_code_type, editor_advanced_options, applying
             element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
@@ -6270,11 +6342,13 @@ class LabelDesignerApp(tk.Tk):
             labels = {"general":"현재 원본: 고정값 또는 DB 열", "gs1":"현재 원본: GS1 응용식별자(AI)", "udi":"현재 원본: 의료기기 UDI"}
             source_status_var.set(labels.get(kind, labels["general"]))
             if kind == "general":
+                serial_action.grid()
                 text_editor.configure(state="normal")
                 sync_data_field_state()
                 general_source_button.grid_remove()
                 gs1_button.configure(text="GS1 데이터로 설정…")
             else:
+                serial_action.grid_remove()
                 text_editor.configure(state="disabled")
                 editor_field_label.grid_remove()
                 editor_field_combo.grid_remove()
@@ -6447,8 +6521,9 @@ class LabelDesignerApp(tk.Tk):
             editor._barcode_editor_status_var = tk.StringVar(value="편집 초안 · 적용 전")
             preview_status.configure(textvariable=editor._barcode_editor_status_var)
             def change_preview_row(index):
+                raw_row = dict(self.db_rows[index])
                 editor_row.clear()
-                editor_row.update(self.db_rows[index])
+                editor_row.update(preview_generated_row(self.template.get("value_rules", []), raw_row))
                 refresh_editor_preview()
                 refresh_actual_size()
                 self.redraw()
@@ -6568,6 +6643,7 @@ class LabelDesignerApp(tk.Tk):
             if is_barcode_editor and self.__dict__.get("_editor_preview_element") is element:
                 self.__dict__.pop("_editor_preview_element", None)
                 self.__dict__.pop("_editor_preview_target_id", None)
+            if self.preview_row is editor_row:
                 self.preview_row = editor_original_row
                 self.redraw()
             if editor.grab_current() is editor:
@@ -6576,6 +6652,10 @@ class LabelDesignerApp(tk.Tk):
             editor.destroy()
 
         def cancel_editor() -> None:
+            if value_rules_changed[0]:
+                self.template["value_rules"] = copy.deepcopy(value_rules_before)
+                self.template["value_profile_id"] = value_profile_before
+                self.refresh_sample_options()
             if not is_barcode_editor:
                 target_element.clear()
                 target_element.update(copy.deepcopy(editor_before))

@@ -1,4 +1,4 @@
-"""Build the five-page quick guide using the current desktop print contract."""
+"""Build the quick guide using the current desktop print contract."""
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -36,7 +36,7 @@ def page(canvas, doc):
     canvas.line(18*mm,278*mm,192*mm,278*mm)
     canvas.setFont('QuickKO',8)
     canvas.setFillColor(NAVY)
-    canvas.drawString(18*mm,12*mm,'채움랩 · 한눈에 사용안내 · 2026.10.20.01')
+    canvas.drawString(18*mm,12*mm,'채움랩 · 한눈에 사용안내 · 2026.10.20.02')
     canvas.drawRightString(192*mm,12*mm,str(doc.page))
     canvas.restoreState()
 

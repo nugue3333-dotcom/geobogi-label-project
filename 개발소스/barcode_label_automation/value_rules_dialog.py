@@ -18,6 +18,7 @@ KIND_NAMES = {value: key for key, value in KIND_LABELS.items()}
 def edit_value_rules(
     parent: tk.Misc, rules: Sequence[Mapping[str, object]], headers: Sequence[str],
     on_apply: Callable[[list[dict[str, object]]], None], *, sample_row: Mapping[str, object] | None = None,
+    preferred_name: str | None = None,
 ) -> tk.Toplevel:
     initial_records = validate_value_rules(copy.deepcopy(rules), headers)
     window = tk.Toplevel(parent)
@@ -71,7 +72,9 @@ def edit_value_rules(
     form.columnconfigure(1, weight=1)
     variables = {key: tk.StringVar(value=value) for key, value in {
         "name": "", "kind": "일련번호", "start": "1", "step": "1", "digits": "6", "copies_per_value": "1",
-        "reset": "작업마다 시작", "prefix": "", "suffix": "", "base": "작업 날짜", "field": "",
+        "reset": "작업마다 시작", "prefix": "", "suffix": "", "direction": "증가", "alphabet": "숫자",
+        "target_field": "전체 값", "target_start": "1", "target_length": "6", "width_mode": "자리수 유지",
+        "base": "작업 날짜", "field": "",
         "offset_days": "0", "format": "YYYYMMDD", "template": "", "length": "1",
     }.items()}
     form_controls: dict[str, tuple[ttk.Label, tk.Widget]] = {}
@@ -79,6 +82,11 @@ def edit_value_rules(
         ("name", "생성 필드 이름", None), ("kind", "계산 방식", tuple(KIND_LABELS)),
         ("start", "시작 번호 / 추출 위치", None), ("step", "증가량", None), ("digits", "자리수 (앞에 0 채움)", None),
         ("copies_per_value", "같은 번호의 복사 수", None), ("reset", "다음 작업 번호", ("작업마다 시작", "계속 발급")),
+        ("direction", "방향", ("증가", "감소")),
+        ("alphabet", "순번 방식", ("숫자", "영문 대문자", "영문 소문자", "숫자+영문 대문자")),
+        ("width_mode", "문자 수", ("자리수 유지", "자동 자리수")),
+        ("target_field", "변경 대상", ("전체 값",) + tuple(headers)),
+        ("target_start", "바꿀 위치 (첫 글자=1)", None), ("target_length", "바꿀 글자 수", None),
         ("prefix", "번호 앞 문자", None), ("suffix", "번호 뒤 문자", None),
         ("base", "기준 날짜", ("작업 날짜", "DB 날짜")), ("field", "원본 열", tuple(headers)),
         ("offset_days", "더할 일수 (음수 가능)", None), ("format", "날짜 표시", ("YYYYMMDD", "YYMMDD", "YYYY-MM-DD")),
@@ -109,7 +117,9 @@ def edit_value_rules(
     def draw_form(*_args) -> None:
         kind = KIND_LABELS[variables["kind"].get()]
         visible = {
-            "serial": ("name", "kind", "start", "step", "digits", "copies_per_value", "reset", "prefix", "suffix"),
+            "serial": ("name", "kind", "direction", "alphabet", "width_mode", "start", "step", "digits", "copies_per_value", "reset", "target_field",
+                       *( ("target_start", "target_length") if variables["target_field"].get() != "전체 값" else ()),
+                       *( ("prefix", "suffix") if variables["target_field"].get() == "전체 값" else ())),
             "date": ("name", "kind", "base", "field", "offset_days", "format"),
             "text": ("name", "kind", "template"), "slice": ("name", "kind", "field", "start", "length"),
         }[kind]
@@ -120,13 +130,17 @@ def edit_value_rules(
             label, widget = form_controls[key]
             if key == "start":
                 label.configure(text="시작 위치 (첫 글자=1)" if kind == "slice" else "시작 번호")
+            if key == "digits":
+                label.configure(text="자리수 / 최대 길이")
             label.grid(row=row_index, column=0, sticky="w", padx=(0, 12), pady=5)
             widget.grid(row=row_index, column=1, sticky="ew", pady=5)
             if key == "field":
                 widget.configure(values=tuple(headers) + tuple(str(record.get("name", "")) for record in records[:selected[0] if selected[0] is not None else len(records)]))
                 widget.configure(state="disabled" if kind == "date" and variables["base"].get() == "작업 날짜" else "readonly")
+            if key == "target_field":
+                widget.configure(values=("전체 값",) + tuple(headers))
         hint.set({
-            "serial": "복사 수 2면 000001, 000001, 000002, 000002 순서입니다. 계속 발급은 확인한 출력 작업에서 번호를 예약하며, 취소·전송 실패 시 남은 번호를 재사용하지 않습니다.",
+            "serial": "증가·감소와 숫자/영문 순번을 선택합니다. 번호당 매수만큼 같은 값을 찍고, 일부 변경은 선택한 DB 열의 자리수만 바꿉니다. 미리보기는 번호를 발급하지 않습니다.",
             "date": "작업 날짜는 작업 시작 시 고정됩니다. DB 날짜는 YYYYMMDD 또는 YYYY-MM-DD입니다. 사용기한은 기준 날짜에 일수를 더해 계산합니다.",
             "text": "예: LOT-{{품번}}-{{일련번호}}. 생성 필드는 앞선 규칙만 참조할 수 있습니다. 원본 DB 열이 없으면 출력 전에 오류를 표시합니다.",
             "slice": "시작 위치는 첫 글자가 1입니다. 예: ABC123에서 시작 4, 길이 3이면 123입니다. 원본을 변경하지 않습니다.",
@@ -135,16 +149,32 @@ def edit_value_rules(
     def draft() -> dict[str, object]:
         kind = KIND_LABELS[variables["kind"].get()]
         item: dict[str, object] = {"name": variables["name"].get(), "kind": kind}
-        keys = {"serial": ("start", "step", "digits", "copies_per_value", "prefix", "suffix"), "date": ("field", "offset_days", "format"), "text": ("template",), "slice": ("field", "start", "length")}[kind]
+        keys = {"serial": ("start", "step", "digits", "copies_per_value", "prefix", "suffix", "target_start", "target_length"), "date": ("field", "offset_days", "format"), "text": ("template",), "slice": ("field", "start", "length")}[kind]
         item.update({key: variables[key].get() for key in keys})
         if kind == "serial":
             item["reset"] = "continue" if variables["reset"].get() == "계속 발급" else "job"
+            item["direction"] = "down" if variables["direction"].get() == "감소" else "up"
+            item["alphabet"] = {"숫자":"numeric", "영문 대문자":"uppercase", "영문 소문자":"lowercase", "숫자+영문 대문자":"alphanumeric"}[variables["alphabet"].get()]
+            item["preserve_width"] = variables["width_mode"].get() == "자리수 유지"
+            item["target_field"] = "" if variables["target_field"].get() == "전체 값" else variables["target_field"].get()
         elif kind == "date":
             item["base"] = "field" if variables["base"].get() == "DB 날짜" else "job"
         return item
 
     def current_values() -> dict[str, str]:
         return {key: variable.get() for key, variable in variables.items()}
+
+    def adjust_serial_start(*_args) -> None:
+        if refreshing[0]:
+            return
+        alphabet = {
+            "숫자": "0123456789", "영문 대문자": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            "영문 소문자": "abcdefghijklmnopqrstuvwxyz", "숫자+영문 대문자": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        }.get(variables["alphabet"].get(), "0123456789")
+        start = variables["start"].get()
+        if not start or any(char not in alphabet for char in start):
+            variables["start"].set(alphabet[0])
+            variables["width_mode"].set("자동 자리수" if variables["alphabet"].get() != "숫자" else "자리수 유지")
 
     def refresh(index: int | None = None) -> None:
         refreshing[0] = True
@@ -161,6 +191,15 @@ def edit_value_rules(
             variables["kind"].set(KIND_NAMES.get(str(record.get("kind")), "일련번호"))
             variables["reset"].set("계속 발급" if record.get("reset") == "continue" else "작업마다 시작")
             variables["base"].set("DB 날짜" if record.get("base") == "field" else "작업 날짜")
+            variables["direction"].set("감소" if record.get("direction") == "down" else "증가")
+            variables["alphabet"].set({"numeric":"숫자", "uppercase":"영문 대문자", "lowercase":"영문 소문자", "alphanumeric":"숫자+영문 대문자"}.get(str(record.get("alphabet", "numeric")), "숫자"))
+            variables["target_field"].set(str(record.get("target_field") or "전체 값"))
+            variables["width_mode"].set("자리수 유지" if record.get("preserve_width", record.get("alphabet", "numeric") == "numeric") else "자동 자리수")
+        else:
+            variables["direction"].set("증가")
+            variables["alphabet"].set("숫자")
+            variables["target_field"].set("전체 값")
+            variables["width_mode"].set("자리수 유지")
         baseline[0] = current_values()
         refreshing[0] = False
         draw_form()
@@ -262,6 +301,8 @@ def edit_value_rules(
     table.bind("<<TreeviewSelect>>", selection_changed)
     variables["kind"].trace_add("write", draw_form)
     variables["base"].trace_add("write", draw_form)
+    variables["target_field"].trace_add("write", draw_form)
+    variables["alphabet"].trace_add("write", adjust_serial_start)
     window.bind("<Escape>", lambda _event: window.destroy())
     # Named handles support the same real-Tk regression checks as the suite.
     window._value_rules_variables = variables
@@ -269,6 +310,7 @@ def edit_value_rules(
     window._value_rules_apply = apply
     window._value_rules_preview = show_preview
     window._value_rules_status = status
-    refresh(0 if records else None)
+    preferred_index = next((index for index, record in enumerate(records) if record.get("name") == preferred_name), None)
+    refresh(preferred_index if preferred_index is not None else (0 if records else None))
     window.grab_set()
     return window

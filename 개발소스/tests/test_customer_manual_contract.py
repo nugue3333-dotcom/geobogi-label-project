@@ -51,7 +51,7 @@ def test_manual_verifier_rejects_obsolete_menu_paths(path):
 
 
 def test_release_version_and_new_help_file_names():
-    assert verifier.MANUAL_VERSION == "2026.10.20.01"
+    assert verifier.MANUAL_VERSION == "2026.10.20.02"
     for name in ("build_customer_manuals.py", "create_customer_manual.py"):
         source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
         assert verifier.MANUAL_VERSION in source
@@ -74,7 +74,10 @@ def test_capture_provenance_requires_style_and_all_current_screens(tmp_path):
     for name in ("label-designer-final.png", "label-designer-data.png", "label-manager-final.png", "manager-compact-preview.png", "printer-settings.png", "frozen-udi-content.png", "frozen-udi-size.png"):
         path = output / name
         path.write_bytes(name.encode("utf-8"))
-        metadata["screenshots"].append({"filename": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+        item = {"filename": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+        if name == "manager-compact-preview.png":
+            item["capture_kind"] = "source_renderer_output"
+        metadata["screenshots"].append(item)
     manifest = output / "customer-manual-capture.json"
     manifest.write_text(json.dumps(metadata), encoding="utf-8")
     assert verifier.capture_contract_errors(tmp_path) == []
@@ -88,7 +91,7 @@ def test_capture_provenance_requires_style_and_all_current_screens(tmp_path):
 @pytest.mark.parametrize("filename", ("README_먼저읽기.txt", "설치_및_사용_메뉴얼.txt", "사용안내.txt"))
 def test_text_guides_match_current_menu_and_print_contract(filename):
     text = (ROOT / filename).read_text(encoding="utf-8-sig")
-    required = (".cllabel", ".clproject", ".gblabel", ".gbproject", "전체 항목", "임시 큐", "도움말 > 지원 패키지 생성", verifier.MANUAL_VERSION)
+    required = (".cllabel", ".clproject", ".gblabel", ".gbproject", "전체 항목", "임시 큐", "도움말 > 지원 패키지 생성", "영문 대문자", "계속 발급", verifier.MANUAL_VERSION)
     assert verifier.text_contract_errors(text, required) == []
 
 
@@ -123,6 +126,8 @@ def test_compact_automatic_layout_has_current_manual_and_capture_contract():
     assert verifier.text_contract_errors(source, required) == []
     assert "barcode_label_automation/compact_auto_layout.py" in verifier.REQUIRED_UI_SOURCES
     assert "manager-compact-preview.png" in source
+    capture_source = (ROOT/'scripts/capture_customer_manual_screens.py').read_text(encoding='utf-8')
+    assert "'capture_kind': 'source_renderer_output'" in capture_source
 
 
 def test_manual_capture_tracks_usability_modules():

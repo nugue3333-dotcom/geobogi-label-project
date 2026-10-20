@@ -51,7 +51,7 @@ def test_invalid_draft_and_kind_switch_are_safe(root):
     window._value_rules_variables["step"].set("0")
     window._value_rules_apply()
     assert not applied
-    assert "증가량" in window._value_rules_status.get()
+    assert "변화량" in window._value_rules_status.get()
     window._value_rules_variables["kind"].set("날짜 / 기한")
     window._value_rules_variables["offset_days"].set("30")
     root.update()
@@ -86,3 +86,21 @@ def test_preview_commits_draft_locally_without_external_callback(root):
     assert "번호를 소비하지" in window._value_rules_status.get()
     window._value_rules_apply()
     assert applied[0][0]["start"] == 5
+
+
+def test_serial_direction_width_and_partial_source_edit_round_trip(root):
+    applied = []
+    original = [{"name":"표시값", "kind":"serial", "start":5, "step":2, "digits":4,
+                 "direction":"down", "alphabet":"numeric", "preserve_width":True,
+                 "target_field":"품번", "target_start":5, "target_length":4}]
+    window = edit_value_rules(root, original, ["품번"], applied.append, sample_row={"품번":"LOT-0001-X"})
+    root.update()
+    values = window._value_rules_variables
+    assert values["direction"].get() == "감소"
+    assert values["width_mode"].get() == "자리수 유지"
+    assert values["target_field"].get() == "품번"
+    window._value_rules_apply()
+    assert applied[0][0]["direction"] == "down"
+    assert applied[0][0]["target_field"] == "품번"
+    assert applied[0][0]["target_start"] == 5
+    assert applied[0][0]["preserve_width"] is True

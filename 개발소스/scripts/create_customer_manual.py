@@ -249,7 +249,7 @@ def add_footer(section) -> None:
     paragraph = footer.paragraphs[0]
     paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     paragraph.paragraph_format.space_after = Pt(0)
-    run = paragraph.add_run("채움랩 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.10.20.01")
+    run = paragraph.add_run("채움랩 라벨 출력 패키지 고객용 매뉴얼 | Rev. 2026.10.20.02")
     set_run_font(run, size_pt=8.5, color=COLOR_MUTED)
     paragraph.add_run(" | ")
     page = OxmlElement("w:fldSimple")
@@ -275,7 +275,7 @@ def add_cover(doc: Document) -> None:
         ("문서 용도", "프린터 설정, 라벨 디자인, 상품 엑셀 연결과 일상 출력을 한 흐름으로 익히는 사용 설명서"),
         ("장비 확인", "BIXOLON, TSC, Zebra, SEWOO 브랜드 설정은 실제 모델의 지원 명령과 장착 옵션을 별도로 확인합니다."),
         ("배포 폴더", "고객용_실행폴더"),
-        ("문서 버전", "3.0 / 2026.10.20.01"),
+        ("문서 버전", "3.0 / 2026.10.20.02"),
     ]
     for row, (label, value) in zip(metadata.rows, rows):
         fill_cell(row.cells[0], label, bold=True, color=COLOR_NAVY)
@@ -360,7 +360,7 @@ def add_product_screens(doc: Document) -> None:
         if not path.exists():
             raise FileNotFoundError("최신 실제 화면 캡처가 없습니다: " + str(path))
         doc.add_picture(str(path), width=Inches(6.5))
-        add_body(doc, "2026.10.20.01 실제 프로그램 화면. 창 크기와 Windows 배율에 따라 패널 폭과 표시 위치가 달라질 수 있습니다.")
+        add_body(doc, "2026.10.20.02 실제 프로그램 화면. 창 크기와 Windows 배율에 따라 패널 폭과 표시 위치가 달라질 수 있습니다.")
 
 
 def add_file_map(doc: Document) -> None:
@@ -741,8 +741,8 @@ def main() -> None:
     doc.add_paragraph("디자이너에서 도안을 저장한 뒤 보기 > 반복 출력 화면 또는 상단 반복 출력을 누릅니다. 출력 관리에서 선택 도안 이름과 현재 도안 미리보기를 확인합니다. 출력 도안 선택으로 .cllabel을 직접 지정할 수 있으며 자동 기본 배치 사용은 프린터 설정의 기본 배치로 변경합니다. 두 모드를 구분하고 출력 대상·매수를 확인하세요.")
     doc.add_paragraph("상품 엑셀 연결에서 사용할 파일과 시트를 고릅니다. 도안에는 연결 파일 경로·시트·열·변경 확인값을 저장하며 엑셀의 전체 고객 행을 복사하지 않습니다. 원본 참조와 가져온 복사본, 연결 시각을 확인하고 파일이 이동하거나 바뀌면 재연결 또는 엑셀 새로고침 후 열 연결을 검증합니다. 전체 데이터 검증에서 행·개체·원인을 한 번에 확인합니다.")
     doc.add_heading("일련번호·날짜·문자 생성", level=2)
-    doc.add_paragraph("디자이너 도구 > 값 생성 규칙에서 일련번호, 날짜 / 기한, 문자 붙이기, 부분 추출을 추가합니다. 생성 필드는 {{필드 이름}} 또는 GS1의 DB 열로 연결합니다. 일련번호 시작 번호·증가량·자리수·같은 번호의 복사 수와 작업마다 시작/계속 발급을 지정합니다. 날짜는 작업 날짜 또는 DB 날짜에 일수를 더하고 출력 형식을 정합니다. 규칙을 적용한 뒤 도안을 저장합니다.")
-    doc.add_paragraph("4장 미리보기는 번호를 소비하지 않습니다. 인쇄 확인 후 확정한 값과 기준일은 작업 기록으로 보존하며 재개·재인쇄 시 새 날짜나 번호를 자동 계산하지 않습니다. 전송 결과가 불확실하면 실제 출력물을 먼저 확인하고 기존 값 재인쇄와 새 번호 발급을 구분하세요.")
+    doc.add_paragraph("디자이너 도구 > 값 생성 규칙에서 일련번호, 날짜 / 기한, 문자 붙이기, 부분 추출을 추가합니다. 생성 필드는 {{필드 이름}} 또는 GS1의 DB 열로 연결합니다. 일련번호는 증가·감소, 숫자·영문 대문자·영문 소문자·숫자+영문 순번, 자리수 유지·자동 자리수와 번호당 복사 수를 지정합니다. Z 다음은 AA로 이어집니다. 작업마다 시작·계속 발급을 선택하고 날짜는 작업 날짜 또는 DB 날짜에 일수를 더해 형식을 정합니다. 규칙을 적용한 뒤 도안을 저장합니다.")
+    doc.add_paragraph("DB 열을 변경 대상으로 지정하면 1부터 세는 시작 위치와 글자 수만큼 순번으로 바꾸고 나머지 원문을 보존합니다. 예: ABC00042에서 4번째부터 5글자를 00001로 바꾸면 ABC00001입니다. 바꿀 글자 수와 순번 자리수는 같아야 합니다. 4장 미리보기는 번호를 소비하지 않으며 범위 초과와 잘못된 DB 부분 범위는 출력 전에 차단합니다. 인쇄 확인 후 확정한 값과 기준일은 작업 기록으로 보존하며 재개·재인쇄 시 새 날짜나 번호를 자동 계산하지 않습니다. 전송 결과가 불확실하면 실제 출력물을 먼저 확인하고 기존 값 재인쇄와 새 번호 발급을 구분하세요.")
     doc.add_paragraph("고객 데이터 백업에는 out/value_jobs/ledger.json의 발급·재인쇄 기록을 포함합니다. 나머지 out 로그와 지원 ZIP은 포함하지 않습니다. 발급 중 잠금, 기록 손상, 현재 번호보다 오래된 백업, 누락된 작업 기록은 안전을 위해 복원을 차단합니다. 기록을 지워 우회하지 말고 최신 백업과 실제 사용 번호를 확인하세요.")
     doc.core_properties.title = "채움랩 라벨 출력 패키지 고객용 프로그램 매뉴얼"
     doc.add_heading("GS1 데이터 표시와 재인쇄", level=2)

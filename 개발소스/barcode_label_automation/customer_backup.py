@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
-from .value_jobs import ValueJobStore
+from .value_jobs import ValueJobStore, _digest
 
 
 BACKUP_FILES = (
@@ -610,7 +610,16 @@ def _check_value_ledger_restore(base_dir: Path, payload_dir: Path) -> None:
     incoming = _validated_value_ledger_bytes(incoming_path.read_bytes())
     for key, value in current["sequences"].items():
         candidate = incoming["sequences"].get(key)
-        if candidate is None or candidate["rule_digest"] != value["rule_digest"] or candidate["next"] < value["next"]:
+        direction = next((
+            str(rule.get("direction", "up"))
+            for job in current["jobs"].values() if isinstance(job, dict)
+            for rule in job.get("rules", []) if isinstance(rule, dict)
+            if rule.get("kind") == "serial" and _digest(rule) == value["rule_digest"]
+        ), "up")
+        moved_backwards = candidate is not None and (
+            candidate["next"] > value["next"] if direction == "down" else candidate["next"] < value["next"]
+        )
+        if candidate is None or candidate["rule_digest"] != value["rule_digest"] or moved_backwards:
             raise CustomerBackupError("백업의 발급 번호가 현재 기록보다 오래되거나 규칙이 다릅니다. 번호 중복을 막기 위해 복원을 중단했습니다. 최신 백업과 실제 사용 번호를 확인하세요.")
     for key, value in current["jobs"].items():
         if incoming["jobs"].get(key) != value:

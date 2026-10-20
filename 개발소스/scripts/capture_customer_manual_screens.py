@@ -14,9 +14,12 @@ from tkinter import Misc, TclError
 
 from PIL import Image, ImageGrab
 
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from barcode_label_automation.config import DEFAULTS
 
 from barcode_label_automation.label_designer_app import LabelDesignerApp
 from barcode_label_automation.label_manager_app import LabelManagerApp
@@ -26,7 +29,7 @@ from barcode_label_automation.workflow_probe import run_workflow_probe
 
 OUTPUT = ROOT / "outputs" / "ui-redesign-preview"
 UI_SOURCES = tuple(ROOT / "barcode_label_automation" / name for name in (
-    "config.py", "media_geometry.py", "ocr_orientation.py", "printer_offsets.py", "templates.py", "compact_auto_layout.py",
+    "config.py", "media_geometry.py", "printer_offsets.py", "templates.py", "compact_auto_layout.py",
     "label_designer_app.py", "label_manager_app.py", "settings_app.py", "ui_tokens.py", "ui_window.py", "ui_style.py", "brand_assets.py",
     "gs1_editor.py", "barcode_options_dialog.py", "barcode_engine.py", "barcode_catalog.py", "gs1.py", "designer_clipboard.py", "label_media.py", "tool_icons.py", "print_quantity.py", "designer_print_dispatch.py",
     "job_profile.py", "template_output.py", "profile_dialogs.py", "value_rules.py", "value_rules_dialog.py", "value_jobs.py", "saved_output.py", "data_store.py", "barcode_layout.py", "hibc.py", "udi_editor.py", "workflow_probe.py", "barcode_editor_preview.py",
@@ -85,12 +88,25 @@ def main() -> None:
         runtime = Path(temp_dir)
         for filename in ("config.ini", "barcode_db.xlsx", "print_queue.xlsx", "labels.xlsm"):
             _copy_if_exists(ROOT / filename, runtime / filename)
+        from configparser import ConfigParser
+        from barcode_label_automation.label_media import write_config_atomic
+        runtime_config = runtime / "config.ini"
+        if not runtime_config.exists():
+            parser = ConfigParser(interpolation=None)
+            parser.read_dict(DEFAULTS)
+            write_config_atomic(runtime_config, parser)
         if (ROOT / "templates").exists():
             shutil.copytree(ROOT / "templates", runtime / "templates", dirs_exist_ok=True)
 
         sample_template = runtime / "templates" / "sample_excel_product.cllabel"
         if not sample_template.exists():
             raise FileNotFoundError("최신 예제 도안이 없습니다: " + str(sample_template))
+        template_media = json.loads(sample_template.read_text(encoding="utf-8"))["label"]
+        parser = ConfigParser(interpolation=None)
+        parser.read(runtime_config, encoding="utf-8-sig")
+        parser.set("label", "width_mm", str(template_media["width_mm"]))
+        parser.set("label", "height_mm", str(template_media["height_mm"]))
+        write_config_atomic(runtime_config, parser)
         screenshots = []
         designer = LabelDesignerApp(runtime, initial_template_path=sample_template)
         designer.connect_data_source_path(runtime / "barcode_db.xlsx")
@@ -101,32 +117,21 @@ def main() -> None:
         designer_data.save_template()
         screenshots.append(_capture(designer_data, OUTPUT / "label-designer-data.png"))
         screenshots.append(_capture(LabelManagerApp(runtime, template_path=sample_template), OUTPUT / "label-manager-final.png"))
-        # A disposable 40x20 example uses the real manager preview path.
-        from configparser import ConfigParser
-        from barcode_label_automation.label_media import write_config_atomic
-        import tkinter as tk
-        parser = ConfigParser(interpolation=None)
-        parser.read(runtime / 'config.ini', encoding='utf-8-sig')
-        parser.set('printer', 'brand', 'bixolon')
-        parser.set('printer', 'language', 'slcs')
-        parser.set('printer', 'media_handling', 'tear_off')
-        parser.set('printer', 'print_orientation', 'normal')
-        for key, value in (('width_mm', '40'), ('height_mm', '20'), ('offset_x_mm', '0'), ('offset_y_mm', '0')):
-            parser.set('label', key, value)
-        compact_config = runtime / 'compact-preview.ini'
-        write_config_atomic(compact_config, parser)
-        preview_app = LabelManagerApp(runtime)
-        preview_app.config_path = compact_config
-        preview_app.output_template = None
-        preview_app.label_rows = [dict(item_code='00001', item_name='SENSOR BRACKET', barcode='001234567890',
-                                      lot_no='LOT250531', qty='100', print_qty='1')]
-        preview_app.label_headers = tuple(preview_app.label_rows[0])
-        preview_app.selected_label_indexes = {0}
-        preview_app.preview_output_template()
-        preview_app.update()
-        preview_dialog = next(child for child in preview_app.winfo_children() if isinstance(child, tk.Toplevel))
-        screenshots.append(_capture(preview_dialog, OUTPUT / 'manager-compact-preview.png', geometry='720x350+80+80'))
-        preview_app.destroy()
+        # This is the printer renderer's real 40x20 output bitmap, not a mock UI.
+        from barcode_label_automation.excel_reader import LabelRow
+        from barcode_label_automation.templates import render_auto_page
+        compact_row = LabelRow(
+            '00001', 'SENSOR BRACKET', '001234567890', 'LOT250531', 100, 1,
+            source_fields=(('상품명', 'SENSOR BRACKET'), ('상품코드', '00001'), ('LOT', 'LOT250531'), ('수량', '100')),
+        )
+        compact_image = render_auto_page(compact_row, 40, 20, 203, language='slcs')
+        compact_path = OUTPUT / 'manager-compact-preview.png'
+        compact_image.save(compact_path)
+        screenshots.append({
+            'filename': compact_path.name, 'size': list(compact_image.size),
+            'sha256': hashlib.sha256(compact_path.read_bytes()).hexdigest(),
+            'capture_kind': 'source_renderer_output',
+        })
         screenshots.append(_capture(SettingsApp(runtime / "config.ini"), OUTPUT / "printer-settings.png"))
         offsets = SettingsApp(runtime / "config.ini")
         offsets.brand_var.set(BRAND_LABELS['bixolon'])

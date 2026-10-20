@@ -206,7 +206,7 @@ def test_explicit_serial_reprint_preserves_snapshot_and_does_not_allocate(tmp_pa
     replay = prepare_saved_output(args, load_config(config), dry_run=False)
     assert replay[1] == first[1]
     assert ValueJobStore(tmp_path).peek_start_overrides("a" * 32, serial_rules())["일련번호"] == 3
-    template = json.loads(path.read_text())
+    template = json.loads(path.read_text(encoding="utf-8"))
     template["elements"][0]["text"] = "CHANGED {{일련번호}}"
     path.write_text(json.dumps(template), encoding="utf-8")
     with pytest.raises(ValueError, match="변경"):

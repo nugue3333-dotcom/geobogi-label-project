@@ -14,7 +14,7 @@ COPIES = (
 )
 
 EXPECTED = {
-    "채움랩_라벨디자이너_고객용_매뉴얼.pdf": (14, 12, ("예제로 시작", "상품 엑셀 연결", "전체 값 확인", "좌우 가운데 정렬", "상하 가운데 정렬", ".cllabel", ".clproject", ".gblabel", ".gbproject", ".btw", "프린터 전송 완료", "Ctrl+C", "Ctrl+V", "Ctrl+D", "공통 규격", "용지 설정", "현재 도안 미리보기", "값 생성 규칙", "전체 데이터 검증", "필수 AI 선택", "시험용 완성 예제로 시작", "전체 GS1 데이터 가져오기", "의료기기 UDI", "완성 코드 가져오기", "현재 라벨에 맞추기", "GS1 데이터로 설정", "기타 데이터 옵션", "Esc", "ledger.json", "2D 크기·문자 배치", "바코드 크기 우선", "기존 배치", "모듈 크기 고정", "실제 크기 확인")),
+    "채움랩_라벨디자이너_고객용_매뉴얼.pdf": (14, 12, ("예제로 시작", "상품 엑셀 연결", "전체 값 확인", "좌우 가운데 정렬", "상하 가운데 정렬", ".cllabel", ".clproject", ".gblabel", ".gbproject", ".btw", "프린터 전송 완료", "Ctrl+C", "Ctrl+V", "Ctrl+D", "공통 규격", "용지 설정", "현재 도안 미리보기", "값 생성 규칙", "전체 데이터 검증", "필수 AI 선택", "시험용 완성 예제로 시작", "전체 GS1 데이터 가져오기", "의료기기 UDI", "완성 코드 가져오기", "현재 라벨에 맞추기", "GS1 데이터로 설정", "기타 데이터 옵션", "Esc", "ledger.json", "2D 크기·문자 배치", "바코드 크기 우선", "기존 배치", "모듈 크기 고정", "실제 크기 확인", "영문 대문자", "자동 자리수", "계속 발급", "바꿀 글자 수")),
     "채움랩_라벨출력관리_고객용_매뉴얼.pdf": (9, 7, ("중복 선택 창", "체크가 0개일 때", "전체 항목", "임시 큐", "취소하면 명령을 전송하지 않습니다", "인쇄 매수 선택", "지원 패키지 생성", "상한 없이", "양의 정수", "이미 프린터", "출력 도안 선택", "자동 기본 배치", "값 생성 규칙", "전체 데이터 검증", "ledger.json", "소수 규격", "네 방향", "40×20mm", "최소 5pt", "두 열")),
     "채움랩_프린터설정_고객용_매뉴얼.pdf": (8, 7, ("가로 180도", "연결 확인", "BIXOLON/빅솔론", "공통 규격", "영역 밖", "소수 규격", "공급 보정", "빅솔론 SL p4는 마크-절취선 거리", "200도트", "GAP/BLINE", "현재 프린터 설정 사용", "OFFSET 공급 보정", "인쇄 전 후진", "실제 장비")),
 }
@@ -33,9 +33,9 @@ FORBIDDEN_MENU_PATHS = (
     "설정 > 빠른 사용안내", "설정 > 상세 매뉴얼", "이동용 프로젝트 내보내기", "이동용 프로젝트 가져오기",
     "상세 매뉴얼 열기", "프린터설정 고객 매뉴얼",
 )
-MANUAL_VERSION = "2026.10.20.01"
+MANUAL_VERSION = "2026.10.20.02"
 REQUIRED_UI_SOURCES = tuple("barcode_label_automation/" + name for name in (
-    "config.py", "media_geometry.py", "ocr_orientation.py", "printer_offsets.py", "templates.py", "compact_auto_layout.py",
+    "config.py", "media_geometry.py", "printer_offsets.py", "templates.py", "compact_auto_layout.py",
     "label_designer_app.py", "label_manager_app.py", "settings_app.py", "ui_tokens.py", "ui_window.py", "ui_style.py", "brand_assets.py",
     "gs1_editor.py", "barcode_options_dialog.py", "barcode_engine.py", "barcode_catalog.py", "gs1.py", "designer_clipboard.py", "label_media.py", "tool_icons.py", "print_quantity.py", "designer_print_dispatch.py",
     "job_profile.py", "template_output.py", "profile_dialogs.py", "value_rules.py", "value_rules_dialog.py", "value_jobs.py", "saved_output.py", "data_store.py", "barcode_layout.py", "hibc.py", "udi_editor.py", "workflow_probe.py", "barcode_editor_preview.py",
@@ -69,6 +69,8 @@ def capture_contract_errors(root: Path = ROOT) -> list[str]:
         path = metadata_path.parent / item["filename"]
         if not path.exists() or digest(path) != item["sha256"]:
             errors.append("capture image changed: " + item["filename"])
+        if item["filename"] == "manager-compact-preview.png" and item.get("capture_kind") != "source_renderer_output":
+            errors.append("compact preview must come from the source print renderer")
     return errors
 
 
@@ -95,8 +97,10 @@ def main() -> int:
             errors.append(f"missing: {source}")
             continue
         reader = PdfReader(str(source))
-        if not expected_pages <= len(reader.pages) <= expected_pages + 3:
-            errors.append(f"{filename}: pages={len(reader.pages)}, expected={expected_pages}..{expected_pages+3}")
+        # The updated value-generation workflow expands the manager manual by one page.
+        max_pages = expected_pages + (4 if filename == "채움랩_라벨출력관리_고객용_매뉴얼.pdf" else 3)
+        if not expected_pages <= len(reader.pages) <= max_pages:
+            errors.append(f"{filename}: pages={len(reader.pages)}, expected={expected_pages}..{max_pages}")
         if len(reader.outline) < expected_bookmarks:
             errors.append(f"{filename}: bookmarks={len(reader.outline)}, expected>={expected_bookmarks}")
         texts = [(page.extract_text() or "").strip() for page in reader.pages]
@@ -126,7 +130,7 @@ def main() -> int:
             [paragraph.text for paragraph in document.paragraphs]
             + [cell.text for table in document.tables for row in table.rows for cell in row.cells]
         )
-        phrases = ("예제로 시작", "전체 값 확인", "좌우 가운데 정렬", "상하 가운데 정렬", ".cllabel", ".clproject", ".gblabel", ".gbproject", ".btw", "전체 항목", "임시 큐", "실제 출력 확인", "시험용 완성 예제로 시작", "전체 GS1 데이터 가져오기", "의료기기 UDI", "완성 코드 가져오기", "현재 라벨에 맞추기", "GS1 데이터로 설정", "기타 데이터 옵션", "Esc", MANUAL_VERSION)
+        phrases = ("예제로 시작", "전체 값 확인", "좌우 가운데 정렬", "상하 가운데 정렬", ".cllabel", ".clproject", ".gblabel", ".gbproject", ".btw", "전체 항목", "임시 큐", "실제 출력 확인", "시험용 완성 예제로 시작", "전체 GS1 데이터 가져오기", "의료기기 UDI", "완성 코드 가져오기", "현재 라벨에 맞추기", "GS1 데이터로 설정", "기타 데이터 옵션", "Esc", "영문 대문자", "자동 자리수", "계속 발급", "바꿀 글자 수", MANUAL_VERSION)
         errors += [f"{docx_name}: {error}" for error in text_contract_errors(docx_text, phrases)]
         if len(document.inline_shapes) < 7:
             errors.append(f"{docx_name}: actual UI captures or brand icons are missing")
