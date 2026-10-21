@@ -8,6 +8,17 @@ from __future__ import annotations
 import math
 
 
+def bixolon_offset_limit(dpi: int) -> float:
+    """Conservative UI policy: requested 12 mm cap and official 100-dot cap.
+
+    Floor to tenths so the displayed endpoint can be entered safely.
+    This does not query or modify the Windows driver.
+    """
+    if dpi not in {203, 300, 600}:
+        raise ValueError("지원하지 않는 DPI입니다.")
+    return math.floor(min(12.0, 100 * 25.4 / dpi) * 10) / 10
+
+
 def offset_dots(mm: float, dpi: int) -> int:
     return round(float(mm) * dpi / 25.4)
 
@@ -18,23 +29,17 @@ def zebra_tear_steps(mm: float, dpi: int) -> int:
 
 
 def validate_offsets(language, media_type, height_mm, dpi, gap_offset, feed_offset,
-                     *, brand=None, model="") -> None:
+                     *, brand=None, model="", extended_stop=False) -> None:
+    if extended_stop:
+        raise ValueError("사용자 펌웨어 확장 오프셋은 지원하지 않습니다. 확장 옵션을 해제하고 표준 범위로 입력하세요.")
     for value in (gap_offset, feed_offset):
         if value is not None and (isinstance(value, bool) or not math.isfinite(float(value))):
             raise ValueError("고급 보정은 유한한 숫자 또는 현재 프린터 설정 사용을 선택하세요.")
     if gap_offset is not None:
         if language == "slcs":
-            # SL p4 is the physical mark-to-perforation distance. Its range is
-            # independent of SA/TA's ±100-dot ranges. The checked manual gives
-            # a 200-dot p4 example but no p4 maximum; the app applies a
-            # conservative one-label/page-length bound, not a vendor limit.
-            p4_limit = min(round(float(height_mm) * dpi / 25.4), 2432)
-            requested = abs(offset_dots(gap_offset, dpi))
-            if requested > p4_limit:
-                limit_mm = p4_limit * 25.4 / dpi
-                raise ValueError(
-                    f"마크와 절취선 거리는 용지 길이 이내로 입력하세요(현재 최대 {limit_mm:.2f}mm)."
-                )
+            limit = bixolon_offset_limit(dpi)
+            if abs(float(gap_offset)) > limit + 1e-9:
+                raise ValueError(f"용지 감지 보정은 -{limit:g}~{limit:g}mm 범위로 입력하세요.")
             if media_type == "continuous" and gap_offset:
                 raise ValueError("연속 용지는 센서·절취선 보정을 사용할 수 없습니다. 현재 프린터 설정 사용으로 두세요.")
         elif language == "tspl":
@@ -49,8 +54,9 @@ def validate_offsets(language, media_type, height_mm, dpi, gap_offset, feed_offs
     if brand == "sewoo":
         raise ValueError("세우테크 배출 보정은 모델별 명령 확인이 필요합니다. 현재 프린터 설정 사용으로 두세요.")
     if language == "slcs":
-        if abs(float(feed_offset) * dpi / 25.4) > 100 + 1e-9:
-            raise ValueError(f"빅솔론 TA 절취·커터 정지 보정은 ±100도트(현재 DPI에서 ±{100*25.4/dpi:.3f}mm) 이내로 입력하세요.")
+        limit = bixolon_offset_limit(dpi)
+        if abs(float(feed_offset)) > limit + 1e-9:
+            raise ValueError(f"절단·배출 위치 보정은 -{limit:g}~{limit:g}mm 범위로 입력하세요.")
     elif language == "tspl":
         if abs(feed_offset) > 25.4:
             raise ValueError("TSC 공급 오프셋은 -25.4~25.4mm 범위여야 합니다.")
@@ -64,8 +70,16 @@ def validate_offsets(language, media_type, height_mm, dpi, gap_offset, feed_offs
         raise ValueError("지원하지 않는 제조사 보정 명령입니다.")
 
 
-def slcs_media_commands(height, gap, media_type, dpi, gap_offset=None, feed_offset=None):
-    validate_offsets("slcs", media_type, height * 25.4 / dpi, dpi, gap_offset, feed_offset)
+def slcs_media_commands(height, gap, media_type, dpi, gap_offset=None, feed_offset=None,
+                        *, preserve_settings=False, extended_stop=False):
+    validate_offsets("slcs", media_type, height * 25.4 / dpi, dpi, gap_offset, feed_offset,
+                     extended_stop=extended_stop)
+    if preserve_settings:
+        if gap_offset is not None or feed_offset is not None:
+            raise ValueError("본체 설정 유지와 명시적인 오프셋은 함께 사용할 수 없습니다.")
+        # SL without p4 can change the sensor/perforation relationship too.
+        # Retaining a firmware offset requires omitting SL, SF and TA together.
+        return ""
     kind = {"gap": "G", "black_mark": "B", "continuous": "C"}.get(media_type)
     if kind is None:
         raise ValueError("지원하지 않는 용지 종류입니다.")

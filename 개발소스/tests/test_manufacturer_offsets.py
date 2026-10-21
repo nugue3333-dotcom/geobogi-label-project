@@ -94,22 +94,16 @@ def test_inherit_and_explicit_zero_are_distinct_and_zebra_600_step_is_two_dots(v
         assert zpl==f"~TA{'-' if steps<0 else ''}{abs(steps):03d}\n"
 
 
-def test_bixolon_mark_to_perforation_distance_is_not_limited_by_ta_100_dots():
-    # The exact 200-dot distance is inside a 50 mm label and above TA's
-    # independent ±100-dot limit. SL p4 may carry this documented distance.
+def test_bixolon_rejects_ticket_distance_outside_standard_policy():
     distance_mm = 200 * 25.4 / 203
-    validate_offsets('slcs', 'black_mark', 50, 203, distance_mm, 0, brand='bixolon')
-    assert slcs_media_commands(400, 24, 'black_mark', 203, distance_mm, 0) == (
-        'SL400,24,B,200\nSF1\nTA0\n'
-    )
-    with pytest.raises(ValueError, match='용지 길이'):
-        validate_offsets('slcs', 'black_mark', 50, 203, 51, 0, brand='bixolon')
-    with pytest.raises(ValueError, match='TA'):
-        validate_offsets('slcs', 'black_mark', 50, 203, distance_mm, 13, brand='bixolon')
+    with pytest.raises(ValueError, match='범위'):
+        validate_offsets('slcs', 'black_mark', 50, 203, distance_mm, 0, brand='bixolon')
+    with pytest.raises(ValueError, match='범위'):
+        validate_offsets('slcs', 'black_mark', 50, 203, 0, 13, brand='bixolon')
 
 
-def test_bixolon_200_dot_distance_reaches_auto_and_saved_design_output(tmp_path):
-    distance_mm=200*25.4/203
+def test_bixolon_standard_distance_reaches_auto_and_saved_design_output(tmp_path):
+    distance_mm=80*25.4/203
     path,config=make_config(tmp_path,'bixolon',gap=str(distance_mm),feed='0')
     parser=ConfigParser(interpolation=None);parser.read(path,encoding='utf-8-sig')
     parser.set('label','media_type','black_mark');write_config_atomic(path,parser)
@@ -124,7 +118,7 @@ def test_bixolon_200_dot_distance_reaches_auto_and_saved_design_output(tmp_path)
     saved=render_command(design,{},config,tmp_path,1)
     outputs=[(auto.encode('cp949') if isinstance(auto,str) else auto).replace(b'\r\n',b'\n'),
              (saved.encode('cp949') if isinstance(saved,str) else saved).replace(b'\r\n',b'\n')]
-    expected=b'SL400,24,B,200\nSF1\nTA0\n'
+    expected=b'SL400,24,B,80\nSF1\nTA0\n'
     assert all(expected in output for output in outputs)
 
     baseline=render_label('slcs',row,100,50,203,3,media_type='black_mark',

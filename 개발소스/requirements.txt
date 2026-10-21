@@ -4,4 +4,4 @@ qrcode>=8.0
 pytest>=8.0.0
 pyinstaller>=6.0.0
 pywin32>=306; platform_system == "Windows"
-zxing-cpp>=3.0.0
+zxing-cpp>=3.1.1

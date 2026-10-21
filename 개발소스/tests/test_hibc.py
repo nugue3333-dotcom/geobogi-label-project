@@ -1,4 +1,6 @@
 """SLS 2.6 official examples and byte-preserving carrier regressions."""
+from importlib.metadata import version as distribution_version
+
 import pytest
 import zxingcpp
 
@@ -13,6 +15,15 @@ OFFICIAL = [PRIMARY, '+$$52001510X3GD', '+A99912345/$$52001510X33',
             '+A99912345/$10X3/16D20111231/14D202001313',
             '+A99912349/$10X3/16D20111231/14D20200131/Q500Z',
             '+A123BJC5D6E71/$$52001510X3C']
+
+
+def require_micropdf417_reader(symbology):
+    if symbology != 'hibcmicropdf417':
+        return
+    parts = distribution_version('zxing-cpp').split('.')
+    version = tuple(int(part) for part in parts[:2])
+    if version < (3, 1):
+        pytest.skip('MicroPDF417 독립 디코딩은 zxing-cpp 3.1.0 이상에서 지원합니다. 렌더링 계약은 별도 테스트합니다.')
 
 
 @pytest.mark.parametrize('value', OFFICIAL)
@@ -132,6 +143,7 @@ def test_all_hibc_carriers_use_one_exact_confirmed_payload(symbology, value):
 @pytest.mark.parametrize('symbology', ['hibc128', 'hibc39', 'hibcdatamatrix', 'hibcqr', 'hibcpdf417', 'hibcmicropdf417', 'hibcaztec'])
 @pytest.mark.parametrize('value', [PRIMARY, '+A123BJC5D6E71/$$52001510X3C'])
 def test_independent_decode_exact_completed_bytes(symbology, value):
+    require_micropdf417_reader(symbology)
     options = {'module_width': 3} if symbology in {'hibc128', 'hibc39'} else {'cell_size': 3}
     image = render_barcode(symbology, value, options)
     decoded = zxingcpp.read_barcode(image, formats=zxingcpp.BarcodeFormat.Code39Std if symbology == 'hibc39' else zxingcpp.BarcodeFormat.AllReadable)
@@ -141,6 +153,7 @@ def test_independent_decode_exact_completed_bytes(symbology, value):
 
 @pytest.mark.parametrize('symbology', ['hibc128', 'hibc39', 'hibcdatamatrix', 'hibcqr', 'hibcpdf417', 'hibcmicropdf417', 'hibcaztec'])
 def test_independent_decode_space_checksum(symbology):
+    require_micropdf417_reader(symbology)
     value = next(compose_hibc('A123', str(index), '0') for index in range(1000)
                  if compose_hibc('A123', str(index), '0').endswith(' '))
     options = {'module_width': 3} if symbology in {'hibc128', 'hibc39'} else {'cell_size': 3}

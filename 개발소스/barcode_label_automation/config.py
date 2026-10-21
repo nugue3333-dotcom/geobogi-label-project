@@ -41,6 +41,7 @@ class LabelConfig:
     offset_y_mm: float = 0.0
     gap_offset_mm: float | None = None
     feed_offset_mm: float | None = None
+    bixolon_extended_stop: bool = False
 
 
 @dataclass(frozen=True)
@@ -186,10 +187,10 @@ DEFAULT_DENSITY_BY_LANGUAGE = {
 SUPPORTED_LANGUAGES = {"slcs", "tspl", "zpl"}
 SUPPORTED_PRINT_METHODS = {"direct_thermal", "thermal_transfer"}
 SUPPORTED_PRINT_ORIENTATIONS = {"normal", "landscape", "rotate_180", "landscape_180"}
-SUPPORTED_MEDIA_HANDLING = {"tear_off", "cutter", "peeler"}
+SUPPORTED_MEDIA_HANDLING = {"tear_off", "cutter", "peeler", "printer_default"}
 SUPPORTED_MEDIA_TYPES = {"gap", "black_mark", "continuous"}
 SUPPORTED_MEDIA_HANDLING_BY_LANGUAGE = {
-    "slcs": {"tear_off", "cutter"},
+    "slcs": {"tear_off", "cutter", "printer_default"},
     "tspl": {"tear_off", "cutter", "peeler"},
     "zpl": {"tear_off", "cutter", "peeler"},
 }
@@ -224,7 +225,7 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
         raise ConfigError("인쇄 방향은 세로, 가로, 세로 180도, 가로 180도 중 하나여야 합니다.")
     media_handling = parser.get("printer", "media_handling", fallback="tear_off").strip().lower()
     if media_handling not in SUPPORTED_MEDIA_HANDLING:
-        raise ConfigError("printer.media_handling must be 'tear_off', 'cutter', or 'peeler'.")
+        raise ConfigError("printer.media_handling must be 'tear_off', 'cutter', 'peeler', or 'printer_default'.")
     media_type = parser.get("label", "media_type", fallback="gap").strip().lower()
     if media_type not in SUPPORTED_MEDIA_TYPES:
         raise ConfigError("label.media_type must be 'gap', 'black_mark', or 'continuous'.")
@@ -251,9 +252,15 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
         raise ConfigError("좌우·상하 보정은 -300~300mm 사이여야 합니다.")
     gap_offset, feed_offset = offsets["gap_offset_mm"], offsets["feed_offset_mm"]
     try:
+        extended_stop = parser.getboolean("label", "bixolon_extended_stop", fallback=False)
+    except ValueError as exc:
+        raise ConfigError("label.bixolon_extended_stop: yes 또는 no로 지정하세요.") from exc
+    if media_handling == "printer_default" and (gap_offset is not None or feed_offset is not None):
+        raise ConfigError("본체 커터·센서 설정 유지에서는 두 오프셋을 현재 프린터 설정 사용(auto)으로 선택하세요.")
+    try:
         validate_offsets(language, media_type, read_label_dimension(parser, "height_mm"),
                          parser.getint("label", "dpi"), gap_offset, feed_offset,
-                         brand=brand, model=model)
+                         brand=brand, model=model, extended_stop=extended_stop)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
     return AppConfig(
@@ -282,6 +289,7 @@ def load_config(path: str | Path = "config.ini") -> AppConfig:
             offset_y_mm=read_media_number(parser, "offset_y_mm", default="0"),
             gap_offset_mm=gap_offset,
             feed_offset_mm=feed_offset,
+            bixolon_extended_stop=extended_stop,
         ),
         barcode=_read_barcode_config(parser, language),
         data=DataConfig(excel_file=excel_file, output_dir=output_dir),

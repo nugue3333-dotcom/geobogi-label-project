@@ -1,11 +1,11 @@
 ﻿채움랩 라벨 출력 패키지 배포 파일 목록
 패키지명: 채움랩_라벨출력_고객용
-버전: 2026.10.13.05
-빌드 ID: 20261013_05_delivery
-생성시간: 2026-10-13T16:54:39+09:00
+버전: 2026.10.21.02
+빌드 ID: 20261021_02
+생성시간: 2026-10-21T13:50:52+09:00
 
 요약
-- 배포 파일 수: 200
+- 배포 파일 수: 203
 - 누락 필수 파일 수: 0
 - 추가 금지 파일 수: 0
 
@@ -40,11 +40,12 @@
 - [OK] assets/label_designer.ico / 19081 bytes / sha256 7da2e1531ee8bcceb77a48dd7bd9d8c3432a8bfe1ffb1d427b7cfd71c773cfee
 - [OK] assets/label_designer_icon.png / 2594 bytes / sha256 4c5781522f3acdde7ce8534efb505da1e4433865aea7f67166590fe9a2a986f0
 - [OK] barcode_db.xlsx / 7947 bytes / sha256 ff5986a32da3c5dd16ba959c20991586c4e93ba0c31828d4d3084d2280634c53 / 고객 수정 허용
-- [OK] config.example.ini / 1743 bytes / sha256 ebae444e2da3a85a9722f838335687aa5c1173952f9242c38bfe56b99e43ce3a
+- [OK] config.example.ini / 2704 bytes / sha256 7d8aedb2814c1d3e1bc93a1b435bd6af52f7dbbc3c7f60850e11af53f6d6eab6
 - [OK] config.ini / 1114 bytes / sha256 7af799a63bdf5d974dd418d360425ea43c633360fd8ddd684c0ce069e8b850b7 / 고객 수정 허용
 - [OK] db/barcode_db.xlsx / 7947 bytes / sha256 ff5986a32da3c5dd16ba959c20991586c4e93ba0c31828d4d3084d2280634c53
 - [OK] docs/BARTENDER_MIGRATION.md / 3625 bytes / sha256 1254abd82e8b010dff43b2efe96b106a097962d0d844ec151f7dd950312ee110
 - [OK] docs/DEVICE_ACCEPTANCE_RECORD.md / 1908 bytes / sha256 831034ef5b7b59dc4228963d3a5c2b7140945dfdf92fa9de06bfb7aa6324d144
+- [OK] docs/MEDIA_AND_OCR_GUIDE.md / 4134 bytes / sha256 627e4950e7e4c67d76a40fb6097af2441bb9a4fb21d1e5f3661cae9270434d80
 - [OK] docs/TEMPLATE_MIGRATION_CHECKLIST.md / 2258 bytes / sha256 c4e7429eddbbba3881bc62a6db9c0472b40f5080323721027815c95e80a53174
 - [OK] docs/UPDATE_AND_RECOVERY.md / 2808 bytes / sha256 a048dd06fc069c0a809c20bd7086c34eff649bc9ffe700a47a5f74e1e7983c23
 - [OK] docs/고객용_매뉴얼/_generated/designer-canvas-focus.png / 211679 bytes / sha256 12cee18d51b52c35a8b39232ff9cf2cbeded19fe26f21121c986f770b92ab7c5
@@ -70,15 +71,16 @@
 - [OK] docs/고객용_매뉴얼/_generated/settings-overview.jpg / 210221 bytes / sha256 188db985ae8ba7d2bdc9ce277dbf3080c8ce5161f98f7103428faa546a8bbf9f
 - [OK] docs/고객용_매뉴얼/_generated/settings-printer-focus.png / 177003 bytes / sha256 5707e54ee5641e459fee96d6c044d4b668b45e1100346913ba4fd8c7eb5f756e
 - [OK] docs/고객용_매뉴얼/_generated/settings-printer.jpg / 48080 bytes / sha256 664898cd1eb3b110bd583f1956b36de4235113315cca70bbbf2df36eaf5b3deb
-- [OK] docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf / 2286582 bytes / sha256 a99a920a91d1e04cce4fd2ea7e6a10fd8667e1d0b3d583a5dcdc88d1c564c151
-- [OK] docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf / 2969688 bytes / sha256 fb11c94756ce1433980bb699d577da6c0e73d7ba4a2347086241b4ead684bfaa
-- [OK] docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf / 1617011 bytes / sha256 73c4a7164f335d1ba61431aee7db3bb09617267f300db6add70dc292c07ccef1
+- [OK] docs/고객용_매뉴얼/채움랩_라벨디자이너_고객용_매뉴얼.pdf / 2310215 bytes / sha256 ceae5ca4c6ed318ad056341d576dda186e447879e5f163db9df3ea51bf616ec4
+- [OK] docs/고객용_매뉴얼/채움랩_라벨출력관리_고객용_매뉴얼.pdf / 2995008 bytes / sha256 bc67ebb12181903167859cb2b2d163bae179382209e8e142e0532aca8e65dc55
+- [OK] docs/고객용_매뉴얼/채움랩_프린터설정_고객용_매뉴얼.pdf / 1738812 bytes / sha256 1c916c726b738e6cc3a066a83498a67df944db196e795428ef653011ffa8944c
 - [OK] labels.xlsm / 40999 bytes / sha256 8321619dac2b9ba9d26df4f9c9cbf058c50ed65b052e0ce39349d526446e72d3 / 고객 수정 허용
 - [OK] print_queue.xlsx / 5020 bytes / sha256 2978851c20cd4da091b8d5adebac4a9b9667a8303edca628e0c2044d2637c187 / 고객 수정 허용
 - [OK] README.md / 9718 bytes / sha256 6085928c2406b5290eb0f5d89890a521abf5bb4edab2838c47d1e077273fa139
-- [OK] README_먼저읽기.txt / 16171 bytes / sha256 67931e800e7de5c57fe0ce33476cca6960f1b1efdd6a9394b2a34e765c4c0e42
+- [OK] README_먼저읽기.txt / 18955 bytes / sha256 253881fa4d3ea51a27fb018096637f0ee006dbd3c72e39f43e5bb009ef1768dd
 - [OK] register_label_filetype.cmd / 1406 bytes / sha256 5e48bea85ea75d3ea5ca2c217ab1ed98603c49f45462b80be62f1b41633d83b6
 - [OK] register_label_filetype.ps1 / 1309 bytes / sha256 ece355951b5c6e46e0f9b04e7a4b76c316ea186ab60c9f6866c3fbce440904fe
+- [OK] RELEASE_2026.10.21.01.md / 2029 bytes / sha256 13bf160ebc5979f00a15f3191bb367d6be81e6890c1f7bd3f40e8ea4aa65c416
 - [OK] run_label_job.cmd / 1300 bytes / sha256 25d00b52c3d08f37caf704a29820c0e066759dbef17565fd8a02c929940cd242
 - [OK] run_label_job.ps1 / 13251 bytes / sha256 f14776dc93a509d51e2043942c1e0a94fc490c05c323d48e474f96164df13358
 - [OK] sample_direct_open.cllabel / 805 bytes / sha256 d3a565a0ffebcae3473ab5b28a9e50f0372c714d00e016d839166d01795e6dbc
@@ -197,19 +199,20 @@
 - [OK] tools/zint/zint-2.16.0-src.tar.gz / 6423511 bytes / sha256 37e767afada2403bb9ae49b93a19eb0a9e944a0c278d9f23522746b3d08a3c4b
 - [OK] 고객데이터_백업.cmd / 601 bytes / sha256 8795c11fb861f9b7f957fc946db2a325e91e51c19c85a0d45e5358fdca0d1298
 - [OK] 고객데이터_복원.cmd / 1093 bytes / sha256 3e03f3910d32e5b8bab7746e69b964a7200524e7dae63904e184ed815489be18
-- [OK] 고객환경점검.exe / 19784398 bytes / sha256 eb13cd97dd3ae0a6ff1201bc23a3b7e8bbb4011401674d1dd9200f022634fc22
-- [OK] 라벨디자이너.exe / 24098421 bytes / sha256 9acc18dc1d2576ee20ac9ee5eee2ce6cc608c927ba9d0a8410e552023b75090c
-- [OK] 라벨작업실행기.exe / 19767717 bytes / sha256 b19e251afd2f6456777d83f71995fd9a4c8b14d9926d506f528e4a26c1a787c0
-- [OK] 라벨출력관리.exe / 24100503 bytes / sha256 d9813dc4953900c1516432a507a4cae8ebe8a3da5b1cd294c905220f6118f48e
-- [OK] 라벨출력엔진.exe / 22877541 bytes / sha256 eab5baef5fe6c35d7daf311389e0fbc57722e97cb96b16592540241468f58f35
-- [OK] 버전정보.txt / 1072 bytes / sha256 65abf6b5db156a945162abd60b0a1487e24f4d6b46a2ef679e7da927b5299c10
-- [OK] 사용안내.txt / 24150 bytes / sha256 f11c747f50b730251a83764662b4ffb8e98acc913b9c69bca55e53c05ac61394
-- [OK] 설치_및_사용_메뉴얼.txt / 29594 bytes / sha256 c2922cae757e1d74028bfe413f557e0295b45e2f9f5c4c6f87b5927a1192937e
+- [OK] 고객환경점검.exe / 20982345 bytes / sha256 6d11f345f49e99e0a1588d050be2b9f9ecd644402d6c80fdc2e5738c946ae60e
+- [OK] 라벨디자이너.exe / 25399740 bytes / sha256 54cdb56125177e45e6c90e68aa0ad55dc4f5c18b952f9d853e6b91c7499bb792
+- [OK] 라벨작업실행기.exe / 20961631 bytes / sha256 effbf37d7aba47975c24ef14db0b4c3da2c3b0007eb7d952faa09bb8e991d22c
+- [OK] 라벨출력관리.exe / 25401397 bytes / sha256 c7ea03075d646d0c779159add0814c94165881848f661ee6f4e98c58cce972eb
+- [OK] 라벨출력엔진.exe / 24176733 bytes / sha256 5b4b497ec1c5a8f572d8a9b1b6700b806bb2cf8b06d5a7ca635294ca19124af9
+- [OK] 버전정보.txt / 1072 bytes / sha256 4abce1a92ed1dfb5c85c750dffb0db4b829860df90b3a1403f5d3783ef562b21
+- [OK] 빅솔론_오프셋_커터_설정안내.txt / 4797 bytes / sha256 42656565eb2d6b9bc5e961b94d8c876a5722c4f653a9648f8fca8e95bdf1e3a7
+- [OK] 사용안내.txt / 29089 bytes / sha256 db77902d2763a3e8c87d8bb2754074bb78aaf3e2590d287299e6eef362baa89a
+- [OK] 설치_및_사용_메뉴얼.txt / 34533 bytes / sha256 036f04bee32e092a444618ca56d149a9636adaf597fa99485282ae76aa3bd50e
 - [OK] 시작하기.cmd / 4162 bytes / sha256 362d67b755e46df03b80370ae4570f8a91544290aa893ba683af5b16e77c4107
-- [OK] 채움랩_라벨출력패키지_고객용_매뉴얼.docx / 573973 bytes / sha256 e7c40448705fb41ff5aa4a9b8181e62cc8fe41065369869ff039ae55f9caf493
+- [OK] 채움랩_라벨출력패키지_고객용_매뉴얼.docx / 592780 bytes / sha256 34a79e2553bd166d7e854c7c16f5b2aa0dd0f6d2668e030f4c7d25cbc28044c0
 - [OK] 처음실행_점검.cmd / 1622 bytes / sha256 70ef329f12d5f4e620cffa58c6d8cad1111dced6ae204fe2e5a94419fb47744a
-- [OK] 프린터설정.exe / 20705189 bytes / sha256 65e929b7740d9caf6cbe47219c5a9930a1a1c0cba262797647f0ce73c99e8e7a
-- [OK] 한눈에_사용안내.pdf / 166105 bytes / sha256 f231e00a444a86b965f63f054759d314a4d124aee8c6c30f62cb230c45c4ac31
+- [OK] 프린터설정.exe / 23525329 bytes / sha256 4a537f2336784821b90b2b470255f42332573c0ef71523dfc98d6907fb5fb956
+- [OK] 한눈에_사용안내.pdf / 166927 bytes / sha256 5b4a02fc85d0f786405cd20e99b4625715aef17f4577a25848c9c07279bcac7e
 
 사용 전 확인
 1. 처음실행_점검.cmd로 고객 PC 환경을 확인하세요. 시작하기.cmd는 출력 관리 화면을 바로 엽니다.

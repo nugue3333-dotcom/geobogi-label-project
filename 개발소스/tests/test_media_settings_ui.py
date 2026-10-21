@@ -33,6 +33,28 @@ def settle(app):
         app.update()
 
 
+def test_bixolon_standard_offsets_are_visible_without_expansion(tmp_path):
+    app, path = make_app(tmp_path)
+    try:
+        app.brand_var.set(BRAND_LABELS['bixolon'])
+        app._sync_media_handling_state()
+        settle(app)
+        assert not hasattr(app, '_device_media_button')
+        assert not hasattr(app, '_extended_stop_check')
+        assert not app.media_handling_buttons['printer_default'].winfo_ismapped()
+        assert app._advanced_offset_widgets[1].winfo_ismapped()
+        assert '-12~12mm' in app._advanced_offset_hint.cget('text')
+        app.feed_offset_var.set('12')
+        from barcode_label_automation.settings_app import save_settings
+        save_settings(path, app._collect_settings())
+        assert load_config(path).label.feed_offset_mm == 12
+        app.feed_offset_var.set('12.1')
+        with pytest.raises(ValueError, match='범위'):
+            app._collect_settings()
+    finally:
+        app.destroy()
+
+
 @pytest.mark.parametrize('scale',[1,1.25,1.5,2])
 def test_media_settings_footer_and_draft_preview_in_small_window(tmp_path,monkeypatch,scale):
     # Font scaling exercises widget layout; it is not a claim of changing
@@ -122,7 +144,7 @@ def test_non_tsc_offset_inputs_are_enabled_saved_and_drafts_survive_brand_switch
         # Changing DPI updates the hint without destroying a typed value.
         app.dpi_var.set('600')
         assert app.feed_offset_var.get()==feed
-        assert '600' in app._advanced_offset_hint.cget('text') if brand=='zebra' else '±4.23mm' in app._advanced_offset_hint.cget('text')
+        assert '600' in app._advanced_offset_hint.cget('text') if brand=='zebra' else '-4.2~4.2mm' in app._advanced_offset_hint.cget('text')
     finally:
         app.destroy()
 
@@ -157,7 +179,7 @@ def test_old_bixolon_disabled_zero_loads_as_inherit_but_explicit_new_zero_resets
     path=tmp_path/'config.ini';write_config_atomic(path,parser)
     before=path.read_bytes();app=SettingsApp(path)
     try:
-        assert app.gap_offset_var.get()=='현재 프린터 설정 사용'
+        assert app.gap_offset_var.get()=='별도 보정 없음'
         assert not app._settings_dirty and path.read_bytes()==before
         app.gap_offset_var.set('0');app.save_to_file()
         assert load_config(path).label.gap_offset_mm==0

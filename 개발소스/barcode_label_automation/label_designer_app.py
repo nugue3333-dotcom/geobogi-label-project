@@ -8080,6 +8080,7 @@ class LabelDesignerApp(tk.Tk):
             getattr(label_settings, "feed_offset_mm", None),
             brand=getattr(config.printer, "brand", None),
             model=getattr(config.printer, "model", ""),
+            extended_stop=getattr(label_settings, "bixolon_extended_stop", False),
         )
         from .media_geometry import needs_host_transform, transform_image
         if needs_host_transform(config):
@@ -8159,6 +8160,8 @@ class LabelDesignerApp(tk.Tk):
                 dpi,
                 getattr(config.label, "gap_offset_mm", None),
                 getattr(config.label, "feed_offset_mm", None),
+                preserve_settings=config.printer.media_handling == "printer_default",
+                extended_stop=getattr(config.label, "bixolon_extended_stop", False),
             ).replace("\n", "\r\n").encode("ascii"),
             print_orientation_command(
                 "slcs",
@@ -8617,6 +8620,8 @@ class LabelDesignerApp(tk.Tk):
 
     def _slcs_media_handling_command(self, media_handling: str) -> str:
         _ensure_media_handling_supported("slcs", media_handling)
+        if media_handling == "printer_default":
+            return ""
         if media_handling == "cutter":
             return "CUTy\n"
         return "CUTn\n"

@@ -61,6 +61,7 @@ MEDIA_HANDLING_LABELS = {
     "tear_off": "뜯어내기",
     "cutter": "커터",
     "peeler": "필러",
+    "printer_default": "본체 설정 유지",
 }
 MEDIA_TYPE_LABELS = {
     "gap": "갭 용지",
@@ -104,6 +105,7 @@ class PrinterSettings:
     offset_y_mm: float = 0.0
     gap_offset_mm: float | None = None
     feed_offset_mm: float | None = None
+    bixolon_extended_stop: bool = False
     model: str = ""
     media_type: str = "gap"
     media_handling: str = "tear_off"
@@ -174,6 +176,7 @@ def load_settings(path: str | Path) -> PrinterSettings:
         offset_y_mm=read_media_number(parser, "offset_y_mm", default="0"),
         gap_offset_mm=read_gap_offset(parser, brand),
         feed_offset_mm=read_media_number(parser, "feed_offset_mm"),
+        bixolon_extended_stop=parser.getboolean("label", "bixolon_extended_stop", fallback=False),
         media_type=media_type if media_type in SUPPORTED_MEDIA_TYPES else "gap",
         print_speed=print_speed,
         print_density=print_density,
@@ -230,6 +233,7 @@ def save_settings(path: str | Path, settings: PrinterSettings) -> None:
         value = getattr(settings, key)
         parser.set("label", key, "auto" if value is None else _format_float(value))
     parser.set("label", "offsets_profile", settings.brand)
+    parser.remove_option("label", "bixolon_extended_stop")
     parser.set("label", "media_type", settings.media_type)
 
     parser.set("barcode", "type", settings.barcode_type)
@@ -319,11 +323,16 @@ def validate_settings(settings: PrinterSettings) -> SettingsValidationReport:
     for value in (settings.offset_x_mm, settings.offset_y_mm):
         if isinstance(value, bool) or not math.isfinite(value) or abs(value) > 300:
             errors.append("좌우·상하 보정은 -300부터 300mm 사이 유한한 숫자로 입력하세요.")
+    if settings.media_handling == "printer_default" and (
+        settings.gap_offset_mm is not None or settings.feed_offset_mm is not None
+    ):
+        errors.append("본체 커터·센서 설정 유지에서는 두 오프셋을 현재 프린터 설정 사용(auto)으로 선택하세요.")
     try:
         validate_offsets({"bixolon": "slcs", "tsc": "tspl", "zebra": "zpl", "sewoo": "zpl"}.get(settings.brand),
                          settings.media_type, settings.height_mm, settings.dpi,
                          settings.gap_offset_mm, settings.feed_offset_mm,
-                         brand=settings.brand, model=settings.model)
+                         brand=settings.brand, model=settings.model,
+                         extended_stop=settings.bixolon_extended_stop)
     except ValueError as exc:
         errors.append(str(exc))
     if settings.dpi not in {203, 300, 600}:
@@ -634,9 +643,23 @@ class SettingsApp(tk.Tk):
         self._settings_secondary_column = ttk.Frame(self._settings_workbench, style="Body.TFrame")
         self._settings_secondary_column.columnconfigure(0, weight=1)
         self._build_label_section(self._settings_secondary_column, 0)
-        self._build_barcode_section(self._settings_secondary_column, 1)
+        self._barcode_options = ttk.Frame(self._settings_secondary_column, style="Body.TFrame")
+        self._barcode_options.columnconfigure(0, weight=1)
+        self._barcode_toggle = ttk.Button(
+            self._settings_secondary_column, text="자동 배치용 바코드 설정 펼치기",
+            command=self._toggle_barcode_options, style="Secondary.TButton")
+        self._barcode_toggle.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+        self._build_barcode_section(self._barcode_options, 0)
 
         self._layout_settings_workbench(compact=False)
+
+    def _toggle_barcode_options(self) -> None:
+        if self._barcode_options.winfo_manager():
+            self._barcode_options.grid_remove()
+            self._barcode_toggle.configure(text="자동 배치용 바코드 설정 펼치기")
+        else:
+            self._barcode_options.grid(row=2, column=0, sticky="ew")
+            self._barcode_toggle.configure(text="자동 배치용 바코드 설정 접기")
 
     def _build_menu_surface(self) -> None:
         bar = ttk.Frame(self, style="Toolbar.TFrame", padding=(16, 0))
@@ -739,7 +762,7 @@ class SettingsApp(tk.Tk):
     def _build_settings_flow(self, parent: ttk.Frame) -> None:
         ttk.Label(
             parent,
-            text="1 장비  2 연결  3 용지  4 바코드  5 저장",
+            text="장비·연결 선택 → 용지·보정 설정 → 저장",
             style="OverviewTitle.TLabel",
             wraplength=430,
         ).grid(row=0, column=0, sticky="w")
@@ -851,7 +874,7 @@ class SettingsApp(tk.Tk):
 
         sensor_frame = ttk.Frame(frame, style="Surface.TFrame")
         sensor_frame.columnconfigure(1, weight=1)
-        sensor_frame.grid(row=4, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        sensor_frame.grid(row=9, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         sensor_label = ttk.Label(sensor_frame, text="감지 기준 → 절취선(mm)")
         sensor_label.grid(row=0, column=0, sticky="w", padx=(0, 8))
         sensor_widget = ttk.Combobox(
@@ -883,12 +906,7 @@ class SettingsApp(tk.Tk):
         advanced = ttk.Frame(frame, style="Surface.TFrame")
         advanced.columnconfigure(1, weight=1)
         self._advanced_offset_container = advanced
-        def toggle_advanced():
-            if advanced.winfo_manager():
-                advanced.grid_remove()
-            else:
-                advanced.grid(row=10, column=0, columnspan=4, sticky="ew")
-        ttk.Button(frame, text="고급 · 인쇄 후 정지 위치", command=toggle_advanced).grid(row=9, column=0, columnspan=4, sticky="w", pady=(8, 2))
+        advanced.grid(row=10, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         feed_label = ttk.Label(advanced, text="출력 후 정지 보정(mm)")
         feed_label.grid(row=0, column=0, sticky="w", padx=(0, 8), pady=3)
         feed_widget = ttk.Combobox(
@@ -1138,7 +1156,7 @@ class SettingsApp(tk.Tk):
         self.gap_var.set(_format_float(settings.gap_mm))
         self.offset_x_var.set(_format_float(settings.offset_x_mm))
         self.offset_y_var.set(_format_float(settings.offset_y_mm))
-        self.gap_offset_var.set("현재 프린터 설정 사용" if settings.gap_offset_mm is None else _format_float(settings.gap_offset_mm))
+        self.gap_offset_var.set(("별도 보정 없음" if settings.brand == "bixolon" else "현재 프린터 설정 사용") if settings.gap_offset_mm is None else _format_float(settings.gap_offset_mm))
         self.feed_offset_var.set("현재 프린터 설정 사용" if settings.feed_offset_mm is None else _format_float(settings.feed_offset_mm))
         self.media_type_var.set(MEDIA_TYPE_LABELS[settings.media_type])
         self.print_speed_var.set(str(settings.print_speed))
@@ -1186,7 +1204,7 @@ class SettingsApp(tk.Tk):
             return
         self._update_validation_summary(settings)
         self._set_settings_dirty(False)
-        self.status_var.set("설정을 저장했습니다. 같은 폴더의 라벨 화면에 용지 규격이 적용됩니다.")
+        self.status_var.set("설정 파일을 저장했습니다. 이 폴더의 프로그램에서 다음 인쇄부터 적용됩니다.")
 
     def _install_dirty_tracking(self) -> None:
         for variable in self._settings_variables():
@@ -1255,7 +1273,7 @@ class SettingsApp(tk.Tk):
             drafts[previous] = (self.gap_offset_var.get(), self.feed_offset_var.get())
             self._offset_context = context
             self._offset_drafts = drafts
-            default_gap = "0" if brand == "tsc" else "현재 프린터 설정 사용"
+            default_gap = "0" if brand == "tsc" else ("별도 보정 없음" if brand == "bixolon" else "현재 프린터 설정 사용")
             gap, feed = drafts.get(context, (default_gap, "현재 프린터 설정 사용"))
             self._suspend_dirty_tracking = True
             try:
@@ -1280,7 +1298,7 @@ class SettingsApp(tk.Tk):
         widgets[1].configure(state="normal" if supported_feed else "disabled")
         self._advanced_offset_labels[1].configure(
             text={
-                "bixolon": "절취·커터 정지 위치 보정(mm)",
+                "bixolon": "절단·배출 위치 보정(mm)",
                 "tsc": "출력 후 위치·복귀 보정(mm)",
                 "zebra": "절취 위치 보정(mm)",
             }.get(brand, "출력 후 정지 보정(mm)")
@@ -1290,38 +1308,34 @@ class SettingsApp(tk.Tk):
             if dpi not in {203, 300, 600}: raise ValueError
         except ValueError:
             dpi = 203
+        from .printer_offsets import bixolon_offset_limit
+        limit = bixolon_offset_limit(dpi)
         if brand == "bixolon":
-            try:
-                label_height_dots = round(float(self.height_var.get()) * dpi / 25.4)
-                p4_limit_mm = min(label_height_dots, 2432) * 25.4 / dpi
-            except ValueError:
-                p4_limit_mm = 0
-            sensor_caption = "마크 기준 → 절취선 거리(mm)"
-            sensor_hint = (
-                "갭/블랙마크 폭이 아니라 센서 감지 기준부터 절취선까지의 거리입니다. "
-                f"현재 앱 입력 제한은 한 장 길이 기준 ±{p4_limit_mm:.2f}mm입니다. "
-                "이는 SL p4의 제조사 최대값 표기가 아닙니다. "
-                "설정값은 SL p4로 전달하고 다음 인쇄 전 복귀 명령을 함께 적용합니다."
-            )
+            sensor_caption = "용지 감지 보정(mm)"
+            sensor_hint = f"허용 범위 -{limit:g}~{limit:g}mm. ‘별도 보정 없음’은 용지의 기본 감지 기준을 사용합니다."
         elif brand == "tsc":
             sensor_caption = "감지 후 추가 배출(mm)"
             sensor_hint = (
                 "GAP/BLINE은 감지 방식과 추가 배출을 함께 설정합니다. 숫자를 입력하면 선택한 방식이 적용되고, "
                 "0은 추가 배출 없이 설정합니다. ‘현재 프린터 설정 사용’은 이 명령 전체를 생략합니다. "
-                "출력 후 정지·복귀 보정은 고급 항목에서 따로 조정합니다."
+                "출력 후 위치는 아래 절단·배출 위치 보정에서 조정합니다."
             )
         else:
             sensor_caption = "감지 기준 → 절취선 거리(mm)"
             sensor_hint = "이 제조사에서 같은 용지 거리 명령을 확인하지 못해 입력을 숨겼습니다."
         self._advanced_offset_labels[0].configure(text=sensor_caption)
         self._primary_sensor_hint.configure(text=sensor_hint)
+        for widget in widgets:
+            widget.configure(values=["현재 프린터 설정 사용", "0", "-1", "1"])
+        if brand == "bixolon":
+            widgets[0].configure(values=["별도 보정 없음", "0", "-1", "1"])
         hints = {
-            "bixolon": f"빅솔론 p4 앱 상한은 용지 길이와 SL p1 페이지 길이(최대 2432도트) 중 작은 값입니다. 이는 p4 제조사 최대값이 아닙니다. TA 정지 보정만 ±100도트(±{100*25.4/dpi:.2f}mm)이며 인쇄 시 프린터에 영구 저장됩니다. 명령 전송은 실물 절취 위치를 보증하지 않습니다.",
+            "bixolon": f"허용 범위 -{limit:g}~{limit:g}mm ({dpi} DPI). 절단·배출 위치를 미세 조정합니다. 커터 사용 여부는 ‘인쇄 후 작업’에서 선택하세요.",
             "tsc": "TSC TSPL · GAP/BLINE 추가 이송은 용지 길이 이내입니다. OFFSET은 ±25.4mm이며 다음 인쇄 전 복귀에 사용됩니다. 두 항목에 같은 거리값을 중복 입력하지 마세요.",
             "zebra": f"Zebra ZPL · 배출 보정 ±120단계(±{120*25.4/dpi*(2 if dpi == 600 else 1):.2f}mm). 600 DPI는 1단계 2도트입니다. 센서 위치는 장비에서 설정합니다.",
             "sewoo": "세우테크는 모델별 보정 명령 확인이 필요합니다. 센서·배출 위치는 장비에서 설정하세요. 좌우·상하 내용 보정은 위에서 조정합니다.",
         }
-        self._advanced_offset_hint.configure(text=hints.get(brand, "제조사를 선택하세요.") + "\n현재 프린터 설정 사용: 보정 명령 생략 / 0: 보정값 초기화. 저장은 파일만 변경하며 인쇄할 때 적용됩니다.")
+        self._advanced_offset_hint.configure(text=hints.get(brand, "제조사를 선택하세요.") + "\n0: 기본 위치 / 저장 후 다음 인쇄부터 적용됩니다.")
 
     def _set_settings_dirty(self, dirty: bool) -> None:
         self._settings_dirty = dirty
@@ -1391,7 +1405,7 @@ class SettingsApp(tk.Tk):
 
     @staticmethod
     def _advanced_offset(value: str, label: str) -> float | None:
-        if value.strip() in {"", "auto", "현재 프린터 설정 사용"}:
+        if value.strip() in {"", "auto", "현재 프린터 설정 사용", "별도 보정 없음"}:
             return None
         return _parse_float_field(value, label)
 
@@ -1414,6 +1428,7 @@ class SettingsApp(tk.Tk):
             offset_y_mm=_parse_float_field(self.offset_y_var.get(), "상하 보정", default=0),
             gap_offset_mm=self._advanced_offset(self.gap_offset_var.get(), "간격 오프셋"),
             feed_offset_mm=self._advanced_offset(self.feed_offset_var.get(), "용지 공급 오프셋"),
+            bixolon_extended_stop=False,
             media_type=MEDIA_TYPE_VALUES.get(self.media_type_var.get(), ""),
             print_speed=_parse_int_field(self.print_speed_var.get(), "인쇄속도"),
             print_density=_parse_int_field(self.print_density_var.get(), "농도"),
@@ -1458,7 +1473,7 @@ class SettingsApp(tk.Tk):
         if current not in supported:
             self.media_handling_var.set(MEDIA_HANDLING_LABELS["tear_off"])
         for value, button in self.media_handling_buttons.items():
-            if value in supported:
+            if value in supported and value != "printer_default":
                 button.configure(state="normal")
                 button.pack(side="left", padx=(0, 12))
             else:

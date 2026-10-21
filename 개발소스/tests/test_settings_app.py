@@ -484,7 +484,7 @@ def test_unsupported_manufacturer_postprocessing_is_hidden_and_current_value_saf
     app.media_handling_var = SimpleNamespace(get=lambda: handling["value"], set=lambda value: handling.update(value=value))
     visibility = {}
     app.media_handling_buttons = {}
-    for value in ("tear_off", "cutter", "peeler"):
+    for value in ("tear_off", "cutter", "peeler", "printer_default"):
         app.media_handling_buttons[value] = SimpleNamespace(
             configure=lambda **kwargs: None,
             pack=lambda _value=value, **kwargs: visibility.update({_value: True}),

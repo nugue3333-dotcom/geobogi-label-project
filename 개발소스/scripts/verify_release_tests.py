@@ -30,6 +30,10 @@ def main():
             stream.reconfigure(encoding='utf-8', errors='replace')
     child_env = os.environ.copy()
     child_env.update(PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
+    if os.name == 'nt' and not child_env.get('SystemRoot'):
+        windows_root = Path(child_env.get('WINDIR') or r'C:\Windows')
+        if windows_root.is_dir():
+            child_env['SystemRoot'] = str(windows_root)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, default=ROOT/'outputs/release-tests')
     args = parser.parse_args()

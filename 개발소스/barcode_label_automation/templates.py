@@ -64,13 +64,15 @@ def render_slcs(
     media_type: str = "gap",
     print_orientation: str = "normal",
     *, gap_offset_mm: float | None = None, feed_offset_mm: float | None = None,
+    bixolon_extended_stop: bool = False,
 ) -> CommandPayload:
     config = barcode_config or default_barcode_config(one_d_wide=6)
     if _needs_compact_auto(row, height_mm, config):
         return render_label('slcs', row, width_mm, height_mm, dpi, gap_mm, print_method, config,
                             print_speed=print_speed, print_density=print_density, media_handling=media_handling,
                             media_type=media_type, print_orientation=print_orientation,
-                            gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm)
+                            gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm,
+                            bixolon_extended_stop=bixolon_extended_stop)
     width_dot = mm_to_dots(width_mm, dpi)
     height_dot = mm_to_dots(height_mm, dpi)
     gap_dot = mm_to_dots(gap_mm, dpi)
@@ -112,7 +114,7 @@ def render_slcs(
         f"{_slcs_print_method_command(print_method)}"
         f"{_slcs_media_handling_command(media_handling)}"
         f"SW{width_dot}\n"
-        f"{slcs_media_commands(height_dot, gap_dot, media_type, dpi, gap_offset_mm, feed_offset_mm)}"
+        f"{slcs_media_commands(height_dot, gap_dot, media_type, dpi, gap_offset_mm, feed_offset_mm, preserve_settings=media_handling == 'printer_default', extended_stop=bixolon_extended_stop)}"
         f"{print_orientation_command('slcs', print_orientation)}"
         f"{text_commands}"
     )
@@ -267,6 +269,7 @@ def render_label(
     offset_y_mm: float = 0,
     gap_offset_mm: float | None | object = _DEFAULT_GAP_OFFSET,
     feed_offset_mm: float | None = None,
+    bixolon_extended_stop: bool = False,
 ) -> CommandPayload:
     # Omitted arguments retain the historical vendor command. Explicit None
     # means inherit; explicit zero must remain available to reset the device.
@@ -279,7 +282,8 @@ def render_label(
         config = SimpleNamespace(
             label=SimpleNamespace(width_mm=width_mm, height_mm=height_mm, dpi=dpi, gap_mm=gap_mm,
                                   media_type=media_type, offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm,
-                                  gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm),
+                                  gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm,
+                                  bixolon_extended_stop=bixolon_extended_stop),
             printer=SimpleNamespace(language=language, print_method=print_method,
                                     print_speed=print_speed, print_density=print_density,
                                     media_handling=media_handling, print_orientation=print_orientation,
@@ -287,7 +291,8 @@ def render_label(
         from .media_geometry import transform_image
         image = render_auto_page(row, width_mm, height_mm, dpi, barcode_config, print_orientation, language)
         return render_media_bitmap(transform_image(image, config), config, row.print_qty)
-    validate_offsets(language, media_type, height_mm, dpi, gap_offset_mm, feed_offset_mm)
+    validate_offsets(language, media_type, height_mm, dpi, gap_offset_mm, feed_offset_mm,
+                     extended_stop=bixolon_extended_stop)
     if language == "slcs":
         return render_slcs(
             row,
@@ -303,6 +308,7 @@ def render_label(
             media_type,
             print_orientation,
             gap_offset_mm=gap_offset_mm, feed_offset_mm=feed_offset_mm,
+            bixolon_extended_stop=bixolon_extended_stop,
         )
     if language == "tspl":
         command = render_tspl(
@@ -602,6 +608,8 @@ def _tspl_print_method_command(print_method: str) -> str:
 
 def _slcs_media_handling_command(media_handling: str) -> str:
     _ensure_media_handling_supported("slcs", media_handling)
+    if media_handling == "printer_default":
+        return ""
     if media_handling == "cutter":
         return "CUTy\n"
     return "CUTn\n"
@@ -676,7 +684,8 @@ def render_media_bitmap(image, config, print_qty):
     _ensure_media_handling_supported(p.language, p.media_handling)
     validate_offsets(p.language, label.media_type, label.height_mm, label.dpi,
                      getattr(label, "gap_offset_mm", None), getattr(label, "feed_offset_mm", None),
-                     brand=getattr(p, "brand", None), model=getattr(p, "model", ""))
+                     brand=getattr(p, "brand", None), model=getattr(p, "model", ""),
+                     extended_stop=getattr(label, "bixolon_extended_stop", False))
     image = image.convert("1", dither=Image.Dither.NONE)
     speed = p.print_speed if p.print_speed is not None else (3 if p.language == "slcs" else 4)
     density = p.print_density if p.print_density is not None else {"slcs": 20, "tspl": 8, "zpl": 10}.get(p.language, 8)
@@ -695,7 +704,9 @@ def render_media_bitmap(image, config, print_qty):
                   + _slcs_media_handling_command(p.media_handling) + f"SW{width}\n"
                   + slcs_media_commands(height, mm_to_dots(label.gap_mm, label.dpi), label.media_type,
                                         label.dpi, getattr(label, "gap_offset_mm", None),
-                                        getattr(label, "feed_offset_mm", None)) + "SOT\n")
+                                        getattr(label, "feed_offset_mm", None),
+                                        preserve_settings=p.media_handling == "printer_default",
+                                        extended_stop=getattr(label, "bixolon_extended_stop", False)) + "SOT\n")
         data = io.BytesIO()
         image.save(data, format="BMP")
         return header.encode("ascii") + b"BMP0,0\r\n" + data.getvalue() + f"\r\nP{print_qty}\n".encode("ascii")
