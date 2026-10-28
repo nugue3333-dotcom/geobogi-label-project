@@ -43,6 +43,9 @@ def _main(argv: list[str] | None = None) -> int:
     parser.add_argument("--template", default=None, help="Saved .cllabel design instead of automatic layout")
     parser.add_argument("--template-hash", default=None, help="Expected saved design SHA256")
     parser.add_argument("--value-job", default=None, help="Explicitly reprint an immutable value snapshot")
+    parser.add_argument("--no-data", action="store_true", help="Print a saved design without an Excel data source")
+    parser.add_argument("--copies-per-serial", type=_safe_print_qty, default=None,
+                        help="Copies for each serial value in this job only")
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--dry-run", action="store_true", help="Render commands to output files only")
     action.add_argument("--print", dest="do_print", action="store_true", help="Send commands to the configured printer")
@@ -61,6 +64,13 @@ def _main(argv: list[str] | None = None) -> int:
         help="Override print_qty for this run only with a positive integer",
     )
     args = parser.parse_args(argv)
+
+    if (args.no_data or args.copies_per_serial is not None) and not args.template:
+        raise ValueError("--no-data 및 --copies-per-serial은 저장 도안 출력에서만 사용할 수 있습니다.")
+    if args.no_data and args.excel:
+        raise ValueError("데이터 없이 출력과 엑셀 데이터 지정은 함께 사용할 수 없습니다.")
+    if args.value_job and (args.no_data or args.copies_per_serial is not None):
+        raise ValueError("기록 재인쇄에서는 저장된 값과 매수를 사용합니다. 새 출력 옵션을 함께 지정할 수 없습니다.")
 
     config = load_config(args.config)
     if args.excel:
@@ -162,8 +172,13 @@ def _main(argv: list[str] | None = None) -> int:
             )
     else:
         commands = [command for _row_index, _row, command in prepared]
+        progress_path = config.data.output_dir / (DESIGNER_PROGRESS_FILE_NAME if args.template else PROGRESS_FILE_NAME)
+        if args.new_job and progress_path.exists():
+            previous = PrintProgress.load(progress_path)
+            if previous.unknown_indexes:
+                raise UnknownPrintItemsError(previous.unknown_indexes)
         progress = PrintProgress.open_for_job(
-            config.data.output_dir / (DESIGNER_PROGRESS_FILE_NAME if args.template else PROGRESS_FILE_NAME),
+            progress_path,
             commands,
             config.printer.command_encoding,
             job_context,

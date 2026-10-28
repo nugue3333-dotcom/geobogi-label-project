@@ -49,6 +49,7 @@ from barcode_label_automation.print_progress import (
     PROGRESS_FILE_NAME,
     TRANSPORT_UNCERTAIN_CODE,
     NEW_JOB_REQUIRED_CODE,
+    UNKNOWN_ITEMS_CODE,
     PrintProgress,
 )
 
@@ -1020,7 +1021,7 @@ def test_print_job_sends_without_confirmation(monkeypatch, tmp_path):
     assert popups and popups[-1][0] == "프린터 전송 완료 · 출력 확인 필요"
 
 
-def test_manager_unknown_state_reports_error_and_blocks_retry_without_dialog(monkeypatch, tmp_path):
+def test_manager_unknown_state_cancel_preserves_record_and_blocks_retry(monkeypatch, tmp_path):
     config_path = tmp_path / "config.ini"
     _write_ready_config(config_path)
     progress_path = tmp_path / "out" / PROGRESS_FILE_NAME
@@ -1035,11 +1036,8 @@ def test_manager_unknown_state_reports_error_and_blocks_retry_without_dialog(mon
     app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
     calls: list[list[str]] = []
     app._invoke_print_engine = lambda args: calls.append(args) or subprocess.CompletedProcess(args, 0, "resumed", "")
-    errors: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        "barcode_label_automation.label_manager_app.messagebox.showerror",
-        lambda title, message: errors.append((title, message)),
-    )
+    monkeypatch.setattr("barcode_label_automation.label_manager_app._ask_unknown_resolution", lambda *_: None)
+    before = progress_path.read_bytes()
     args = ["print_labels.exe", "--print", "--yes"]
     failed = subprocess.CompletedProcess(args, 1, "", f"{TRANSPORT_UNCERTAIN_CODE}: item 2")
 
@@ -1047,15 +1045,73 @@ def test_manager_unknown_state_reports_error_and_blocks_retry_without_dialog(mon
 
     assert recovered is None
     assert calls == []
-    assert app.status_var.value == "인쇄 오류 · 이전 인쇄 작업의 전송 상태를 확인해야 합니다."
-    assert errors and errors[-1][0] == "인쇄 오류"
-    assert "자동 재전송하지 않았습니다" in errors[-1][1]
+    assert "자동 재전송하지 않았습니다" in app.status_var.value
+    assert progress_path.read_bytes() == before
+
+
+@pytest.mark.parametrize("choice", ["sent", "pending"])
+def test_manager_resolves_unknown_and_resumes_only_identical_job(monkeypatch, tmp_path, choice):
+    config_path = tmp_path / "config.ini"
+    _write_ready_config(config_path)
+    progress_path = tmp_path / "out" / PROGRESS_FILE_NAME
+    progress = PrintProgress.open_for_job(progress_path, [b"A", b"B"], "utf-8", {"source": "test"})
+    progress.mark_sending(1)
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.config_path = config_path
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    args = ["print_labels.exe", "--print", "--yes"]
+    sent = []
+    app._invoke_print_engine = lambda actual: sent.append(actual) or subprocess.CompletedProcess(actual, 0, "ok", "")
+    monkeypatch.setattr("barcode_label_automation.label_manager_app._ask_unknown_resolution", lambda _parent, _index: choice)
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno", lambda *a, **kw: True)
+    result = app._recover_print_progress(args, subprocess.CompletedProcess(args, 1, "", f"{UNKNOWN_ITEMS_CODE}: unknown"))
+    current = PrintProgress.load(progress_path)
+    assert current.status(1) == choice
+    assert current.pending_indexes == ([2] if choice == "sent" else [1, 2])
+    assert sent == [args] and result.returncode == 0
+    assert "--new-job" not in sent[0]
+
+
+def test_manager_all_unknown_marked_printed_does_not_resend(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.ini"
+    _write_ready_config(config_path)
+    progress_path = tmp_path / "out" / PROGRESS_FILE_NAME
+    progress = PrintProgress.open_for_job(progress_path, [b"A"], "utf-8", {"source": "test"})
+    progress.mark_sending(1)
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.config_path = config_path
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    app._invoke_print_engine = lambda _args: pytest.fail("완료된 작업을 재전송하면 안 됩니다")
+    monkeypatch.setattr("barcode_label_automation.label_manager_app._ask_unknown_resolution", lambda *_: "sent")
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.showinfo", lambda *a, **kw: None)
+    args = ["print_labels.exe", "--print", "--yes"]
+    assert app._recover_print_progress(args, subprocess.CompletedProcess(args, 1, "", f"{UNKNOWN_ITEMS_CODE}: unknown")) is None
+    assert PrintProgress.load(progress_path).sent_indexes == [1]
+
+
+def test_manager_resume_confirmation_cancel_keeps_resolved_pending(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.ini"
+    _write_ready_config(config_path)
+    progress_path = tmp_path / "out" / PROGRESS_FILE_NAME
+    progress = PrintProgress.open_for_job(progress_path, [b"A"], "utf-8", {"source": "test"})
+    progress.mark_sending(1)
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.config_path = config_path
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    app._invoke_print_engine = lambda _args: pytest.fail("취소 후 전송하면 안 됩니다")
+    monkeypatch.setattr("barcode_label_automation.label_manager_app._ask_unknown_resolution", lambda *_: "pending")
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.askyesno", lambda *a, **kw: False)
+    args = ["print_labels.exe", "--print", "--yes"]
+    assert app._recover_print_progress(args, subprocess.CompletedProcess(args, 1, "", f"{UNKNOWN_ITEMS_CODE}: unknown")) is None
+    current = PrintProgress.load(progress_path)
+    assert current.pending_indexes == [1] and current.unknown_indexes == []
 
 
 def test_manager_new_job_starts_without_confirmation(monkeypatch, tmp_path):
     app = LabelManagerApp.__new__(LabelManagerApp)
     app.base_dir = tmp_path
     app.config_path = tmp_path / "config.ini"
+    _write_ready_config(app.config_path)
     app.status_var = SimpleNamespace(value="", set=lambda value: setattr(app.status_var, "value", value))
     calls: list[list[str]] = []
     app._invoke_print_engine = lambda args: calls.append(args) or subprocess.CompletedProcess(args, 0, "new", "")
@@ -1066,6 +1122,31 @@ def test_manager_new_job_starts_without_confirmation(monkeypatch, tmp_path):
 
     assert recovered is not None and recovered.returncode == 0
     assert calls == [[*args, "--new-job"]]
+
+
+@pytest.mark.parametrize("state", ["pending", "unknown"])
+def test_manager_new_job_preserves_unfinished_progress(monkeypatch, tmp_path, state):
+    from barcode_label_automation.print_progress import DESIGNER_PROGRESS_FILE_NAME
+    config_path = tmp_path / "config.ini"
+    _write_ready_config(config_path)
+    progress_path = tmp_path / "out" / DESIGNER_PROGRESS_FILE_NAME
+    progress = PrintProgress.open_for_job(progress_path, [b"A"], "utf-8", {"source": "old"})
+    if state == "unknown":
+        progress.mark_sending(1)
+    before = progress_path.read_bytes()
+    app = LabelManagerApp.__new__(LabelManagerApp)
+    app.config_path = config_path
+    app.status_var = SimpleNamespace(set=lambda _value: None)
+    calls, warnings = [], []
+    app._invoke_print_engine = lambda args: calls.append(args)
+    monkeypatch.setattr("barcode_label_automation.label_manager_app.messagebox.showerror",
+                        lambda title, text: warnings.append((title, text)))
+    args = ["print_labels.exe", "--print", "--template", "saved.cllabel"]
+    blocked = subprocess.CompletedProcess(args, 1, "", f"{NEW_JOB_REQUIRED_CODE}: different job")
+    assert app._recover_print_progress(args, blocked) is None
+    assert calls == []
+    assert progress_path.read_bytes() == before
+    assert warnings and "덮어쓰지 않고" in warnings[0][1]
 
 
 def test_manager_unknown_resolution_dialog_has_three_explicit_choices():
@@ -1325,30 +1406,19 @@ def test_default_print_quantity_uses_first_valid_positive_value():
 
 def test_top_action_surface_uses_common_suite_menus():
     import inspect
-
     source = inspect.getsource(LabelManagerApp._build_ui)
     menu_source = inspect.getsource(LabelManagerApp._build_menu_surface)
-
-    assert "self._build_menu_surface()" in source
-    positions = [menu_source.index(f'("{name}",') for name in ("파일", "보기", "도구", "도움말")]
-    assert positions == sorted(positions)
-    assert "상품 엑셀 연결" in menu_source
-    assert "상품 DB 연결 해제" in menu_source
     panel_source = inspect.getsource(LabelManagerApp._build_job_panel)
-    assert "프린터 설정" in panel_source
-    assert "실행 전 점검" in panel_source
-    assert "빠른 사용안내 열기" in menu_source
-    assert "고객용 매뉴얼" in menu_source
-    assert "지원 패키지 생성" in menu_source
-    assert '("인쇄", self.print_with_quantity)' in menu_source
-    assert '("전체 선택", self.select_all_labels)' in menu_source
-    assert '("선택 해제", self.clear_label_selection)' in menu_source
-    assert menu_source.index('("도구",') < menu_source.index('("라벨디자이너",') < menu_source.index('("도움말",')
-    assert "출력 파일 확인" not in source
-    assert "출력 폴더 열기" not in source
-    assert "인쇄 데이터" in source
-    assert "원본 DB" in source
+    positions = [menu_source.index(f'("{name}",') for name in ("파일", "보기", "인쇄", "도움말")]
+    assert positions == sorted(positions)
+    for label in ("상품 엑셀 연결", "저장", "도안 선택", "미리보기", "인쇄"):
+        assert f'("{label}",' in source
+    for label in ("전체 데이터 검증", "인쇄파일 생성", "프린터·용지 설정", "실행 전 점검", "지원 패키지 생성"):
+        assert label in menu_source
+    assert "상품 데이터 없이 도안만 인쇄" in panel_source
+    assert "도안 편집" in panel_source
     assert "self._build_start_checklist(workflow_inner)" in source
+    assert "self._workflow_card.grid_remove()" in source
     assert "self._build_job_panel(job_inner)" in source
 
 
@@ -1396,13 +1466,12 @@ def test_build_print_args_dry_run_does_not_add_yes(tmp_path):
 
 
 def test_job_panel_keeps_support_package_generation_in_help_menu():
-    source = Path(__file__).resolve().parents[1].joinpath("barcode_label_automation", "label_manager_app.py").read_text(encoding="utf-8")
-    panel_start = source.index("    def _build_job_panel")
-    panel_end = source.index("    def _create_table", panel_start)
-    panel_source = source[panel_start:panel_end]
-
-    assert "지원 패키지는 도움말 메뉴에서 생성합니다." in panel_source
-    assert 'text="지원 패키지 생성"' not in panel_source
+    import inspect
+    panel = inspect.getsource(LabelManagerApp._build_job_panel)
+    menu = inspect.getsource(LabelManagerApp._build_menu_surface)
+    assert "지원 패키지 생성" in menu
+    assert "지원 패키지 생성" not in panel
+    assert "검증과 인쇄파일 생성은 상단 인쇄 메뉴" in panel
 
 
 def _manager_for_delete_test():

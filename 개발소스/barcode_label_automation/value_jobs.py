@@ -15,6 +15,7 @@ from .value_rules import (
     SERIAL_ALPHABETS, GeneratedLabel, _format_serial, _serial_index,
     compile_generated_labels, job_date_value, validate_value_rules,
 )
+from .print_quantity import parse_print_quantity
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,22 @@ def _legacy_rule_digest(rule: Mapping[str, object]) -> str:
     """Match ledgers written before direction/alphabet/partial-target defaults existed."""
     legacy = {key: value for key, value in rule.items() if key not in {"alphabet", "direction", "preserve_width", "target_field", "target_start", "target_length"}}
     return _digest(legacy)
+
+
+def effective_job_rules(rules: Sequence[Mapping[str, object]], copies_per_serial: int | None = None) -> list[dict[str, object]]:
+    """Apply a print-job copy count without changing saved serialization rules."""
+    effective = [dict(rule) for rule in rules]
+    if copies_per_serial is None:
+        return effective
+    copies = parse_print_quantity(copies_per_serial)
+    serials = [rule for rule in effective if rule.get("kind") == "serial"]
+    if not serials:
+        raise ValueError("번호당 매수는 일련화가 설정된 도안에서만 사용할 수 있습니다.")
+    if len({parse_print_quantity(rule.get("copies_per_value", 1)) for rule in serials}) > 1:
+        raise ValueError("이 도안의 일련번호마다 반복 간격이 다릅니다. 기존 설정을 확인한 뒤 출력하세요.")
+    for rule in serials:
+        rule["copies_per_value"] = copies
+    return effective
 
 
 def validate_ledger_bytes(content: bytes) -> dict[str, object]:
@@ -161,17 +178,18 @@ class ValueJobStore:
     def prepare_job(
         self, rows: Sequence[Mapping[str, object]], quantities: Sequence[int], rules: Sequence[Mapping[str, object]],
         *, template_key: str, job_date: date | str | None = None, context: Mapping[str, object] | None = None,
-        cancel_check: Callable[[], bool] | None = None,
+        cancel_check: Callable[[], bool] | None = None, copies_per_serial: int | None = None,
     ) -> ValueJob:
         """Call only after explicit print confirmation; reserve and persist atomically."""
         if not str(template_key).strip():
             raise ValueError("번호 발급을 위해 도안 식별값이 필요합니다.")
         normalized = validate_value_rules(rules, tuple(dict.fromkeys(str(key) for row in rows for key in row)))
+        effective = effective_job_rules(normalized, copies_per_serial)
         fixed_date = job_date_value(job_date)
         with self._locked():
             ledger = self._load()
             overrides = self._overrides(ledger, str(template_key), normalized)
-            labels = compile_generated_labels(rows, quantities, normalized, fixed_date, overrides, cancel_check=cancel_check)
+            labels = compile_generated_labels(rows, quantities, effective, fixed_date, overrides, cancel_check=cancel_check)
             if not labels:
                 raise ValueError("번호를 발급할 출력 대상이 없습니다.")
             total = sum(label.copies for label in labels)
@@ -181,7 +199,7 @@ class ValueJobStore:
                     alphabet = SERIAL_ALPHABETS[str(rule["alphabet"])]
                     start_value = overrides.get(name, rule["start"])
                     start_index = _serial_index(start_value, alphabet, name)
-                    copies = int(rule["copies_per_value"])
+                    copies = int(copies_per_serial) if copies_per_serial is not None else int(rule["copies_per_value"])
                     # A partially used copy group is still issued; unused copies
                     # are never reused by a later job without explicit reprinting.
                     direction = 1 if rule["direction"] == "up" else -1
@@ -196,6 +214,8 @@ class ValueJobStore:
                 "context": dict(context or {}), "start_overrides": overrides,
                 "labels": [{"row": label.row, "copies": label.copies} for label in labels],
             }
+            if copies_per_serial is not None:
+                record["copies_per_serial"] = parse_print_quantity(copies_per_serial)
             record["digest"] = _digest(record)
             ledger["jobs"][snapshot_id] = record
             self._save(ledger)

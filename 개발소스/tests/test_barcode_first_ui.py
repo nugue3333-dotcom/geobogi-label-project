@@ -151,18 +151,14 @@ def test_element_editor_opens_serial_settings_and_cancel_restores_rule_and_bindi
     editor = open_editor(app, element)
     widget_with_text(editor, "일련화 설정…", ttk.Button).invoke()
     settle(app)
-    dialog = next(widget for widget in descendants(editor)
-                  if isinstance(widget, tk.Toplevel) and widget.title() == "값 생성 규칙 · 번호 / 날짜 / 문자")
-    variables = dialog._value_rules_variables
-    rule_name = variables["name"].get()
+    variables = editor._serial_editor
+    rule_name = variables._name
     assert rule_name.startswith("일련번호")
-    variables["start"].set("7")
-    variables["digits"].set("3")
-    variables["copies_per_value"].set("2")
-    variables["direction"].set("감소")
-    dialog._value_rules_apply()
+    variables.mode.set("decrease")
+    variables.start.set("7")
+    variables.digits.set("3")
     settle(app)
-    assert app.template["value_rules"][0]["direction"] == "down"
+    assert not app.template.get("value_rules")
     assert element["field"] == rule_name
     assert element["text"] == "{{" + rule_name + "}}"
     assert app.preview_row[rule_name] == "007"
@@ -181,16 +177,14 @@ def test_element_editor_serial_settings_commit_to_template_on_confirm(app):
     editor = open_editor(app, element)
     widget_with_text(editor, "일련화 설정…", ttk.Button).invoke()
     settle(app)
-    dialog = next(widget for widget in descendants(editor)
-                  if isinstance(widget, tk.Toplevel) and widget.title() == "값 생성 규칙 · 번호 / 날짜 / 문자")
-    variables = dialog._value_rules_variables
-    variables["alphabet"].set("영문 대문자")
+    variables = editor._serial_editor
+    variables.mode.set("increase")
+    variables.alphabet.set("영문 대문자")
+    variables.start.set("A")
+    variables.preserve.set(False)
     settle(app)
-    rule_name = variables["name"].get()
-    assert variables["start"].get() == "A"
-    assert variables["width_mode"].get() == "자동 자리수"
-    dialog._value_rules_apply()
-    settle(app)
+    rule_name = variables._name
+    assert variables.status.get() == ""
     widget_with_text(editor, "확인", ttk.Button).invoke()
     settle(app)
     assert element["field"] == rule_name
@@ -203,10 +197,11 @@ def test_barcode_editor_serial_settings_generate_preview_and_confirm(app):
     editor = open_editor(app, element)
     widget_with_text(editor, "일련화 설정…", ttk.Button).invoke()
     settle(app)
-    dialog = next(widget for widget in descendants(editor)
-                  if isinstance(widget, tk.Toplevel) and widget.title() == "값 생성 규칙 · 번호 / 날짜 / 문자")
-    rule_name = dialog._value_rules_variables["name"].get()
-    dialog._value_rules_apply()
+    serial = editor._serial_editor
+    rule_name = serial._name
+    serial.mode.set("increase")
+    serial.start.set("000001")
+    serial.digits.set("6")
     settle(app)
     assert app.preview_row[rule_name] == "000001"
     assert editor._barcode_preview_panel.result["value"] == "000001"
@@ -249,13 +244,11 @@ def test_actual_editor_changes_symbol_size_then_places_hri_without_shrinking(app
     widget_with_text(editor, "실제 크기 확인", ttk.Button).invoke()
     settle(app)
     assert editor.winfo_exists()
-    widget_with_text(editor, "적용", ttk.Button).invoke()
-    settle(app)
-    assert element["barcode_layout"] == draft["barcode_layout"]
-    assert element["barcode_options"]["human_readable"] is True
     widget_with_text(editor, "확인", ttk.Button).invoke()
     settle(app)
     assert not editor.winfo_exists()
+    assert element["barcode_layout"] == draft["barcode_layout"]
+    assert element["barcode_options"]["human_readable"] is True
 
 
 def test_legacy_editor_preserves_layout_until_explicit_conversion_and_undo(app):
@@ -275,11 +268,9 @@ def test_legacy_editor_preserves_layout_until_explicit_conversion_and_undo(app):
     assert (draft["width"],draft["height"]) != (before["width"],before["height"])
     assert draft["width"] > 0 and draft["height"] > 0
     assert element == before
-    widget_with_text(editor, "적용", ttk.Button).invoke()
-    settle(app)
-    assert element["barcode_layout"]["version"] == 2
     widget_with_text(editor, "확인", ttk.Button).invoke()
     settle(app)
+    assert element["barcode_layout"]["version"] == 2
     app.undo()
     settle(app)
     assert "barcode_layout" not in app.elements[0]
@@ -297,11 +288,9 @@ def test_module_fixed_editor_has_no_canvas_size_handles(app):
     assert draft["barcode_layout"]["size_mode"] == "module"
     assert int(draft["barcode_options"]["cell_size"]) >= 1
     assert element == original
-    widget_with_text(editor, "적용", ttk.Button).invoke()
-    settle(app)
-    assert element["barcode_layout"]["size_mode"] == "module"
     widget_with_text(editor, "확인", ttk.Button).invoke()
     settle(app)
+    assert element["barcode_layout"]["size_mode"] == "module"
     app.redraw()
     settle(app)
     assert element != original
@@ -416,11 +405,9 @@ def test_editor_metadata_survives_save_reload_and_unsaved_recovery(app, tmp_path
     app._save_recovery()
     recovery = json.loads(app._recovery_path().read_text(encoding="utf-8"))
     assert recovery["snapshot"]["elements"][0] == original
-    widget_with_text(editor, "적용", ttk.Button).invoke()
-    settle(app)
-    assert element["barcode_layout"] == expected
     widget_with_text(editor, "확인", ttk.Button).invoke()
     settle(app)
+    assert element["barcode_layout"] == expected
     app._save_recovery()
     recovery = json.loads(app._recovery_path().read_text(encoding="utf-8"))
     assert recovery["snapshot"]["elements"][0]["barcode_layout"] == expected

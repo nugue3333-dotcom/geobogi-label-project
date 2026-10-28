@@ -67,7 +67,9 @@ def _format_serial(index: int, alphabet: str, digits: int, name: str, preserve_w
             number, remainder = divmod(number, len(alphabet))
             chars.append(alphabet[remainder])
     value = "".join(reversed(chars)) or alphabet[0]
-    if len(value) > digits:
+    if len(value) > 30:
+        raise ValueError(f"{name}: 마지막 번호/값이 최대 30자리를 넘습니다.")
+    if preserve_width and len(value) > digits:
         raise ValueError(f"{name}: 마지막 번호/값이 {digits}자리 범위를 넘습니다. 출력 전에 자리수를 늘리세요.")
     return value.rjust(digits, alphabet[0]) if preserve_width else value
 
@@ -134,7 +136,9 @@ def validate_value_rules(rules: Sequence[Mapping[str, object]], headers: Sequenc
             else:
                 item["start"] = str(raw_start)
                 _serial_index(item["start"], alphabet, name)
-            if len(str(item["start"])) > int(item["digits"]):
+            if len(str(item["start"])) > 30:
+                raise ValueError(f"{name}: 시작 번호는 최대 30자리입니다.")
+            if preserve_width and len(str(item["start"])) > int(item["digits"]):
                 raise ValueError(f"{name}: 시작 번호가 지정한 자리수를 넘습니다.")
             item["reset"] = str(rule.get("reset", "job"))
             if item["reset"] not in ("job", "continue"):

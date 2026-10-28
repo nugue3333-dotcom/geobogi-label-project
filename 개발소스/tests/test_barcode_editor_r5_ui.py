@@ -67,8 +67,7 @@ def test_visible_gs1_manual_add_edit_validate_apply_close(app,width,height,facto
     update=widget_with_text(controller,'선택 수정',ttk.Button);reveal(app,controller,update);click(app,update)
     click(app,widget_with_text(controller,'데이터 검증',ttk.Button))
     assert element==original
-    click(app,widget_with_text(editor,'적용',ttk.Button))
-    assert element['gs1_elements']==[{'ai':'01','value':'09506000134376','source_field':''}]
+    assert element==original
     click(app,widget_with_text(editor,'미리보기',ttk.Button))
     enlarged=next(w for w in descendants(editor) if isinstance(w,tk.Toplevel) and w.title()=='현재 편집 초안 · 확대 미리보기')
     click(app,widget_with_text(enlarged,'닫기',ttk.Button))
@@ -81,6 +80,7 @@ def test_visible_gs1_manual_add_edit_validate_apply_close(app,width,height,facto
     ImageGrab.grab(bbox=(x,y,x+w,y+h),all_screens=True).save(output/f'gs1-{width}-{factor}.png')
     click(app,widget_with_text(editor,'확인',ttk.Button))
     assert not editor.winfo_exists()
+    assert element['gs1_elements']==[{'ai':'01','value':'09506000134376','source_field':''}]
 
 def test_udi_wheel_reaches_last_fields_and_cancel(app):
     element=install_element(app);original=deepcopy(element)
@@ -109,7 +109,7 @@ def test_manual_gs1_invalid_value_recovery_and_db_rows(app,tmp_path):
     reveal(app,controller,selector);selector.set('01 · 상품식별번호 GTIN');selector.event_generate('<<ComboboxSelected>>');settle(app)
     value=field(controller,'고정값');reveal(app,controller,value);value.insert(0,'123');settle(app)
     add=widget_with_text(controller,'추가',ttk.Button);reveal(app,controller,add);click(app,add)
-    click(app,widget_with_text(editor,'적용',ttk.Button))
+    click(app,widget_with_text(editor,'확인',ttk.Button))
     assert element==original and value.get()=='123'
     reveal(app,controller,value);value.delete(0,'end');value.insert(0,'09506000134376');settle(app)
     update=widget_with_text(controller,'선택 수정',ttk.Button);reveal(app,controller,update);click(app,update)
@@ -118,7 +118,7 @@ def test_manual_gs1_invalid_value_recovery_and_db_rows(app,tmp_path):
     binding=field(controller,'DB 열');reveal(app,controller,binding);binding.set('serial');binding.event_generate('<<ComboboxSelected>>');settle(app)
     reveal(app,controller,add);click(app,add)
     assert len(controller.get_records())==2
-    click(app,widget_with_text(editor,'적용',ttk.Button));assert 'gs1_elements' in element
+    assert element==original
     panel=editor._barcode_preview_panel
     assert panel.result['hri'].endswith('(21)ROW001')
     click(app,widget_with_text(editor,'미리보기',ttk.Button))
@@ -130,6 +130,5 @@ def test_manual_gs1_invalid_value_recovery_and_db_rows(app,tmp_path):
     assert popup.result['hri'].endswith('(21)ROW002')
     assert panel.result['hri'].endswith('(21)ROW002')
     click(app,widget_with_text(enlarged,'닫기',ttk.Button))
-    committed=deepcopy(element)
-    click(app,widget_with_text(editor,'취소',ttk.Button))
-    assert element==committed and app.preview_row==app.db_rows[0]
+    click(app,widget_with_text(editor,'확인',ttk.Button))
+    assert 'gs1_elements' in element and app.preview_row==app.db_rows[0]

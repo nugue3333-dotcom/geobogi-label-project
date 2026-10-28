@@ -305,13 +305,13 @@ def test_settings_ui_contains_pre_save_validation_panel():
     assert "설정 점검" in source
 
 
-def test_settings_ui_uses_ribbon_workbench_and_validation_side_panel():
+def test_settings_ui_uses_one_save_control_and_validation_panel():
     source = inspect.getsource(SettingsApp._build_ui)
 
-    assert "Ribbon.TFrame" in source
-    assert "self._build_settings_flow(flow_inner)" in source
-    assert "self._build_validation_section(validation_inner, 0)" in source
-    assert "설정 저장" in source
+    assert 'self._build_settings_flow(flow_inner)' in source
+    assert 'self._build_validation_section(validation_inner, 0)' in source
+    assert source.count('text="설정 저장"') == 1
+    assert '_build_buttons' not in source
 
 
 def test_settings_ui_renames_media_handling_to_print_afterwork():
@@ -422,23 +422,19 @@ def test_settings_ui_protects_unsaved_changes_before_reload_or_close():
     assert "confirm_discard" in str(inspect.signature(SettingsApp.load_from_file))
 
 
-def test_settings_secondary_action_uses_the_existing_validation_handler():
-    source = inspect.getsource(SettingsApp._build_buttons)
-
+def test_settings_validation_action_uses_the_existing_handler():
+    source = inspect.getsource(SettingsApp._build_validation_section)
     assert "command=self.validate_current_settings" in source
-    assert "_validate_only" not in source
 
 
-def test_settings_suite_menu_has_only_supported_file_tools_help_actions():
+def test_settings_suite_menu_has_only_file_and_help_actions():
     source = inspect.getsource(SettingsApp._build_menu_surface)
-    positions = [source.index(f'("{name}",') for name in ("파일", "도구", "도움말")]
-    assert positions == sorted(positions)
-    assert '("보기",' not in source
-    assert '"인쇄"' not in source
-    actions = inspect.getsource(SettingsApp._build_buttons)
-    assert actions.count("ttk.Button(") == 4
-    assert all(command in actions for command in ("self.load_from_file", "self.check_connection",
-                                                 "self.validate_current_settings", "self.save_to_file"))
+    assert '("파일",' in source and '("도움말",' in source
+    assert '("도구",' not in source and '("보기",' not in source
+    assert '"설정 저장"' not in source
+    connection = inspect.getsource(SettingsApp._build_connection_section)
+    assert 'self.refresh_printers' in connection
+    assert 'self.check_connection' in connection
 
 
 def test_settings_saved_state_header_tracks_changes():

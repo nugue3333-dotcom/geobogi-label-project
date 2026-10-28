@@ -577,17 +577,29 @@ class SettingsApp(tk.Tk):
         self._settings_status_label.grid(row=1, column=1, sticky="w")
         ttk.Label(header, text="프린터설정", style="HeaderTitle.TLabel").grid(row=0, column=2, rowspan=2, sticky="e")
         self._build_menu_surface()
-        ribbon = ttk.Frame(self, style="Ribbon.TFrame", padding=(16, 6))
-        ribbon.pack(fill="x")
-        self._settings_ribbon = ribbon
-        self._build_buttons(ribbon, 0, save_text="설정 저장")
         footer = ttk.Frame(self, style="StatusBar.TFrame", padding=(16, 6))
         footer.pack(side="bottom", fill="x")
-        self._cancel_button = ttk.Button(footer, text="닫기 / 변경 취소", command=self._confirm_close, style="Secondary.TButton")
-        self._cancel_button.pack(side="right", padx=(12, 0))
-        self._footer_save_button = ttk.Button(footer, text="설정 저장", command=self.save_to_file, style="Primary.TButton")
-        self._footer_save_button.pack(side="right", padx=(12, 0))
-        ttk.Label(footer, textvariable=self.status_var, style="FooterStatus.TLabel", wraplength=1100).pack(anchor="w")
+        footer.columnconfigure(0, weight=1)
+        self._footer_status_label = ttk.Label(
+            footer, textvariable=self.status_var, style="FooterStatus.TLabel", wraplength=300,
+        )
+        self._footer_status_label.grid(row=0, column=0, sticky="w")
+        self._footer_save_button = ttk.Button(
+            footer, text="설정 저장", command=self.save_to_file, style="Primary.TButton",
+        )
+        self._footer_save_button.grid(row=0, column=1, sticky="e", padx=(12, 0))
+        self._cancel_button = ttk.Button(
+            footer, text="닫기", command=self._confirm_close, style="Secondary.TButton",
+        )
+        self._cancel_button.grid(row=0, column=2, sticky="e", padx=(12, 0))
+
+        def resize_footer(_event: tk.Event) -> None:
+            available = footer.winfo_width() - self._footer_save_button.winfo_reqwidth() - self._cancel_button.winfo_reqwidth() - 70
+            wraplength = max(120, available)
+            if int(self._footer_status_label.cget("wraplength")) != wraplength:
+                self._footer_status_label.configure(wraplength=wraplength)
+
+        footer.bind("<Configure>", resize_footer)
 
         container = tk.Frame(self, bg=COLORS.background)
         container.pack(fill="both", expand=True)
@@ -665,9 +677,7 @@ class SettingsApp(tk.Tk):
         bar = ttk.Frame(self, style="Toolbar.TFrame", padding=(16, 0))
         bar.pack(fill="x")
         definitions = (
-            ("파일", (("설정 다시 불러오기", self.load_from_file), ("설정 저장", self.save_to_file))),
-            ("도구", (("연결 확인", self.check_connection), ("프린터 목록 새로고침", self.refresh_printers),
-                     ("설정 점검", self.validate_current_settings))),
+            ("파일", (("설정 다시 불러오기", self.load_from_file), ("닫기", self._confirm_close))),
             ("도움말", (("고객용 매뉴얼", self.open_manual),)),
         )
         self.suite_menus = {}
@@ -706,32 +716,16 @@ class SettingsApp(tk.Tk):
         viewport_width = max(1, int(event.width))
         self._settings_canvas.itemconfigure(self._settings_main_window, width=viewport_width)
         compact = viewport_width < 900
-        self._layout_settings_ribbon(compact=viewport_width < 720)
         self._layout_settings_overview(compact=compact)
         self._layout_settings_workbench(compact=compact)
         self.after_idle(self._on_settings_content_configure)
-
-    def _layout_settings_ribbon(self, *, compact: bool) -> None:
-        ribbon = self._settings_ribbon
-        for column in range(4):
-            ribbon.columnconfigure(column, weight=0, minsize=0, uniform="")
-        if compact:
-            for column in range(2):
-                ribbon.columnconfigure(column, weight=1, uniform="settings_ribbon_compact")
-            for index, button in enumerate(self._settings_ribbon_buttons):
-                row, column = divmod(index, 2)
-                button.grid(row=row, column=column, sticky="ew", padx=(0 if column == 0 else 6, 0), pady=(0, 6 if row == 0 else 0))
-            return
-        for column in range(4):
-            ribbon.columnconfigure(column, weight=1, uniform="settings_ribbon")
-        for index, button in enumerate(self._settings_ribbon_buttons):
-            button.grid(row=0, column=index, sticky="ew", padx=(0, 8) if index < 3 else 0, pady=0)
 
     def _layout_settings_overview(self, *, compact: bool) -> None:
         overview = self._settings_overview
         viewport_width = max(600, self._settings_canvas.winfo_width())
         panel_width = (viewport_width - 24) // (1 if compact else 2)
-        summary_width = max(120, panel_width - self._settings_validation_heading.winfo_reqwidth() - 36)
+        summary_width = max(120, panel_width - self._settings_validation_heading.winfo_reqwidth()
+                            - self._settings_validate_button.winfo_reqwidth() - 48)
         if int(self._settings_validation_summary.cget("wraplength")) != summary_width:
             self._settings_validation_summary.configure(wraplength=summary_width)
         for column in range(2):
@@ -843,6 +837,10 @@ class SettingsApp(tk.Tk):
         )
         self.printer_box.grid(row=0, column=0, sticky="ew")
         ttk.Button(printer_row, text="\ubaa9\ub85d \uc0c8\ub85c\uace0\uce68", command=self.refresh_printers, style="Secondary.TButton").grid(row=0, column=1, padx=(8, 0))
+        self._connection_check_button = ttk.Button(
+            frame, text="연결 확인", command=self.check_connection, style="Secondary.TButton",
+        )
+        self._connection_check_button.grid(row=3, column=0, columnspan=2, sticky="w", pady=(9, 0))
 
     def _build_label_section(self, parent: ttk.Frame, row: int) -> None:
         frame = self._section_card(parent, row, "3. 용지")
@@ -1037,6 +1035,10 @@ class SettingsApp(tk.Tk):
             wraplength=340,
         )
         self._settings_validation_summary.grid(row=0, column=1, sticky="ew")
+        self._settings_validate_button = ttk.Button(
+            frame, text="설정 점검", command=self.validate_current_settings, style="Secondary.TButton",
+        )
+        self._settings_validate_button.grid(row=0, column=2, sticky="e", padx=(8, 0))
 
     def _wrap_radio_choices(self, parent: ttk.Frame, buttons: list[ttk.Radiobutton]) -> None:
         previous: list[tuple[int, int]] = []
@@ -1112,18 +1114,6 @@ class SettingsApp(tk.Tk):
         inner.columnconfigure(0, weight=0)
         return inner
 
-    def _build_buttons(self, parent: ttk.Frame, row: int, *, save_text: str) -> None:
-        buttons = ttk.Frame(parent, style="Ribbon.TFrame")
-        buttons.grid(row=row, column=0, sticky="ew")
-        self._settings_ribbon_buttons = (
-            ttk.Button(buttons, text="다시 불러오기", command=self.load_from_file, style="Secondary.TButton"),
-            ttk.Button(buttons, text="연결 확인", command=self.check_connection, style="Secondary.TButton"),
-            ttk.Button(buttons, text="설정 점검", command=self.validate_current_settings, style="Secondary.TButton"),
-            ttk.Button(buttons, text=save_text, command=self.save_to_file, style="Primary.TButton"),
-        )
-        self._settings_ribbon = buttons
-        self._layout_settings_ribbon(compact=False)
-
     def load_from_file(self, *, confirm_discard: bool = True) -> None:
         if confirm_discard and self._settings_dirty:
             should_reload = messagebox.askyesno(
@@ -1194,17 +1184,18 @@ class SettingsApp(tk.Tk):
         self.save_to_file()
         return "break"
 
-    def save_to_file(self) -> None:
+    def save_to_file(self) -> bool:
         try:
             settings = self._collect_settings()
             save_settings(self.config_path, settings)
         except Exception as exc:
             self.validation_var.set(f"저장 전 점검 필요: {exc}")
-            messagebox.showwarning("설정 확인", str(exc))
-            return
+            messagebox.showwarning("설정 확인", str(exc), parent=self)
+            return False
         self._update_validation_summary(settings)
         self._set_settings_dirty(False)
         self.status_var.set("설정 파일을 저장했습니다. 이 폴더의 프로그램에서 다음 인쇄부터 적용됩니다.")
+        return True
 
     def _install_dirty_tracking(self) -> None:
         for variable in self._settings_variables():
@@ -1343,12 +1334,17 @@ class SettingsApp(tk.Tk):
         self.document_state_var.set("변경사항 있음 · 저장 필요" if dirty else "저장됨")
 
     def _confirm_close(self) -> None:
-        if self._settings_dirty and not messagebox.askyesno(
-            "저장하지 않은 변경사항",
-            "저장하지 않은 변경사항이 있습니다. 저장하지 않고 닫을까요?",
-            parent=self,
-        ):
-            return
+        if self._settings_dirty:
+            choice = messagebox.askyesnocancel(
+                "저장하지 않은 변경사항",
+                "변경한 프린터 설정을 저장하고 닫을까요?\n\n"
+                "예: 저장 후 닫기\n아니요: 저장하지 않고 닫기\n취소: 계속 편집",
+                parent=self,
+            )
+            if choice is None:
+                return
+            if choice and not self.save_to_file():
+                return
         self.destroy()
 
     def refresh_printers(self) -> None:

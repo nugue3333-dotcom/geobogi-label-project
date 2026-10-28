@@ -68,6 +68,21 @@ def test_alphabetic_continue_stores_counter_and_returns_formatted_value(tmp_path
     assert store.peek_start_overrides("alpha", [rule]) == {"번호": "AB"}
 
 
+@pytest.mark.parametrize(('alphabet', 'start', 'expected', 'next_value'), [
+    ('numeric', 9, ['9', '10'], 11),
+    ('uppercase', 'Z', ['Z', 'AA'], 'AB'),
+])
+def test_continue_automatic_width_across_digit_rollover(tmp_path, alphabet, start, expected, next_value):
+    store = ValueJobStore(tmp_path)
+    rule = serial(start=start, digits=1, alphabet=alphabet, preserve_width=False)
+    first = store.prepare_job([{}], [2], [rule], template_key='automatic')
+    assert [label.row['번호'] for label in first.labels] == expected
+    assert store.peek_start_overrides('automatic', [rule]) == {'번호': next_value}
+    second = store.prepare_job([{}], [1], [rule], template_key='automatic')
+    assert second.labels[0].row['번호'] == str(next_value)
+    assert store.load_job(first.snapshot_id).labels == first.labels
+
+
 def test_continue_sequence_accepts_pre_direction_ledger_digest(tmp_path):
     store = ValueJobStore(tmp_path)
     rule = serial()

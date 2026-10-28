@@ -129,6 +129,7 @@ def test_settings_and_manager_actions_stay_visible_at_150_percent(
         app.db_headers = tuple(label_manager_app.DB_HEADERS)  # type: ignore[attr-defined]
         app.label_rows = [{"barcode": "001234"}]  # type: ignore[attr-defined]
         app._print_target_rows = lambda selected_only: app.label_rows  # type: ignore[attr-defined]
+        app._is_template_only = lambda: False  # type: ignore[attr-defined]
         _settle(app)
         assert (app.winfo_width(), app.winfo_height()) == EXPECTED_CLIENT_SIZE
         label_manager_app.LabelManagerApp._configure_style(app)
@@ -199,13 +200,15 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
         main_action_labels = (
             "상품 엑셀 연결",
             "상품 선택",
-            "용지 설정",
-            "인쇄파일 생성",
             "새 라벨",
             "열기",
             "저장",
-            "좌우 가운데 정렬",
-            "상하 가운데 정렬",
+            "실행취소",
+            "다시실행",
+            "좌우 가운데",
+            "상하 가운데",
+            "미리보기",
+            "인쇄",
         )
         main_actions: list[tk.Misc] = []
         for text in main_action_labels:
@@ -215,7 +218,7 @@ def test_designer_dialog_actions_stay_visible_at_150_percent(
         _assert_visible_inside(app, *main_actions)
         _assert_text_not_clipped(*main_actions)
         assert not _widgets_with_text(app, "개체 속성")
-        assert _only_widget(app, "선택 개체 편집").winfo_ismapped()
+        assert not _widgets_with_text(app, "선택 개체 편집")
         assert not _widgets_with_text(app, "정밀 편집")
         assert not _widgets_with_text(app, "편집·이동")
         assert _only_widget(app, "인식 값 전체 확인").winfo_ismapped()
@@ -319,17 +322,15 @@ def test_manager_main_workflow_actions_stay_visible_at_150_percent(
     try:
         _settle(app)
         assert (app.winfo_width(), app.winfo_height()) == EXPECTED_CLIENT_SIZE
-        for text in ("상품 엑셀 연결", "저장", "전체 선택", "선택 해제", "새 행", "선택 삭제", "삭제 실행취소", "라벨디자이너", "전체 데이터 검증"):
+        for text in ("상품 엑셀 연결", "저장", "도안 선택", "미리보기"):
             candidates = _widgets_with_text(app, text)
-            assert candidates, f"메뉴를 찾을 수 없습니다: {text}"
-            visible = [widget for widget in candidates if widget.winfo_ismapped()]
-            assert visible, f"표시된 메뉴가 없습니다: {text}"
-            toolbar_visible = [widget for widget in visible if widget in app._toolbar_buttons]
-            assert toolbar_visible, f"상단 업무 명령이 없습니다: {text}"
-            _assert_visible_inside(app, *toolbar_visible)
-            _assert_text_not_clipped(*toolbar_visible)
-        for text in ("프린터 설정", "실행 전 점검"):
-            assert _widgets_with_text(app, text), f"출력 패널 명령이 없습니다: {text}"
+            visible = [widget for widget in candidates if widget.winfo_ismapped() and widget in app._toolbar_buttons]
+            assert visible, f"상단 업무 명령이 없습니다: {text}"
+            _assert_visible_inside(app, *visible)
+            _assert_text_not_clipped(*visible)
+        assert len(app._toolbar_buttons) == 5
+        assert not app._workflow_card.winfo_ismapped()
+        assert set(app.suite_menus) == {"파일", "보기", "인쇄", "도움말"}
         print_actions = [widget for widget in app._toolbar_buttons if str(widget.cget("text")).endswith("건 인쇄")]
         assert print_actions
         _assert_visible_inside(app, *print_actions)
@@ -354,7 +355,7 @@ def test_designer_clipboard_shared_paper_and_unlimited_quantity(tmp_path, monkey
         assert len(app._tool_icons) == 8
         assert all(str(_only_widget(app, text).cget('image')) for text in ('텍스트', '여러 줄', '1D 바코드', '2D 코드', '그림', '박스', '선', '표'))
         assert not _widgets_with_text(app, '크기 적용')
-        assert _only_widget(app, '용지 설정')
+        assert any(isinstance(widget, ttk.Button) for widget in _widgets_with_text(app, '인쇄'))
         element = label_designer_app._element('text', '001234', 2, 2, 20, 5, field='barcode')
         app.elements = [element]
         app.selected_id = element['id']

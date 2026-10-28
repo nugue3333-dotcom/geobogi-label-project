@@ -51,7 +51,7 @@ def test_manual_verifier_rejects_obsolete_menu_paths(path):
 
 
 def test_release_version_and_new_help_file_names():
-    assert verifier.MANUAL_VERSION == "2026.10.20.02"
+    assert verifier.MANUAL_VERSION == "2026.10.28.01"
     for name in ("build_customer_manuals.py", "create_customer_manual.py"):
         source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
         assert verifier.MANUAL_VERSION in source
@@ -204,3 +204,33 @@ def test_guides_do_not_require_manual_add_before_new_ai_validation():
     for name in ("scripts/build_customer_manuals.py", "scripts/create_customer_manual.py", "scripts/build_quick_customer_guide.py", "README_먼저읽기.txt", "설치_및_사용_메뉴얼.txt", "사용안내.txt"):
         source = (ROOT / name).read_text(encoding="utf-8-sig")
         assert all(phrase not in source for phrase in obsolete)
+
+
+def test_serial_manuals_explain_object_entry_and_print_quantity():
+    required = ("개체를 더블클릭하고 일련화", "서로 다른 번호 개수", "번호당 매수", "번호 3개, 번호당 2장", "엑셀 연결 없이")
+    for name in ("scripts/build_customer_manuals.py", "scripts/create_customer_manual.py", "scripts/build_quick_customer_guide.py", "README_먼저읽기.txt", "설치_및_사용_메뉴얼.txt", "사용안내.txt"):
+        source = (ROOT / name).read_text(encoding="utf-8-sig")
+        assert verifier.text_contract_errors(source, required) == []
+        assert "200도트는 허용" not in source
+        assert "편집창 하단의 적용 또는 확인" not in source
+
+
+def test_word_manual_does_not_include_raw_markdown_or_duplicate_offset_guide():
+    from zipfile import ZipFile
+    from xml.etree import ElementTree
+
+    with ZipFile(ROOT / "채움랩_라벨출력패키지_고객용_매뉴얼.docx") as archive:
+        document = ElementTree.fromstring(archive.read("word/document.xml"))
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    paragraphs = ["".join(item.text or "" for item in paragraph.findall(".//w:t", ns)).strip()
+                  for paragraph in document.findall(".//w:p", ns)]
+    assert all(not text.startswith(("## ", "### ", "| ")) for text in paragraphs)
+    assert sum(text == "제조사별 오프셋 조정" for text in paragraphs) == 1
+
+
+def test_manual_pages_do_not_contain_orphan_text_fragments():
+    PdfReader = pytest.importorskip("pypdf").PdfReader
+
+    for name in verifier.EXPECTED:
+        pages = PdfReader(str(ROOT / "docs/고객용_매뉴얼" / name)).pages
+        assert all(len((page.extract_text() or "").strip()) >= 180 for page in pages)

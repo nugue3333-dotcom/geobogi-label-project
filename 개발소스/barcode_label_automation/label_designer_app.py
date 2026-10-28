@@ -2562,22 +2562,16 @@ class LabelDesignerApp(tk.Tk):
             ("파일", (("새 라벨", self.new_label), ("열기  Ctrl+O", self.open_template),
                       ("최근 라벨", self.open_recent_template), ("저장  Ctrl+S", self.save_template),
                       ("다른 이름으로 저장", self.save_template_as), (None, None),
-                      ("이동 프로젝트 내보내기", self.export_project), ("이동 프로젝트 가져오기", self.import_project),
-                      (None, None),
-                      ("현재 미리보기 인쇄파일", lambda: self.run_output_test(send_to_printer=False)),
-                      ("현재 미리보기 인쇄", lambda: self.run_output_test(send_to_printer=True)),
-                      ("선택 항목 인쇄파일", lambda: self.run_selected_output(send_to_printer=False)),
-                      ("선택 항목 인쇄", lambda: self.run_selected_output(send_to_printer=True)))),
+                      ("이동 프로젝트 내보내기", self.export_project), ("이동 프로젝트 가져오기", self.import_project))),
             ("보기", (("화면 맞춤", self.fit_zoom), ("확대", lambda: self.change_zoom(1)),
                       ("축소", lambda: self.change_zoom(-1)), ("도구 패널 표시/숨기기", lambda: self.toggle_side_panel("tools")),
                       ("DB 패널 표시/숨기기", lambda: self.toggle_side_panel("data")),
                       ("반복 출력 화면", self.open_output_workspace))),
-            ("도구", (("상품 엑셀 연결", self.connect_data_source_async), ("상품 선택", self.open_data_source_window),
-                      ("연결 해제", self.disconnect_data_source), ("엑셀 새로고침", self.reload_db), (None, None),
-                      ("값 생성 규칙", self.edit_value_rules), ("번호 발급 초기화", self.reset_value_sequence), ("전체 데이터 검증", self.validate_all_data), (None, None),
-                      ("프린터 설정", self.open_printer_settings), ("도안 가져오기 안내", self.show_bartender_migration_help),
-                      ("빈 라벨로 초기화", self.reset_template))),
-            ("도움말", (("고객용 매뉴얼", self.open_customer_manual),)),
+            ("인쇄", (("인쇄", self.run_primary_print), ("인쇄파일 생성", lambda: self.run_output_test(send_to_printer=False)),
+                      ("반복 출력", self.open_output_workspace), ("전체 데이터 검증", self.validate_all_data),
+                      ("프린터·용지 설정", self.open_printer_settings), ("번호 발급 초기화", self.reset_value_sequence),
+                      ("고급 값 생성 규칙", self.edit_value_rules))),
+            ("도움말", (("고객용 매뉴얼", self.open_customer_manual), ("다른 프로그램 도안 가져오기", self.show_bartender_migration_help))),
         )
         self.suite_menu_bar = build_suite_menu_bar(self, menus)
         self.suite_menu_bar.pack(fill="x")
@@ -2767,25 +2761,23 @@ class LabelDesignerApp(tk.Tk):
             ttk.Button(parent, text=label, command=command, style=style).grid(row=row, column=0, sticky="ew", pady=3)
 
     def _build_canvas_toolbar(self, parent: ttk.Frame) -> None:
-        from .ui_style import build_grouped_command_bar
-        groups = (
-            ("문서", (("새 라벨", self.new_label, "Ribbon.TButton"), ("열기", self.open_template, "Ribbon.TButton"), ("저장", self.save_template, "Ribbon.TButton"))),
-            ("편집", (("되돌리기", self.undo, "Ribbon.TButton"), ("다시실행", self.redo, "Ribbon.TButton"))),
-            ("정렬", (("좌우 가운데 정렬", self.center_selected, "Ribbon.TButton"), ("상하 가운데 정렬", self.center_selected_vertically, "Ribbon.TButton"))),
-            ("출력", (("전체 데이터 검증", self.validate_all_data, "Ribbon.TButton"), ("인쇄파일 생성", lambda: self.run_output_test(send_to_printer=False), "Ribbon.TButton"), ("반복 출력", self.open_output_workspace, "Blue.TButton"), ("인쇄", self.run_primary_print, "Primary.TButton"))),
-        )
-        build_grouped_command_bar(parent, groups).grid(row=0, column=0, sticky="ew")
+        bar = build_command_bar(parent, (("새 라벨", self.new_label, "Ribbon.TButton"),
+              ("열기", self.open_template, "Ribbon.TButton"), ("저장", self.save_template, "Ribbon.TButton"),
+              ("실행취소", self.undo, "Ribbon.TButton"), ("다시실행", self.redo, "Ribbon.TButton"),
+              ("좌우 가운데", self.center_selected, "Ribbon.TButton"),
+              ("상하 가운데", self.center_selected_vertically, "Ribbon.TButton"),
+              ("미리보기", self.show_label_preview, "Ribbon.TButton"), ("인쇄", self.run_primary_print, "Primary.TButton")))
+        bar.grid(row=0, column=0, sticky="ew")
+        self._align_buttons = [child for child in bar.winfo_children() if str(child.cget("text")) in ("좌우 가운데", "상하 가운데")]
+        for button in self._align_buttons:
+            button.state(["disabled"])
         size_row = ttk.Frame(parent, style="Toolbar.TFrame", padding=(0, 5, 0, 0))
         size_row.grid(row=1, column=0, sticky="ew")
         ttk.Label(size_row, text="라벨 크기").pack(side="left", padx=(0, 12))
         self.media_summary_var = tk.StringVar()
         ttk.Label(size_row, textvariable=self.media_summary_var, style="StatusPill.TLabel").pack(side="left", padx=(0, 12))
-        ttk.Button(size_row, text="용지 설정", command=self.open_printer_settings, style="Ribbon.TButton").pack(side="left")
         self.selection_hint_var = tk.StringVar(value="개체를 선택하세요 · 더블클릭하여 편집")
         ttk.Label(size_row, textvariable=self.selection_hint_var, style="Status.TLabel", wraplength=300).pack(side="left", padx=12)
-        build_command_bar(parent, (("선택 개체 편집", self.open_element_editor, "Ribbon.TButton"),
-                                  ("복제", self.duplicate_selected, "Ribbon.TButton"),
-                                  ("잠금/해제", self.toggle_selected_lock, "Ribbon.TButton"))).grid(row=2, column=0, sticky="ew", pady=(4, 0))
 
     def _build_data_panel(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -5421,6 +5413,8 @@ class LabelDesignerApp(tk.Tk):
         target_element = element
         editor_before = copy.deepcopy(target_element)
         is_barcode_editor = _is_code_element(target_element)
+        is_text_editor = str(target_element.get("type", "")) in TEXT_ELEMENT_TYPES
+        has_serial_editor = is_barcode_editor or is_text_editor
         editor_original_row = self.preview_row
         editor_row = dict(editor_original_row)
         self.preview_row = editor_row
@@ -5475,6 +5469,7 @@ class LabelDesignerApp(tk.Tk):
             navigation.pack(fill="y", expand=True)
             navigation.column("#0", width=165, minwidth=150, stretch=False)
             navigation.insert("", "end", iid="data", text="데이터 원본")
+            navigation.insert("", "end", iid="serial", text="일련화")
             navigation.insert("", "end", iid="size", text="바코드 종류·크기")
             navigation.insert("", "end", iid="hri", text="표시문자")
             style = ttk.Style(editor)
@@ -5490,13 +5485,14 @@ class LabelDesignerApp(tk.Tk):
             content_tab = ttk.Frame(page_host, style="Surface.TFrame")
             size_tab = ttk.Frame(page_host, style="Surface.TFrame")
             hri_tab = ttk.Frame(page_host, style="Surface.TFrame")
+            serial_tab = ttk.Frame(page_host, style="Surface.TFrame")
             advanced_tab = ttk.Frame(page_host, style="Surface.TFrame")
-            for panel in (content_tab, size_tab, hri_tab, advanced_tab):
+            for panel in (content_tab, size_tab, hri_tab, serial_tab, advanced_tab):
                 panel.grid(row=0, column=0, sticky="nsew")
                 panel.grid_remove()
                 panel.columnconfigure(0, weight=1)
                 panel.rowconfigure(0, weight=1)
-            pages = {"data": content_tab, "size": size_tab, "hri": hri_tab, "advanced": advanced_tab}
+            pages = {"data": content_tab, "serial": serial_tab, "size": size_tab, "hri": hri_tab, "advanced": advanced_tab}
             active_editor_page = "data"
             def layout_editor(_event=None):
                 preview_panel.grid_remove()
@@ -5505,10 +5501,12 @@ class LabelDesignerApp(tk.Tk):
             def show_editor_page(key: str) -> None:
                 nonlocal active_editor_page
                 active_editor_page = key
+                if key == "serial" and hasattr(editor, "_serial_context_refresh"):
+                    editor._serial_context_refresh()
                 for panel in pages.values():
                     panel.grid_remove()
                 pages[key].grid()
-                if key in {"data", "size", "hri"} and navigation.selection() != (key,):
+                if key in {"data", "serial", "size", "hri"} and navigation.selection() != (key,):
                     navigation.selection_set(key)
                 if key == "advanced" and navigation.exists("advanced") and navigation.selection() != (key,):
                     navigation.selection_set("advanced")
@@ -5524,7 +5522,65 @@ class LabelDesignerApp(tk.Tk):
             preview_status = ttk.Label(heading, style="Hint.TLabel")
             preview_status.pack(side="right")
         else:
-            content_tab = editor
+            editor.rowconfigure(0, weight=0)
+            editor.rowconfigure(1, weight=1)
+            header = ttk.Frame(editor, style="Surface.TFrame", padding=(18, 10))
+            header.grid(row=0, column=0, sticky="ew")
+            editor._brand_logo = load_header_logo(editor, base_dir=self.base_dir, install_dir=self.install_dir, max_width=150, max_height=34)
+            if editor._brand_logo is not None:
+                ttk.Label(header, image=editor._brand_logo).pack(side="left", padx=(0, 18))
+            property_type = str(target_element.get("type", ""))
+            property_title = {"image": "그림 속성", "line": "선 속성", "box": "도형 속성", "table": "표 속성"}.get(property_type, "텍스트 속성")
+            ttk.Label(header, text=property_title, style="PanelTitle.TLabel").pack(side="left")
+            apply_window_icon(editor, base_dir=self.base_dir, install_dir=self.install_dir, app_role="designer")
+            body_host = ttk.Frame(editor, style="Surface.TFrame")
+            body_host.grid(row=1, column=0, sticky="nsew")
+            body_host.columnconfigure(1, weight=1)
+            body_host.rowconfigure(0, weight=1)
+            sidebar = ttk.Frame(body_host, style="Surface.TFrame", padding=(10, 8, 8, 8))
+            sidebar.grid(row=0, column=0, sticky="nsw")
+            ttk.Label(sidebar, text="속성", style="HeaderTitle.TLabel").pack(anchor="w", padx=4, pady=(0, 8))
+            navigation = ttk.Treeview(sidebar, show="tree", selectmode="browse", height=5, style="EditorNav.Treeview")
+            navigation.pack(fill="y", expand=True)
+            navigation.column("#0", width=165, minwidth=150, stretch=False)
+            entries = (("data", "데이터 원본"), ("serial", "일련화"), ("hri", "글꼴·정렬"), ("size", "위치·크기")) if is_text_editor else (
+                (("data", "표 구성"), ("hri", "셀 내용"), ("size", "위치·크기")) if property_type == "table" else
+                (("data", "그림" if property_type == "image" else "모양"), ("size", "위치·크기")))
+            for key, label in entries:
+                navigation.insert("", "end", iid=key, text=label)
+            style = ttk.Style(editor)
+            style.configure("EditorNav.Treeview", rowheight=34, background=COLORS.surface,
+                            foreground=COLORS.text_primary, fieldbackground=COLORS.surface,
+                            borderwidth=0, font=TYPOGRAPHY.body)
+            style.map("EditorNav.Treeview", background=[("selected", COLORS.primary)], foreground=[("selected", "#ffffff")])
+            page_host = ttk.Frame(body_host, style="Surface.TFrame")
+            page_host.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=(8, 0))
+            page_host.columnconfigure(0, weight=1)
+            page_host.rowconfigure(0, weight=1)
+            content_tab, serial_tab, hri_tab, size_tab = (ttk.Frame(page_host, style="Surface.TFrame") for _ in range(4))
+            pages = {"data": content_tab, "serial": serial_tab, "hri": hri_tab, "size": size_tab}
+            for panel in pages.values():
+                panel.grid(row=0, column=0, sticky="nsew")
+                panel.grid_remove()
+                panel.columnconfigure(0, weight=1)
+                panel.rowconfigure(0, weight=1)
+            active_editor_page = "data"
+            def show_editor_page(key: str) -> None:
+                nonlocal active_editor_page
+                active_editor_page = key
+                if key == "serial" and hasattr(editor, "_serial_context_refresh"):
+                    editor._serial_context_refresh()
+                for panel in pages.values():
+                    panel.grid_remove()
+                pages[key].grid()
+                if navigation.selection() != (key,):
+                    navigation.selection_set(key)
+            navigation.bind("<<TreeviewSelect>>", lambda _e: show_editor_page(str(navigation.selection()[0])) if navigation.selection() else None)
+            editor._property_nav = navigation
+            editor._property_pages = pages
+            editor._property_show_page = show_editor_page
+            navigation.selection_set("data")
+            show_editor_page("data")
         editor_body = ttk.Frame(content_tab, style="Surface.TFrame")
         editor_body.grid(row=0, column=0, sticky="nsew")
         editor_body.columnconfigure(0, weight=1)
@@ -5546,7 +5602,7 @@ class LabelDesignerApp(tk.Tk):
         frame.columnconfigure(1, weight=1)
         size_frame = frame
         hri_frame = frame
-        if is_barcode_editor:
+        if size_tab is not None:
             def make_scroll_page(tab):
                 canvas = tk.Canvas(tab, bg=COLORS.surface, highlightthickness=0)
                 canvas.grid(row=0, column=0, sticky="nsew")
@@ -5577,8 +5633,7 @@ class LabelDesignerApp(tk.Tk):
                 if controller is not None and hasattr(controller, "scroll_canvas"):
                     controller.scroll_canvas.yview_scroll(delta, "units")
                 return "break"
-            canvas = ({"size": size_canvas, "hri": hri_canvas}.get(active_editor_page, editor_canvas)
-                      if is_barcode_editor else editor_canvas)
+            canvas = {"size": size_canvas, "hri": hri_canvas}.get(active_editor_page, editor_canvas)
             if not is_barcode_editor or active_editor_page != "advanced":
                 canvas.yview_scroll(delta, "units")
             return "break"
@@ -5631,7 +5686,8 @@ class LabelDesignerApp(tk.Tk):
                 "",
             )
         editor_field_option_var = tk.StringVar(value=editor_key_to_option.get(selected_field, "연결 안 함"))
-        general_mode_var = tk.StringVar(value="db" if selected_field else "fixed")
+        selected_serial = next((rule for rule in value_rules_before if rule.get("name") == selected_field and rule.get("kind") == "serial"), None)
+        general_mode_var = tk.StringVar(value="db" if selected_field and selected_serial is None else "fixed")
         align_var = tk.StringVar(value=ALIGNMENTS.get(str(element.get("align", "left")), "왼쪽"))
         arrange_var = tk.StringVar(value=ARRANGE_MODES.get(str(element.get("arrange", "normal")), "일반"))
         rotation_var = tk.StringVar(value=ELEMENT_ROTATION_LABELS[_element_rotation(element)])
@@ -5673,8 +5729,10 @@ class LabelDesignerApp(tk.Tk):
         applying = False
 
         def add_row(row: int, label: str, widget: tk.Widget, parent=None) -> None:
-            ttk.Label(parent or frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=6)
+            caption = ttk.Label(parent or frame, text=label)
+            caption.grid(row=row, column=0, sticky="w", padx=(0, 10), pady=6)
             widget.grid(row=row, column=1, sticky="ew", pady=6)
+            return caption
 
         type_combo = ttk.Combobox(frame, textvariable=type_var, values=[ELEMENT_TYPES[key] for key in VISIBLE_ELEMENT_TYPE_KEYS], state="readonly")
         code_combo = ttk.Combobox(symbol_strip if is_barcode_editor else frame, textvariable=code_var, values=list(BARCODE_TYPES.values()), state="readonly")
@@ -5701,7 +5759,7 @@ class LabelDesignerApp(tk.Tk):
         ttk.Label(serial_action, text="번호를 자동으로 만들거나 DB 값 일부를 바꿉니다.", style="Hint.TLabel").pack(side="left")
         serial_button = ttk.Button(serial_action, text="일련화 설정…")
         serial_button.pack(side="right")
-        align_combo = ttk.Combobox(size_frame, textvariable=align_var, values=list(ALIGNMENTS.values()), state="readonly")
+        align_combo = ttk.Combobox(hri_frame if is_text_editor else size_frame, textvariable=align_var, values=list(ALIGNMENTS.values()), state="readonly")
         arrange_combo = ttk.Combobox(size_frame, textvariable=arrange_var, values=list(ARRANGE_MODES.values()), state="readonly")
         rotation_combo = ttk.Combobox(size_frame, textvariable=rotation_var, values=list(ELEMENT_ROTATION_LABELS.values()), state="readonly")
         font_combo = ttk.Combobox(hri_frame, textvariable=font_name_var, values=self.font_choices, state="readonly")
@@ -5714,17 +5772,20 @@ class LabelDesignerApp(tk.Tk):
                             command=lambda: change_general_input()).pack(side="left")
             ttk.Radiobutton(input_modes, text="DB / 엑셀 연결", value="db", variable=general_mode_var,
                             command=lambda: change_general_input()).pack(side="left", padx=12)
-        else:
-            add_row(0, "종류", type_combo)
-            add_row(1, "코드 종류", code_combo)
-        add_row(3 if is_barcode_editor else 2, "바코드 데이터" if is_barcode_editor else "텍스트/데이터", text_editor)
+        elif not is_text_editor:
+            # The selected element already determines its type.
+            type_combo.grid_remove()
+            code_combo.grid_remove()
+        data_label = add_row(3 if is_barcode_editor else 2, "바코드 데이터" if is_barcode_editor else "텍스트/데이터", text_editor)
         editor_field_label = ttk.Label(frame, text="DB 열")
         editor_field_label.grid(row=4 if is_barcode_editor else 3, column=0, sticky="w", padx=(0, 10), pady=6)
         editor_field_combo.grid(row=4 if is_barcode_editor else 3, column=1, sticky="ew", pady=6)
-        add_row(4, "정렬", align_combo, size_frame)
+        add_row(4, "정렬", align_combo, hri_frame if is_text_editor else size_frame)
         add_row(5, "배치", arrange_combo, size_frame)
         add_row(6, "방향", rotation_combo, size_frame)
         add_row(7, "글꼴", font_combo, hri_frame)
+        if is_text_editor:
+            add_row(8, "글자크기(pt)", ttk.Entry(hri_frame, textvariable=font_var), hri_frame)
         if is_barcode_editor:
             actual_value_var = tk.StringVar()
             ttk.Label(frame, text="현재 읽은 값", style="Hint.TLabel").grid(row=5, column=0, sticky="w", pady=(12,4))
@@ -5733,7 +5794,7 @@ class LabelDesignerApp(tk.Tk):
             add_row(8, "글자크기(pt)", ttk.Entry(hri_frame, textvariable=font_var), hri_frame)
 
         numeric = ttk.Frame(size_frame, style="Surface.TFrame")
-        numeric.grid(row=0 if is_barcode_editor else 8, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        numeric.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         for column in range(5):
             numeric.columnconfigure(column, weight=1)
         for column, (label, variable) in enumerate((("왼쪽 위치(mm)", x_var), ("위쪽 위치(mm)", y_var), ("전체 가로(mm)", w_var), ("전체 세로(mm)", h_var), ("글자크기(pt)", font_var))):
@@ -5751,12 +5812,35 @@ class LabelDesignerApp(tk.Tk):
         stroke_width_label.grid(row=2, column=4, sticky="w", padx=(6, 0), pady=(8, 0))
         stroke_width_entry = ttk.Entry(numeric, textvariable=stroke_width_var, width=7)
         stroke_width_entry.grid(row=3, column=4, sticky="ew", padx=(6, 0), pady=(4, 0))
-        if is_barcode_editor:
-            for widget in numeric.winfo_children():
-                info = widget.grid_info()
-                if int(info.get("column", -1)) == 4:
-                    widget.grid_remove()
-            numeric.columnconfigure(4, weight=0)
+        for widget in numeric.winfo_children():
+            info = widget.grid_info()
+            if int(info.get("row", -1)) >= 2 or int(info.get("column", -1)) == 4:
+                widget.grid_remove()
+        numeric.columnconfigure(4, weight=0)
+        if is_text_editor:
+            ttk.Checkbutton(hri_frame, text="텍스트 반전", variable=reverse_var).grid(row=9, column=0, columnspan=2, sticky="w")
+            ttk.Checkbutton(frame, text="연결된 값 필수", variable=required_var).grid(row=9, column=0, columnspan=2, sticky="w")
+        elif not is_barcode_editor:
+            data_label.grid_remove()
+            text_editor.grid_remove()
+            serial_action.grid_remove()
+            property_type = str(target_element.get("type", ""))
+            if property_type == "image":
+                ttk.Label(frame, text="그림 파일", style="HeaderTitle.TLabel").grid(row=0, column=0, sticky="w")
+                ttk.Label(frame, text=str(element.get("image_path", "")), wraplength=500).grid(row=1, column=0, columnspan=2, sticky="w", pady=8)
+            elif property_type == "table":
+                add_row(0, "행 수", ttk.Entry(frame, textvariable=table_rows_var))
+                add_row(1, "열 수", ttk.Entry(frame, textvariable=table_cols_var))
+                ttk.Label(hri_frame, text="표 안의 글자는 텍스트 개체를 배치해 편집합니다.", wraplength=480).grid(row=1, column=0, columnspan=2, sticky="w")
+            else:
+                add_row(0, "선 두께(mm)", ttk.Entry(frame, textvariable=stroke_width_var))
+            # Alignment, text arrangement and fonts do not affect geometric objects.
+            for host in (size_frame, hri_frame):
+                for child in host.winfo_children():
+                    if child in (align_combo, arrange_combo, font_combo):
+                        child.grid_remove()
+                    elif isinstance(child, ttk.Label) and str(child.cget("text")) in {"정렬", "배치", "글꼴"}:
+                        child.grid_remove()
 
         if is_barcode_editor:
             ttk.Label(size_frame, text="전체 개체 크기에는 바코드, 필수 여백과 표시문자가 포함됩니다.",
@@ -5958,7 +6042,8 @@ class LabelDesignerApp(tk.Tk):
 
         def sync_data_field_state() -> None:
             element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
-            visible = (bool(editor_headers) and element_type in DB_MAPPABLE_ELEMENT_TYPES
+            serial_active = bool(getattr(editor, "_serial_editor", None) and editor._serial_editor.mode.get() != "off")
+            visible = (bool(editor_headers) and not serial_active and element_type in DB_MAPPABLE_ELEMENT_TYPES
                        and (not is_barcode_editor or (source_kind_var.get() == "general" and general_mode_var.get() == "db")))
             if visible:
                 editor_field_label.grid()
@@ -5997,60 +6082,8 @@ class LabelDesignerApp(tk.Tk):
             field_var.set("")
 
         def open_serial_settings() -> None:
-            if is_barcode_editor and source_kind_var.get() != "general":
-                messagebox.showinfo("일련화 설정", "먼저 일반 데이터 원본으로 전환한 뒤 설정하세요.", parent=editor)
-                return
-            from .value_rules_dialog import edit_value_rules
-            rules = copy.deepcopy(self.template.get("value_rules", []))
-            current_name = field_var.get()
-            existing = next((rule for rule in rules if rule.get("name") == current_name and rule.get("kind") == "serial"), None)
-            if existing is not None:
-                preferred_name = current_name
-            else:
-                base_name = f"{current_name}_일련번호" if current_name else "일련번호"
-                preferred_name = base_name
-                suffix = 2
-                occupied = set(editor_headers) | {str(rule.get("name", "")) for rule in rules}
-                while preferred_name in occupied:
-                    preferred_name = f"{base_name}{suffix}"
-                    suffix += 1
-                rules.append({
-                    "name": preferred_name, "kind": "serial", "start": 1, "step": 1,
-                    "digits": 6, "copies_per_value": 1, "reset": "job",
-                    "direction": "up", "alphabet": "numeric", "prefix": "", "suffix": "",
-                })
-
-            def apply_serial_rules(updated: list[dict[str, object]]) -> None:
-                nonlocal general_db_field
-                if not any(rule.get("name") == preferred_name and rule.get("kind") == "serial" for rule in updated):
-                    raise ValueError("현재 개체에 연결할 일련번호 규칙을 유지하거나 다시 추가하세요.")
-                self.template["value_rules"] = copy.deepcopy(updated)
-                if updated and not self.template.get("value_profile_id"):
-                    self.template["value_profile_id"] = uuid4().hex
-                value_rules_changed[0] = True
-                for rule in updated:
-                    name = str(rule["name"])
-                    option = _db_field_option_label(name)
-                    editor_option_to_key[option] = name
-                    editor_key_to_option[name] = option
-                editor_field_combo.configure(values=list(editor_option_to_key))
-                editor_field_option_var.set(editor_key_to_option[preferred_name])
-                if is_barcode_editor:
-                    general_mode_var.set("db")
-                    general_db_field = preferred_name
-                    source_drafts.setdefault("general", {})["field"] = preferred_name
-                apply_editor_data_field()
-                editor_row.clear()
-                editor_row.update(preview_generated_row(updated))
-                self.refresh_sample_options()
-                self.redraw()
-                if is_barcode_editor:
-                    apply_live()
-                    editor.after_idle(refresh_editor_preview)
-                self.status_var.set("일련화 규칙을 개체에 연결했습니다. 도안을 저장하고 전체 데이터를 검증하세요.")
-
-            edit_value_rules(editor, rules, tuple(self.data_source_headers), apply_serial_rules,
-                             sample_row=editor_original_row, preferred_name=preferred_name)
+            if has_serial_editor:
+                show_editor_page("serial")
 
         serial_button.configure(command=open_serial_settings)
 
@@ -6162,7 +6195,10 @@ class LabelDesignerApp(tk.Tk):
                 reverse_arrange = {label: key for key, label in ARRANGE_MODES.items()}
                 element_type = _element_type_from_label(type_var.get(), str(element.get("type", "text")))
                 element["type"] = element_type
-                element["text"] = text_var.get()
+                serial_widget = getattr(editor, "_serial_editor", None)
+                serial_enabled = bool(serial_widget and serial_widget.mode.get() != "off")
+                serial_general = not is_barcode_editor or source_kind_var.get() == "general"
+                element["text"] = ("{{" + field_var.get() + "}}") if serial_enabled and serial_general and field_var.get() else text_var.get()
                 element["field"] = field_var.get()
                 element["align"] = reverse_align.get(align_var.get(), str(element.get("align", "left")))
                 element["arrange"] = reverse_arrange.get(arrange_var.get(), str(element.get("arrange", "normal")))
@@ -6290,6 +6326,8 @@ class LabelDesignerApp(tk.Tk):
             if not text_editor.edit_modified():
                 return
             text_editor.edit_modified(False)
+            if has_serial_editor and getattr(editor, "_serial_editor", None) and editor._serial_editor.mode.get() != "off":
+                return
             if is_barcode_editor and source_kind_var.get() != "general":
                 return
             value = text_editor.get("1.0", "end-1c")
@@ -6325,8 +6363,164 @@ class LabelDesignerApp(tk.Tk):
         source_keys = ("text", "field", "gs1_elements", "udi_data", "udi_profile", "barcode_purpose", "barcode_type", "type")
         source_drafts = {source_kind: {key: copy.deepcopy(element[key]) for key in source_keys if key in element}}
         general_fixed_text = text_var.get() if not field_var.get() else ""
-        general_db_field = field_var.get()
+        general_db_field = field_var.get() if selected_serial is None else ""
         editor._barcode_controllers = controllers
+
+        serial_state = {"kind": None, "name": None, "existing": None, "draft_rules": copy.deepcopy(value_rules_before),
+                        "fallback_field": "", "fallback_value": "", "changing": False}
+
+        def _serial_binding(kind):
+            if kind == "gs1" or (kind == "udi" and str(element.get("udi_profile", "GS1")) == "GS1"):
+                record = next((item for item in element.get("gs1_elements", []) if str(item.get("ai")) == "21"), None)
+                return None if record is None else (str(record.get("source_field", "")), str(record.get("value", "")))
+            if kind == "udi":
+                data = element.get("udi_data", {})
+                if not isinstance(data, dict) or data.get("input_mode") != "structured":
+                    return None
+                descriptor = data.get("fields", {}).get("serial")
+                return None if not isinstance(descriptor, dict) else (str(descriptor.get("source_field", "")), str(descriptor.get("value", "")))
+            return field_var.get(), text_var.get()
+
+        def _serial_referenced_elsewhere(name):
+            token = "{{" + name + "}}"
+            def contains(value):
+                if isinstance(value, str):
+                    return value == name or token in value
+                if isinstance(value, dict):
+                    return any(contains(v) for v in value.values())
+                if isinstance(value, (list, tuple)):
+                    return any(contains(v) for v in value)
+                return False
+            others = [item for item in self.elements if str(item.get("id", "")) != str(target_element.get("id", ""))]
+            dependent = [rule for rule in value_rules_before if rule.get("name") != name]
+            return contains(others) or contains(dependent)
+
+        def _set_serial_binding(kind, name, display_value):
+            nonlocal applying
+            prior = applying
+            applying = True
+            try:
+                if kind == "general":
+                    field_var.set(name)
+                    if name:
+                        general_mode_var.set("fixed")
+                    text_editor.configure(state="normal")
+                    text_editor.delete("1.0", "end")
+                    text_editor.insert("1.0", display_value)
+                    text_editor.edit_modified(False)
+                    text_var.set(display_value)
+                    if name:
+                        text_editor.configure(state="disabled")
+                elif kind == "gs1" or (kind == "udi" and str(element.get("udi_profile", "GS1")) == "GS1"):
+                    record = next((item for item in element.get("gs1_elements", []) if str(item.get("ai")) == "21"), None)
+                    if record is None:
+                        raise ValueError("먼저 GS1 데이터 설정에서 AI 21 일련번호를 추가하세요.")
+                    record["source_field"] = name
+                    record["value"] = "" if name else display_value
+                else:
+                    descriptor = element.get("udi_data", {}).get("fields", {}).get("serial")
+                    if not isinstance(descriptor, dict):
+                        raise ValueError("UDI 구성에서 일련번호 항목을 먼저 추가하세요.")
+                    descriptor["source_field"] = name
+                    descriptor["value"] = "" if name else display_value
+            finally:
+                applying = prior
+
+        def _serial_changed():
+            if serial_state["changing"]:
+                return
+            widget = getattr(editor, "_serial_editor", None)
+            if widget is None:
+                return
+            draft = widget.draft()
+            if widget.status.get():
+                return
+            kind, name, existing = serial_state["kind"], serial_state["name"], serial_state["existing"]
+            rules = copy.deepcopy(value_rules_before)
+            if draft is None:
+                if existing is not None:
+                    rules = [r for r in rules if r.get("name") != name or _serial_referenced_elsewhere(name)]
+                    fallback_field = str(existing.get("target_field", ""))
+                else:
+                    fallback_field = serial_state["fallback_field"]
+                fallback_value = serial_state["fallback_value"]
+                _set_serial_binding(kind, fallback_field, fallback_value)
+                if kind == "general" and fallback_field:
+                    general_mode_var.set("db")
+                serial_state["draft_rules"] = rules
+            else:
+                replaced = False
+                for i, rule in enumerate(rules):
+                    if rule.get("name") == name:
+                        rules[i] = draft
+                        replaced = True
+                        break
+                if not replaced:
+                    rules.append(draft)
+                try:
+                    from .value_rules import compile_generated_labels, validate_value_rules
+                    rules = validate_value_rules(rules, tuple(getattr(self, "data_source_headers", ())))
+                    row = dict(editor_original_row)
+                    labels = compile_generated_labels([row], [1], rules)
+                    if labels:
+                        row.update(labels[0].row)
+                    value = str(row.get(name, widget.start.get()))
+                except (ValueError, KeyError) as exc:
+                    widget.status.set(f"입력 확인: {exc}")
+                    return
+                editor_row.clear()
+                editor_row.update(row)
+                _set_serial_binding(kind, name, value)
+                serial_state["draft_rules"] = rules
+                if is_barcode_editor and kind in {"gs1", "udi"} and kind in controllers:
+                    # Rebuild later from the changed element, so a stale builder cannot
+                    # overwrite the AI/UDI serial binding on confirmation.
+                    controllers.pop(kind).destroy()
+                    controllers.pop("active", None)
+                    controllers.pop("active_kind", None)
+            sync_data_field_state()
+            apply_live()
+            if is_barcode_editor:
+                editor.after_idle(refresh_editor_preview)
+
+        def _serial_context_refresh():
+            nonlocal editor_headers
+            kind = source_kind_var.get() if is_barcode_editor else "general"
+            if serial_state["kind"] == kind and hasattr(editor, "_serial_editor"):
+                return
+            for child in serial_tab.winfo_children():
+                child.destroy()
+            binding = _serial_binding(kind)
+            serial_state["kind"] = kind
+            if binding is None:
+                if hasattr(editor, "_serial_editor"):
+                    del editor._serial_editor
+                ttk.Label(serial_tab, text="GS1 / UDI 데이터 설정에서 일련번호 항목을 먼저 추가하세요.",
+                          style="Hint.TLabel", wraplength=460).grid(row=0, column=0, sticky="nw", padx=18, pady=18)
+                return
+            source_field, source_value = binding
+            existing = next((rule for rule in value_rules_before if rule.get("name") == source_field and rule.get("kind") == "serial"), None)
+            name = str(existing["name"]) if existing else f"일련번호_{uuid4().hex[:8]}"
+            fallback = str(editor_original_row.get(source_field, "")) if source_field else source_value
+            if existing:
+                fallback = str(editor_original_row.get(name, "")) or str(existing.get("start", "1"))
+            serial_state.update(name=name, existing=existing, fallback_field=source_field,
+                                fallback_value=fallback, draft_rules=copy.deepcopy(value_rules_before))
+            from .serial_editor import SerialEditor
+            widget = SerialEditor(serial_tab, name=name, existing=existing, initial_value=fallback,
+                                  sample_row=editor_original_row, headers=tuple(getattr(self, "data_source_headers", ())))
+            widget.grid(row=0, column=0, sticky="nsew")
+            editor._serial_editor = widget
+            widget._on_change = _serial_changed
+            if name not in editor_headers:
+                editor_headers += (name,)
+            if existing:
+                _serial_changed()
+
+        if has_serial_editor:
+            editor._serial_context_refresh = _serial_context_refresh
+            _serial_context_refresh()
+
         editor._barcode_source_kind_var = source_kind_var
 
         def validate_source_symbol() -> None:
@@ -6343,7 +6537,8 @@ class LabelDesignerApp(tk.Tk):
             source_status_var.set(labels.get(kind, labels["general"]))
             if kind == "general":
                 serial_action.grid()
-                text_editor.configure(state="normal")
+                serial_on = bool(getattr(editor, "_serial_editor", None) and editor._serial_editor.mode.get() != "off")
+                text_editor.configure(state="disabled" if serial_on else "normal")
                 sync_data_field_state()
                 general_source_button.grid_remove()
                 gs1_button.configure(text="GS1 데이터로 설정…")
@@ -6358,7 +6553,11 @@ class LabelDesignerApp(tk.Tk):
         def change_general_input() -> None:
             nonlocal general_fixed_text, general_db_field
             if source_kind_var.get() != "general":
-                switch_to_general_source(confirmed=True)
+                if not switch_to_general_source(confirmed=True):
+                    return
+            widget = getattr(editor, "_serial_editor", None)
+            if widget is not None and widget.mode.get() != "off":
+                widget.mode.set("off")
             if general_mode_var.get() == "fixed":
                 general_db_field = field_var.get() or general_db_field
                 field_var.set("")
@@ -6374,11 +6573,15 @@ class LabelDesignerApp(tk.Tk):
             sync_data_field_state()
             apply_live()
 
-        def switch_source(kind: str) -> None:
+        def switch_source(kind: str) -> bool:
             nonlocal applying
             current = source_kind_var.get()
             if current == kind:
-                return
+                return True
+            serial_widget = getattr(editor, "_serial_editor", None)
+            if serial_state["kind"] == current and serial_widget is not None and serial_widget.mode.get() != "off":
+                messagebox.showwarning("일련화 확인", "데이터 원본을 바꾸려면 현재 일련화를 먼저 사용 안 함으로 변경하세요.", parent=editor)
+                return False
             source_drafts[current] = {key: copy.deepcopy(element[key]) for key in source_keys if key in element}
             if kind not in source_drafts:
                 code = _barcode_key_from_label(code_var.get())
@@ -6403,9 +6606,11 @@ class LabelDesignerApp(tk.Tk):
             applying = was_applying
             sync_code_state()
             sync_source_controls()
+            return True
 
         def switch_to_general_source(*, confirmed: bool = False) -> bool:
-            switch_source("general")
+            if not switch_source("general"):
+                return False
             general_mode_var.set("db" if field_var.get() else "fixed")
             sync_source_controls()
             apply_live()
@@ -6470,7 +6675,8 @@ class LabelDesignerApp(tk.Tk):
             apply_live()
 
         def open_advanced_editor(kind: str):
-            switch_source(kind)
+            if not switch_source(kind):
+                return None
             current_kind = _barcode_key_from_label(code_var.get())
             if kind not in controllers:
                 if kind == "udi":
@@ -6523,7 +6729,7 @@ class LabelDesignerApp(tk.Tk):
             def change_preview_row(index):
                 raw_row = dict(self.db_rows[index])
                 editor_row.clear()
-                editor_row.update(preview_generated_row(self.template.get("value_rules", []), raw_row))
+                editor_row.update(preview_generated_row(serial_state["draft_rules"], raw_row))
                 refresh_editor_preview()
                 refresh_actual_size()
                 self.redraw()
@@ -6548,11 +6754,11 @@ class LabelDesignerApp(tk.Tk):
         editor.bind("<Destroy>", record_editor_close, add="+")
 
         buttons = ttk.Frame(editor, style="Surface.TFrame", padding=(18, 10, 18, 14))
-        buttons.grid(row=2 if is_barcode_editor else 1, column=0,
+        buttons.grid(row=2, column=0,
                      columnspan=2 if is_barcode_editor else 1, sticky="ew")
         buttons.columnconfigure(0, weight=1)
         def sync_pending_text() -> None:
-            if is_barcode_editor and source_kind_var.get() == "general":
+            if is_barcode_editor and source_kind_var.get() == "general" and not (getattr(editor, "_serial_editor", None) and editor._serial_editor.mode.get() != "off"):
                 value = text_editor.get("1.0", "end-1c")
                 if text_var.get() != value:
                     element.pop("gs1_elements", None)
@@ -6589,8 +6795,24 @@ class LabelDesignerApp(tk.Tk):
                         "hri_gap_mm":hri_gap_var.get(),
                         "hri_font_mode":"auto" if hri_font_mode_var.get() == "자동 맞춤" else "fixed"})
 
+        def commit_serial_draft() -> None:
+            if not has_serial_editor:
+                return
+            widget = getattr(editor, "_serial_editor", None)
+            if widget is not None and widget.status.get():
+                raise ValueError(widget.status.get())
+            self.template["value_rules"] = copy.deepcopy(serial_state["draft_rules"])
+            if self.template["value_rules"] and not self.template.get("value_profile_id"):
+                self.template["value_profile_id"] = uuid4().hex
+            value_rules_changed[0] = self.template["value_rules"] != value_rules_before
+
         def commit_barcode_draft() -> bool:
             if not is_barcode_editor:
+                try:
+                    commit_serial_draft()
+                except ValueError as exc:
+                    messagebox.showwarning("일련화 확인", str(exc), parent=editor)
+                    return False
                 return True
             sync_pending_text()
             try:
@@ -6614,6 +6836,7 @@ class LabelDesignerApp(tk.Tk):
                 self._render_element_bitmap(dict(element, _render_dpi=dpi), self.preview_row,
                     mm_to_dots(float(element["width"]), dpi),
                     mm_to_dots(float(element["height"]), dpi), transparent=False)
+                commit_serial_draft()
             except (ValueError, KeyError, TypeError, OSError) as exc:
                 editor._barcode_editor_status_var.set(f"입력 확인: {exc}")
                 return False
@@ -6674,11 +6897,10 @@ class LabelDesignerApp(tk.Tk):
 
         if is_barcode_editor:
             ttk.Button(buttons, text="취소", command=cancel_editor).grid(row=0, column=0, sticky="w")
-            ttk.Button(buttons, text="적용", command=commit_barcode_draft).grid(row=0, column=1, sticky="e", padx=(0, 8))
             ttk.Button(buttons, text="확인", command=confirm_editor, style="Primary.TButton").grid(row=0, column=2, sticky="e")
         else:
             ttk.Button(buttons, text="취소", command=cancel_editor).grid(row=0, column=0, sticky="w")
-            ttk.Button(buttons, text="확인", command=close_editor, style="Primary.TButton").grid(row=0, column=1, sticky="e")
+            ttk.Button(buttons, text="확인", command=confirm_editor, style="Primary.TButton").grid(row=0, column=1, sticky="e")
         bind_escape_tree(editor)
         editor.protocol("WM_DELETE_WINDOW", cancel_editor)
         if is_barcode_editor:
@@ -6731,6 +6953,8 @@ class LabelDesignerApp(tk.Tk):
 
     def load_selected_properties(self) -> None:
         element = self.selected_element()
+        for button in self.__dict__.get("_align_buttons", ()):
+            button.state(["!disabled"] if element is not None else ["disabled"])
         hint = self.__dict__.get("selection_hint_var")
         if hint is not None:
             name = (BARCODE_TYPES.get(_barcode_type(element), "바코드") if element and _is_code_element(element)
@@ -7511,6 +7735,30 @@ class LabelDesignerApp(tk.Tk):
                 parent=self,
             )
 
+    def show_label_preview(self) -> None:
+        try:
+            image = self.render_preview_image()
+        except (ValueError, OSError) as exc:
+            messagebox.showwarning("미리보기", str(exc), parent=self)
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("라벨 미리보기")
+        dialog.transient(self)
+        set_initial_window_size(dialog, preferred_width=720, preferred_height=600, minimum_width=360, minimum_height=280)
+        footer = ttk.Frame(dialog, padding=12)
+        footer.pack(side="bottom", fill="x")
+        ttk.Button(footer, text="닫기", command=dialog.destroy).pack(side="right")
+        view = ttk.Label(dialog, anchor="center")
+        view.pack(fill="both", expand=True, padx=12, pady=12)
+        def refresh(event=None):
+            width, height = max(1, view.winfo_width()-8), max(1, view.winfo_height()-8)
+            scaled = image.copy()
+            scaled.thumbnail((width, height), Image.Resampling.LANCZOS)
+            view._photo = ImageTk.PhotoImage(scaled, master=dialog)
+            view.configure(image=view._photo)
+        view.bind("<Configure>", refresh)
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+
     def export_preview_png(self) -> None:
         out_dir = self.base_dir / "out"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -7534,17 +7782,20 @@ class LabelDesignerApp(tk.Tk):
             return
         self.run_selected_output(send_to_printer=True)
 
-    def _generated_output_rows(self, rows: list[dict], quantities: list[int], *, reserve: bool):
+    def _generated_output_rows(self, rows: list[dict], quantities: list[int], *, reserve: bool, copies_per_serial: int | None = None):
         rules = self.template.get("value_rules", [])
         if not rules:
             return [dict(row, print_qty=str(quantity)) for row, quantity in zip(rows, quantities)], None
         from .value_rules import compile_generated_labels
-        from .value_jobs import ValueJobStore
+        from .value_jobs import ValueJobStore, effective_job_rules
+        effective_rules = effective_job_rules(rules, copies_per_serial)
         store = ValueJobStore(self.base_dir)
         key = str(self.template.get("value_profile_id") or self.template_path.resolve())
-        request_key = hashlib.sha256(json.dumps({"template": self.template_payload(), "rows": rows, "quantities": quantities,
-                                                "printer": _designer_print_job_context(load_config(self.config_path))},
-                                               sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+        request = {"template": self.template_payload(), "rows": rows, "quantities": quantities,
+                   "printer": _designer_print_job_context(load_config(self.config_path))}
+        if copies_per_serial is not None:
+            request["copies_per_serial"] = copies_per_serial
+        request_key = hashlib.sha256(json.dumps(request, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
         job = None
         latest = store.latest_job(key)
         progress_path = self.base_dir / "out" / DESIGNER_PROGRESS_FILE_NAME
@@ -7557,12 +7808,16 @@ class LabelDesignerApp(tk.Tk):
                     job = latest
         if reserve:
             if job is None:
+                if progress_path.exists():
+                    progress = PrintProgress.load(progress_path)
+                    if progress.pending_indexes or progress.unknown_indexes:
+                        raise ValueError("이전 출력에 미전송 또는 전송 여부 미확인 항목이 있습니다. 이전 작업 상태를 먼저 확인하세요.")
                 from .template_output import template_digest
                 job = store.prepare_job(rows, quantities, rules, template_key=key, context={"request_key": request_key,
-                                      "template_digest": template_digest(self.template_payload())})
+                                      "template_digest": template_digest(self.template_payload())}, copies_per_serial=copies_per_serial)
             labels = job.labels
         else:
-            labels = job.labels if job else compile_generated_labels(rows, quantities, rules, start_overrides=store.peek_start_overrides(key, rules))
+            labels = job.labels if job else compile_generated_labels(rows, quantities, effective_rules, start_overrides=store.peek_start_overrides(key, rules))
         return [dict(label.row, print_qty=str(label.copies)) for label in labels], job
 
     def _show_output_issues(self, issues, count):
@@ -7717,9 +7972,22 @@ class LabelDesignerApp(tk.Tk):
         except ValueError as exc:
             messagebox.showwarning("인쇄할 내용 확인", str(exc))
             return
+        copies_per_serial = None
         if send_to_printer and print_quantity is None:
             self._quantity_target_count = len(source_rows)
-            print_quantity = self.ask_print_quantity()
+            from .print_quantity import ask_serial_print_quantity, serial_rule_copies
+            try:
+                interval = serial_rule_copies(self.template.get("value_rules", []))
+            except ValueError as exc:
+                messagebox.showwarning("일련화 확인", str(exc), parent=self)
+                return
+            if interval is None:
+                print_quantity = self.ask_print_quantity()
+            else:
+                choice = ask_serial_print_quantity(self, target_count=len(source_rows), default_copies=interval)
+                if choice is not None:
+                    print_quantity = choice.total_per_target
+                    copies_per_serial = choice.copies_per_serial
             if print_quantity is None:
                 self.status_var.set("인쇄 매수 선택을 취소했습니다.")
                 return
@@ -7739,7 +8007,7 @@ class LabelDesignerApp(tk.Tk):
             config = load_config(config_path)
             dpi = int(getattr(getattr(config, "label", None), "dpi", 203))
             quantities = [parse_print_quantity(print_quantity if print_quantity is not None else source_row.get("print_qty", "1") or "1") for source_row in source_rows]
-            generated_rows, value_job = self._generated_output_rows(source_rows, quantities, reserve=False)
+            generated_rows, value_job = self._generated_output_rows(source_rows, quantities, reserve=False, copies_per_serial=copies_per_serial)
             issues = validate_rows(self.template_payload(), generated_rows, self.base_dir, dpi=dpi)
             if issues:
                 self._show_output_issues(issues, len(generated_rows))
@@ -7759,7 +8027,7 @@ class LabelDesignerApp(tk.Tk):
                     self.status_var.set("출력 전 경고를 확인하고 작업을 취소했습니다. 프린터로 전송하지 않았습니다.")
                     return
             if send_to_printer and self.template.get("value_rules"):
-                generated_rows, value_job = self._generated_output_rows(source_rows, quantities, reserve=True)
+                generated_rows, value_job = self._generated_output_rows(source_rows, quantities, reserve=True, copies_per_serial=copies_per_serial)
             prepared_jobs: list[bytes] = []
             prepared_label_counts: list[int] = []
             for source_row in generated_rows:
@@ -7787,6 +8055,9 @@ class LabelDesignerApp(tk.Tk):
                         job_context,
                     )
                 except NewPrintJobRequired:
+                    old_progress = PrintProgress.load(progress_path)
+                    if old_progress.pending_indexes or old_progress.unknown_indexes:
+                        raise ValueError("이전 출력에 미전송 또는 전송 여부 미확인 항목이 있습니다. 이전 작업 상태를 먼저 확인하세요.")
                     progress = PrintProgress.open_for_job(
                         progress_path,
                         prepared_jobs,

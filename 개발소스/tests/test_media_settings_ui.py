@@ -84,7 +84,7 @@ def test_media_settings_footer_and_draft_preview_in_small_window(tmp_path,monkey
         assert dialogs[0].title()=='방향·위치 미리보기'
         dialogs[0].destroy()
         assert path.read_bytes()==before
-        monkeypatch.setattr('barcode_label_automation.settings_app.messagebox.askyesno',lambda *a,**kw:True)
+        monkeypatch.setattr('barcode_label_automation.settings_app.messagebox.askyesnocancel',lambda *a,**kw:False)
         app._confirm_close()
         assert path.read_bytes()==before
     finally:
@@ -183,5 +183,87 @@ def test_old_bixolon_disabled_zero_loads_as_inherit_but_explicit_new_zero_resets
         assert not app._settings_dirty and path.read_bytes()==before
         app.gap_offset_var.set('0');app.save_to_file()
         assert load_config(path).label.gap_offset_mm==0
+    finally:
+        app.destroy()
+
+
+@pytest.mark.parametrize('choice', [True, False, None])
+def test_close_with_unsaved_changes_offers_save_discard_or_continue(tmp_path, monkeypatch, choice):
+    app, path = make_app(tmp_path)
+    original = path.read_bytes()
+    try:
+        app.width_var.set('60.5')
+        assert app._settings_dirty
+        messages = []
+        monkeypatch.setattr('barcode_label_automation.settings_app.messagebox.askyesnocancel',
+                            lambda *args, **kwargs: (messages.append(args), choice)[1])
+        app._confirm_close()
+        assert messages and '저장 후 닫기' in messages[0][1] and '계속 편집' in messages[0][1]
+        if choice is None:
+            assert app.winfo_exists() and app._settings_dirty
+            assert path.read_bytes() == original
+        elif choice:
+            assert load_config(path).label.width_mm == 60.5
+            with pytest.raises(tk.TclError):
+                app.winfo_exists()
+        else:
+            assert path.read_bytes() == original
+            with pytest.raises(tk.TclError):
+                app.winfo_exists()
+    finally:
+        try:
+            app.destroy()
+        except tk.TclError:
+            pass
+
+
+def test_close_save_rejects_invalid_draft_and_keeps_window_open(tmp_path, monkeypatch):
+    app, path = make_app(tmp_path)
+    original = path.read_bytes()
+    try:
+        app.width_var.set('0')
+        warnings = []
+        monkeypatch.setattr('barcode_label_automation.settings_app.messagebox.askyesnocancel',lambda *a,**k: True)
+        monkeypatch.setattr('barcode_label_automation.settings_app.messagebox.showwarning',
+                            lambda *a,**k: warnings.append(a))
+        app._confirm_close()
+        assert warnings and app.winfo_exists() and app._settings_dirty
+        assert path.read_bytes() == original
+    finally:
+        app.destroy()
+
+
+def test_settings_menu_and_connection_controls_use_the_current_draft(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr('barcode_label_automation.settings_app.installed_printers', lambda: ['Test Printer'])
+    monkeypatch.setattr('barcode_label_automation.settings_app.check_network',
+                        lambda ip, port: calls.append((ip, port)))
+    app, path = make_app(tmp_path)
+    try:
+        settle(app)
+        assert set(app.suite_menus) == {'파일', '도움말'}
+        assert app._cancel_button.cget('text') == '닫기'
+        assert app._footer_save_button.winfo_ismapped()
+        assert app._settings_validate_button.winfo_ismapped()
+        app.ip_var.set('127.0.0.2')
+        app.port_var.set('9100')
+        app._connection_check_button.invoke()
+        assert calls == [('127.0.0.2', 9100)]
+        assert '127.0.0.2' in app.status_var.get()
+        app.refresh_printers()
+        assert list(app.printer_box.cget('values')) == ['Test Printer']
+        assert load_config(path).printer.ip != '127.0.0.2'
+    finally:
+        app.destroy()
+
+
+def test_ctrl_s_binding_saves_the_current_draft(tmp_path):
+    app, path = make_app(tmp_path)
+    try:
+        app.width_var.set('50.5')
+        assert app._settings_dirty and app.bind('<Control-s>')
+        assert app._save_shortcut(None) == 'break'
+        assert not app._settings_dirty
+        assert load_config(path).label.width_mm == 50.5
     finally:
         app.destroy()

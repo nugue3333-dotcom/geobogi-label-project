@@ -40,8 +40,9 @@ def test_unified_udi_example_apply_fit_save_reopen_and_decode(app, tmp_path, mon
         editor._barcode_show_page('hri')
         widget_with_text(editor,'바코드 값 표시',ttk.Checkbutton).invoke()
     settle(app)
-    widget_with_text(editor,'적용',ttk.Button).invoke()
+    widget_with_text(editor,'확인',ttk.Button).invoke()
     settle(app)
+    assert not editor.winfo_exists()
     assert element['udi_profile']=='GS1' and element['barcode_type']=='gs1_datamatrix'
     raw=designer._designer_code_value(element,{})
     path=tmp_path/'verified.cllabel'
@@ -54,12 +55,8 @@ def test_unified_udi_example_apply_fit_save_reopen_and_decode(app, tmp_path, mon
     decoded=zxingcpp.read_barcode(image.convert('L'))
     assert decoded and decoded.bytes==build_gs1(parse_gs1(raw)).payload.encode('ascii')
     assert ''.join(image.info['hri_lines'])==raw
-    assert not [w for w in descendants(editor) if getattr(w,'title',lambda:'' )()=='GS1 데이터 구성 · 응용식별자(AI)']
     from barcode_label_automation.template_output import validate_rows
     assert validate_rows(app.template_payload(),[app.preview_row],app.base_dir,dpi=dpi)==[]
-    widget_with_text(editor,'확인',ttk.Button).invoke()
-    settle(app)
-    assert not editor.winfo_exists()
 
 
 def test_unified_udi_cancel_restores_all_original_values(app):
@@ -95,7 +92,7 @@ def test_invalid_udi_can_always_be_discarded_and_closed(app,close_mode):
     assert element==before
 
 
-def test_apply_is_atomic_and_cancel_preserves_last_applied_barcode(app):
+def test_confirmation_is_atomic_and_cancel_preserves_last_confirmed_barcode(app):
     element=install_element(app);baseline=deepcopy(element)
     editor=open_editor(app,element)
     draft=editor._barcode_draft
@@ -105,9 +102,11 @@ def test_apply_is_atomic_and_cancel_preserves_last_applied_barcode(app):
     editor._barcode_text_editor.edit_modified(True)
     settle(app)
     assert element==baseline
-    widget_with_text(editor,'적용',ttk.Button).invoke();settle(app)
+    widget_with_text(editor,'확인',ttk.Button).invoke();settle(app)
     assert element['text']=='COMMITTED001'
+    assert not editor.winfo_exists()
     committed=deepcopy(element)
+    editor=open_editor(app,element)
     editor._barcode_text_editor.delete('1.0','end')
     editor._barcode_text_editor.insert('1.0','')
     editor._barcode_text_editor.edit_modified(True)

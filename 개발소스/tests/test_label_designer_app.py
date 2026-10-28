@@ -1300,7 +1300,7 @@ def test_designer_visible_copy_keeps_db_ui_minimal_until_connection():
     assert "데이터 원본 연결" not in source
     assert "상품 엑셀 연결" in source
     assert "연결 해제" in source
-    assert "프린터 설정" in source
+    assert "프린터·용지 설정" in source
     assert "상품 DB" in source
     assert '("새 라벨", self.new_label)' in source
     assert '("저장", self.save_template, "Ribbon.TButton")' in source
@@ -1841,7 +1841,7 @@ def test_element_editor_uses_responsive_scrollable_layout() -> None:
     assert "navigation = ttk.Treeview" in source
     assert "def bind_escape_tree(widget: tk.Misc)" in source
     assert 'widget.bind("<Escape>"' in source
-    assert 'text="적용"' in source and 'text="확인"' in source and 'text="취소"' in source
+    assert 'text="확인"' in source and 'text="취소"' in source
     assert "ttk.Notebook" not in source
     assert 'text="출력 확인"' not in source
 
@@ -1851,7 +1851,7 @@ def test_db_toolbar_reflows_in_narrow_window() -> None:
     startup_source = inspect.getsource(LabelDesignerApp.__init__)
     shared = inspect.getsource(label_designer_app.build_command_bar)
     assert '("열기", self.open_template, "Ribbon.TButton")' in source
-    assert "build_grouped_command_bar(parent, groups)" in source
+    assert "build_command_bar(parent" in source
     assert "button.winfo_reqwidth()" in shared
     assert "used + requested > width" in shared
     assert "positions == previous" in shared
@@ -2676,7 +2676,7 @@ def test_designer_uncertain_output_requires_resolution_before_resend(
         assert "취소" in statuses[-1]
 
 
-def test_designer_new_job_replaces_stale_unknown_progress(monkeypatch, tmp_path) -> None:
+def test_designer_new_job_does_not_replace_stale_unknown_progress(monkeypatch, tmp_path) -> None:
     rows = [{"barcode": "NEW"}]
     app, statuses = _direct_print_app(
         tmp_path,
@@ -2687,6 +2687,8 @@ def test_designer_new_job_replaces_stale_unknown_progress(monkeypatch, tmp_path)
     app._write_designer_command_file = lambda _config, _out, _payload, *, index: tmp_path / f"{index}.zpl"
     monkeypatch.setattr("barcode_label_automation.label_designer_app.load_config", lambda _path: SimpleNamespace())
     monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.showinfo", lambda *_args: None)
+    errors = []
+    monkeypatch.setattr("barcode_label_automation.label_designer_app.messagebox.showerror", lambda _title, message: errors.append(message))
 
     progress_path = tmp_path / "out" / DESIGNER_PROGRESS_FILE_NAME
     previous = PrintProgress.open_for_job(
@@ -2701,9 +2703,9 @@ def test_designer_new_job_replaces_stale_unknown_progress(monkeypatch, tmp_path)
     app._send_designer_print = lambda _config, payload: sent.append(payload)
     app.run_output_test(send_to_printer=True, selected_only=True)
 
-    assert sent == [b"NEW"]
-    assert statuses[-1].startswith("프린터 전송 완료 · 실제 출력 확인 필요 1건")
-    assert PrintProgress.load(progress_path).unknown_indexes == []
+    assert sent == []
+    assert errors and "미확인" in errors[0]
+    assert PrintProgress.load(progress_path).unknown_indexes == [1]
 
 
 def test_designer_repeated_explicit_print_restarts_completed_job(monkeypatch, tmp_path) -> None:
@@ -2739,8 +2741,8 @@ def test_designer_unknown_resolution_dialog_has_three_explicit_choices():
 def test_designer_output_menu_exposes_selected_output_actions():
     source = inspect.getsource(LabelDesignerApp._build_ui) + inspect.getsource(LabelDesignerApp.refresh_data_panel)
 
-    assert "선택 항목 인쇄파일" in source
-    assert "선택 항목 인쇄" in source
+    assert "인쇄파일 생성" in source
+    assert "인쇄" in source
     assert "선택 인쇄" in source
 
 
@@ -4024,7 +4026,7 @@ def _bitmap_dimensions(payload: bytes, language: str) -> tuple[int, int]:
 
 
 def test_designer_header_generates_a_file_without_sending_to_printer():
-    source = inspect.getsource(LabelDesignerApp._build_canvas_toolbar)
+    source = inspect.getsource(LabelDesignerApp._build_ui)
 
     assert '("인쇄파일 생성",' in source
     assert "run_output_test(send_to_printer=False)" in source

@@ -17,7 +17,8 @@ from tkinter import filedialog, messagebox, ttk
 from openpyxl import Workbook, load_workbook
 
 from .brand_assets import apply_window_icon, load_header_logo
-from .print_quantity import parse_print_quantity
+from .print_quantity import (parse_print_quantity, serial_rule_copies,
+                             ask_serial_print_quantity, rules_for_serial_job)
 from .config import load_config
 from .job_profile import data_profile, describe_profile, default_sheet, file_fingerprint, profile_problem
 from .profile_dialogs import choose_sheet, show_data_issues
@@ -146,6 +147,7 @@ class LabelManagerApp(tk.Tk):
         self.print_scope_var = tk.StringVar(value="인쇄할 데이터 없음")
         self._print_action_widgets: list[ttk.Button] = []
         self.output_menu: tk.Menu | None = None
+        self.template_only_var = tk.BooleanVar(value=False)
         self.output_template_path = None
         self.output_template = None
         self.output_template_fingerprint = ""
@@ -266,10 +268,7 @@ class LabelManagerApp(tk.Tk):
         toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         actions = (
             ("상품 엑셀 연결", self.connect_db_file), ("저장", self.save_files),
-            ("새 행", self.add_row), ("선택 삭제", self.delete_selected),
-            ("삭제 실행취소", self.undo_delete), ("전체 선택", self.select_all_labels),
-            ("선택 해제", self.clear_label_selection), ("라벨디자이너", self.open_designer),
-            ("전체 데이터 검증", self.validate_output_data),
+            ("도안 선택", self.choose_output_template), ("미리보기", self.preview_output_template),
             ("인쇄", self.print_with_quantity),
         )
         buttons = []
@@ -343,8 +342,12 @@ class LabelManagerApp(tk.Tk):
         side_canvas.bind("<Configure>", lambda event: side_canvas.itemconfigure(side_window, width=event.width))
         job_inner = self._panel_card(side_inner, 0, "출력 작업")
         self._build_job_panel(job_inner)
-        workflow_inner = self._panel_card(side_inner, 1, "작업 순서")
+        self._workflow_toggle = ttk.Button(side_inner, text="사용방법 펼치기", command=self._toggle_workflow, style="Secondary.TButton")
+        self._workflow_toggle.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        workflow_inner = self._panel_card(side_inner, 2, "작업 순서")
+        self._workflow_card = workflow_inner.master
         self._build_start_checklist(workflow_inner)
+        self._workflow_card.grid_remove()
 
         def scroll_panel(event):
             side_canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
@@ -361,21 +364,29 @@ class LabelManagerApp(tk.Tk):
         ttk.Button(footer, text="출력 패널 보기/숨기기", command=self.toggle_job_panel, style="Compact.TButton").pack(side="right")
         self._update_print_scope()
 
+    def _toggle_workflow(self) -> None:
+        if self._workflow_card.winfo_manager():
+            self._workflow_card.grid_remove()
+            self._workflow_toggle.configure(text="사용방법 펼치기")
+        else:
+            self._workflow_card.grid()
+            self._workflow_toggle.configure(text="사용방법 접기")
+
     def _build_menu_surface(self) -> None:
         bar = ttk.Frame(self, style="Toolbar.TFrame", padding=(12, 0))
         bar.pack(fill="x")
         definitions = (
-            ("파일", (("상품 엑셀 연결", self.connect_db_file), ("저장", self.save_files),
+            ("파일", (("상품 엑셀 연결", self.connect_db_file), ("상품 엑셀 연결 해제", self.disconnect_db_file), ("저장", self.save_files),
+                     ("출력 도안 선택", self.choose_output_template),
                      ("고객 데이터 백업", self.open_backup), ("고객 데이터 복원", self.open_restore))),
             ("보기", (("인쇄 데이터", lambda: self.tabs.select(0)), ("원본 DB", lambda: self.tabs.select(1)),
-                     ("출력 작업 패널 보기/숨기기", self.toggle_job_panel))),
-            ("도구", (("인쇄", self.print_with_quantity), ("전체 선택", self.select_all_labels),
-                     ("선택 해제", self.clear_label_selection), ("상품 DB 연결 해제", self.disconnect_db_file),
-                     ("새 행", self.add_row), ("선택 삭제", self.delete_selected),
-                     ("삭제 실행취소", self.undo_delete), ("라벨디자이너", self.open_designer), ("프린터 설정", self.open_settings),
-                     ("실행 전 점검", self.run_preflight_check))),
+                     ("출력 작업 패널 보기/숨기기", self.toggle_job_panel), ("사용방법 펼치기/접기", self._toggle_workflow))),
+            ("인쇄", (("인쇄", self.print_with_quantity), ("미리보기", self.preview_output_template),
+                     ("전체 데이터 검증", self.validate_output_data),
+                     ("인쇄파일 생성", lambda: self.run_print_job("--dry-run", selected_only=bool(self.selected_label_indexes))),
+                     ("프린터·용지 설정", self.open_settings))),
             ("도움말", (("빠른 사용안내 열기", self.open_quick_guide), ("고객용 매뉴얼", self.open_manual),
-                      ("지원 패키지 생성", self.create_support_package))),
+                      ("실행 전 점검", self.run_preflight_check), ("지원 패키지 생성", self.create_support_package))),
         )
         self.suite_menus = {}
         for name, commands in definitions:
@@ -386,7 +397,7 @@ class LabelManagerApp(tk.Tk):
             button.configure(menu=menu)
             button.pack(side="left", padx=(0, 4))
             self.suite_menus[name] = menu
-            if name == "도구":
+            if name == "인쇄":
                 self.output_menu = menu
 
     def _panel_card(self, parent, row: int, title: str) -> ttk.Frame:
@@ -484,8 +495,11 @@ class LabelManagerApp(tk.Tk):
         ttk.Label(profile, text="현재 출력 도안", style="Title.TLabel").pack(anchor="w")
         ttk.Label(profile, textvariable=self.output_template_var, style="Hint.TLabel", wraplength=self._scaled(236)).pack(fill="x", pady=6)
         ttk.Button(profile, text="출력 도안 선택", command=self.choose_output_template, style="Blue.TButton").pack(fill="x", pady=(0, 5))
+        ttk.Button(profile, text="도안 편집", command=self.open_designer).pack(fill="x", pady=(0, 5))
         ttk.Button(profile, text="자동 기본 배치 사용", command=self.use_automatic_layout).pack(fill="x", pady=(0, 5))
-        ttk.Button(profile, text="현재 도안 미리보기", command=self.preview_output_template).pack(fill="x")
+        self._template_only_button = ttk.Checkbutton(profile, text="상품 데이터 없이 도안만 인쇄",
+                                                     variable=self.template_only_var,
+                                                     command=self._update_print_scope)
         self.value_reprint_button = ttk.Button(profile, text="마지막 생성 작업 재인쇄", command=self.reprint_last_value_job)
         ttk.Label(profile, textvariable=self.data_profile_var, style="Hint.TLabel", wraplength=self._scaled(236)).pack(fill="x", pady=(9, 0))
         ttk.Button(profile, text="엑셀 새로고침 / 재연결", command=self.refresh_connected_source).pack(fill="x", pady=(6, 0))
@@ -501,40 +515,8 @@ class LabelManagerApp(tk.Tk):
             pady=(0, self._scaled(9)),
         )
 
-        selection_actions = ttk.Frame(parent, style="SidePanel.TFrame")
-        selection_actions.grid(row=3, column=0, sticky="ew")
-        selection_actions.columnconfigure(0, weight=1)
-        selection_actions.columnconfigure(1, weight=1)
-        ttk.Button(selection_actions, text="전체 데이터 검증", command=self.validate_output_data, style="Compact.TButton").grid(
-            row=0,
-            column=0,
-            sticky="ew",
-            padx=(0, self._scaled(4)),
-        )
-        ttk.Button(selection_actions, text="인쇄파일 생성", command=lambda: self.run_print_job("--dry-run", selected_only=bool(self.selected_label_indexes)), style="Compact.TButton").grid(
-            row=0,
-            column=1,
-            sticky="ew",
-            padx=(self._scaled(4), 0),
-        )
-        ttk.Separator(parent).grid(row=4, column=0, sticky="ew", pady=(self._scaled(12), self._scaled(12)))
-        ttk.Button(parent, text="실행 전 점검", command=self.run_preflight_check, style="Secondary.TButton").grid(
-            row=5,
-            column=0,
-            sticky="ew",
-            pady=(0, self._scaled(8)),
-        )
-        ttk.Button(parent, text="프린터 설정", command=self.open_settings, style="Secondary.TButton").grid(
-            row=6,
-            column=0,
-            sticky="ew",
-        )
-        ttk.Label(
-            parent,
-            text="지원 패키지는 도움말 메뉴에서 생성합니다.",
-            style="SidePanelBody.TLabel",
-            wraplength=self._scaled(238),
-        ).grid(row=7, column=0, sticky="w", pady=(self._scaled(10), 0))
+        ttk.Label(parent, text="검증과 인쇄파일 생성은 상단 인쇄 메뉴에서 사용할 수 있습니다.",
+                  style="Hint.TLabel", wraplength=self._scaled(238)).grid(row=3, column=0, sticky="w", pady=(4, 0))
 
     def _create_table(self, tabs: ttk.Notebook, headers: tuple[str, ...], title: str) -> ttk.Treeview:
         frame = ttk.Frame(tabs, padding=SPACING.form_gap, style="Surface.TFrame")
@@ -554,6 +536,15 @@ class LabelManagerApp(tk.Tk):
             tree.bind("<space>", self._toggle_focused_label)
         tree.bind("<Double-1>", lambda event, active_tree=tree: self.begin_edit(active_tree, event))
         tree.bind("<Return>", lambda event, active_tree=tree: self.begin_edit(active_tree, event))
+        menu = tk.Menu(tree, tearoff=0)
+        for label, command in (("새 행", self.add_row), ("선택 삭제", self.delete_selected),
+                               ("삭제 실행취소", self.undo_delete)):
+            menu.add_command(label=label, command=command)
+        if headers and headers[0] == SELECT_HEADER:
+            menu.add_separator()
+            menu.add_command(label="전체 선택", command=self.select_all_labels)
+            menu.add_command(label="선택 해제", command=self.clear_label_selection)
+        tree.bind("<Button-3>", lambda event: menu.tk_popup(event.x_root, event.y_root))
         tabs.add(frame, text=title)
         return tree
 
@@ -572,7 +563,10 @@ class LabelManagerApp(tk.Tk):
                 width = max(120, min(220, len(str(header)) * 16 + 70))
                 minwidth = 90
                 stretch = True
-            tree.heading(header, text=COLUMN_LABELS.get(header, str(header)))
+            if header == SELECT_HEADER:
+                tree.heading(header, text=COLUMN_LABELS.get(header, str(header)), command=self._toggle_all_labels)
+            else:
+                tree.heading(header, text=COLUMN_LABELS.get(header, str(header)))
             anchor = "center" if header == SELECT_HEADER else "e" if str(header) in {"판매가", "가격", "price", "sale_price"} else "w"
             tree.column(header, width=width, minwidth=minwidth, stretch=stretch, anchor=anchor)
 
@@ -602,11 +596,23 @@ class LabelManagerApp(tk.Tk):
         self._update_print_scope()
         self._update_document_header()
 
+    def _is_template_only(self) -> bool:
+        variable = self.__dict__.get("template_only_var")
+        return bool(self.__dict__.get("output_template") and variable is not None and variable.get())
+
+    def _toggle_all_labels(self) -> None:
+        if self.label_rows and len(self.selected_label_indexes) >= len(self.label_rows):
+            self.clear_label_selection()
+        else:
+            self.select_all_labels()
+
     def _update_print_scope(self) -> None:
         total_count = len(self.__dict__.get("label_rows", []))
         selected_indexes = self.__dict__.get("selected_label_indexes", set())
         selected_count = sum(1 for index in selected_indexes if 0 <= index < total_count)
-        if total_count == 0:
+        if self._is_template_only():
+            scope_text = "상품 데이터 없이 도안만 인쇄"
+        elif total_count == 0:
             scope_text = "인쇄할 데이터 없음"
         elif selected_count:
             scope_text = f"선택 {selected_count}건 인쇄"
@@ -618,9 +624,10 @@ class LabelManagerApp(tk.Tk):
             scope_var.set(scope_text)
         button = self.__dict__.get("print_button")
         if button is not None:
-            button.configure(text=f"선택 {selected_count}건 인쇄" if selected_count else f"전체 {total_count}건 인쇄")
+            button.configure(text="도안만 인쇄" if self._is_template_only() else
+                             (f"선택 {selected_count}건 인쇄" if selected_count else f"전체 {total_count}건 인쇄"))
 
-        enabled = total_count > 0
+        enabled = total_count > 0 or self._is_template_only()
         for widget in self.__dict__.get("_print_action_widgets", []):
             widget.state(["!disabled"] if enabled else ["disabled"])
         output_menu = self.__dict__.get("output_menu")
@@ -995,7 +1002,10 @@ class LabelManagerApp(tk.Tk):
         tree.heading("__row__", text="DB 행")
         tree.column("__row__", width=70, minwidth=60, stretch=False, anchor="center")
         for header in self.db_headers:
-            tree.heading(header, text=COLUMN_LABELS.get(header, str(header)))
+            if header == SELECT_HEADER:
+                tree.heading(header, text=COLUMN_LABELS.get(header, str(header)), command=self._toggle_all_labels)
+            else:
+                tree.heading(header, text=COLUMN_LABELS.get(header, str(header)))
             tree.column(header, width=160, minwidth=90, stretch=True, anchor="w")
 
         selected_count_var = tk.StringVar(value=f"선택 {len(selected_positions)}건")
@@ -1158,25 +1168,38 @@ class LabelManagerApp(tk.Tk):
         self._select_index(tree, index)
 
     def print_with_quantity(self) -> None:
-        selected_only = any(0 <= index < len(self.label_rows) for index in self.selected_label_indexes)
+        selected_only = not self._is_template_only() and any(0 <= index < len(self.label_rows) for index in self.selected_label_indexes)
         rows_to_print = self._print_target_rows(selected_only)
         if not rows_to_print:
-            messagebox.showwarning("\ucd9c\ub825 \ubaa9\ub85d", "\ucd9c\ub825\ud560 \ud56d\ubaa9\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.")
+            messagebox.showwarning("출력 목록", "출력할 항목이 없습니다. 저장 도안을 선택했다면 ‘상품 데이터 없이 도안만 인쇄’를 선택할 수 있습니다.")
+            return
+        template = self.__dict__.get("output_template") or {}
+        try:
+            copies = serial_rule_copies(template.get("value_rules", []))
+        except ValueError as exc:
+            messagebox.showwarning("일련번호 인쇄", str(exc), parent=self)
+            return
+        if copies is not None:
+            choice = ask_serial_print_quantity(self, target_count=len(rows_to_print),
+                                               default_serial_numbers=1, default_copies=copies)
+            if choice is None:
+                self.status_var.set("인쇄 수량 선택을 취소했습니다.")
+                return
+            self.run_print_job("--print", selected_only=selected_only,
+                               print_quantity=choice.total_per_target,
+                               copies_per_serial=choice.copies_per_serial)
             return
         print_quantity = self.ask_print_quantity(
-            _default_print_quantity(rows_to_print),
-            selected_only=selected_only,
+            _default_print_quantity(rows_to_print), selected_only=selected_only,
         )
         if print_quantity is None:
             self.status_var.set("인쇄 매수 선택을 취소했습니다.")
             return
-        self.run_print_job(
-            "--print",
-            selected_only=selected_only,
-            print_quantity=print_quantity,
-        )
+        self.run_print_job("--print", selected_only=selected_only, print_quantity=print_quantity)
 
     def _print_target_rows(self, selected_only: bool) -> list[dict[str, str]]:
+        if self._is_template_only():
+            return [{}]
         rows = self._selected_print_rows() if selected_only else list(self.label_rows)
         headers = self.__dict__.get("label_headers", tuple(LABEL_HEADERS))
         return [row for row in rows if _printable_rows_from_label_rows([row], headers)]
@@ -1201,7 +1224,7 @@ class LabelManagerApp(tk.Tk):
         frame = ttk.Frame(dialog, style="Surface.TFrame", padding=22)
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
-        scope_text = "선택 항목" if selected_only else "전체 항목 (선택 없음)"
+        scope_text = "도안만 출력" if self._is_template_only() else ("선택 항목" if selected_only else "전체 항목 (선택 없음)")
         target_count = len(self._print_target_rows(selected_only))
         ttk.Label(frame, text="몇 장씩 인쇄할까요?", style="Title.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
@@ -1324,7 +1347,8 @@ class LabelManagerApp(tk.Tk):
         self.wait_window(dialog)
         return result["quantity"]
 
-    def run_print_job(self, action: str, selected_only: bool = False, print_quantity: int | None = None) -> None:
+    def run_print_job(self, action: str, selected_only: bool = False, print_quantity: int | None = None,
+                      copies_per_serial: int | None = None) -> None:
         if self.__dict__.get("_print_job_active", False):
             self.status_var.set("진행 중인 인쇄 작업을 먼저 완료하거나 중지하세요.")
             return
@@ -1339,8 +1363,9 @@ class LabelManagerApp(tk.Tk):
             self.config_path,
             print_quantity=print_quantity,
             require_barcode=self.__dict__.get("output_template") is None,
+            template_only=self._is_template_only(),
         )
-        problem = profile_problem(self.__dict__.get("data_profile", {}))
+        problem = None if self._is_template_only() else profile_problem(self.__dict__.get("data_profile", {}))
         if problem:
             readiness_errors.append(problem)
         template_path = self.__dict__.get("output_template_path")
@@ -1348,7 +1373,13 @@ class LabelManagerApp(tk.Tk):
             if not template_path.is_file() or file_fingerprint(template_path) != self.output_template_fingerprint:
                 readiness_errors.append("출력 도안이 변경되었거나 없습니다. 출력 도안 선택으로 다시 불러와 미리보기를 확인하세요.")
             else:
-                issues = self._template_data_issues(rows_to_print, print_quantity)
+                try:
+                    issues = (self._template_data_issues(rows_to_print, print_quantity, copies_per_serial)
+                              if copies_per_serial is not None else self._template_data_issues(rows_to_print, print_quantity))
+                except (ValueError, OSError) as exc:
+                    self.status_var.set("인쇄 전 점검에서 수정할 항목이 발견되었습니다.")
+                    messagebox.showwarning("인쇄 전 점검", str(exc))
+                    return
                 if issues:
                     show_data_issues(self, issues, len(rows_to_print))
                     return
@@ -1356,19 +1387,28 @@ class LabelManagerApp(tk.Tk):
             self.status_var.set("인쇄 전 점검에서 수정할 항목이 발견되었습니다.")
             messagebox.showwarning("인쇄 전 점검", "\n".join(f"- {error}" for error in readiness_errors))
             return
-        try:
-            # Printing snapshots the current screen without saving the customer's DB or default queue.
-            excel_path = _selected_print_queue_path(self.base_dir)
-            excel_path.parent.mkdir(parents=True, exist_ok=True)
-            save_label_rows(excel_path, _rows_with_print_quantity(
-                _printable_rows_from_label_rows(rows_to_print, label_headers), print_quantity))
-        except Exception as exc:
-            messagebox.showerror("\uc800\uc7a5 \uc2e4\ud328", str(exc))
-            return
         if self.print_exe is None or not self.print_exe.exists():
-            messagebox.showerror("\ucd9c\ub825 \uc2e4\ud328", f"라벨출력엔진.exe\ub97c \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.\n{self.print_exe}")
+            messagebox.showerror("출력 실패", f"라벨출력엔진.exe를 찾을 수 없습니다.\n{self.print_exe}")
             return
-        args = _build_print_args(self.print_exe, self.config_path, action, excel_path)
+        if self._is_template_only():
+            args = [str(self.print_exe), "--config", str(self.config_path), action, "--no-data"]
+            if action == "--print":
+                args.append("--yes")
+            if print_quantity is not None:
+                args.extend(["--force-print-qty", str(parse_print_quantity(print_quantity))])
+        else:
+            try:
+                # Snapshot screen data without saving the customer's DB or default queue.
+                excel_path = _selected_print_queue_path(self.base_dir)
+                excel_path.parent.mkdir(parents=True, exist_ok=True)
+                save_label_rows(excel_path, _rows_with_print_quantity(
+                    _printable_rows_from_label_rows(rows_to_print, label_headers), print_quantity))
+            except Exception as exc:
+                messagebox.showerror("저장 실패", str(exc))
+                return
+            args = _build_print_args(self.print_exe, self.config_path, action, excel_path)
+        if copies_per_serial is not None:
+            args.extend(["--copies-per-serial", str(parse_print_quantity(copies_per_serial))])
         if template_path:
             args.extend(["--template", str(template_path), "--template-hash", self.output_template_fingerprint])
         try:
@@ -1475,6 +1515,23 @@ class LabelManagerApp(tk.Tk):
             raise result[0]
         return result[0]
 
+    def _block_unfinished_progress(self, progress_name: str) -> bool:
+        progress_path = load_config(self.config_path).data.output_dir / progress_name
+        if not progress_path.exists():
+            return False
+        previous = PrintProgress.load(progress_path)
+        if not previous.pending_indexes and not previous.unknown_indexes:
+            return False
+        self.status_var.set("이전 인쇄 작업 확인 필요 · 새 작업을 시작하지 않았습니다.")
+        messagebox.showerror(
+            "이전 인쇄 작업 확인 필요",
+            "이전 작업에 미전송 또는 전송 여부가 불명확한 항목이 있습니다.\n"
+            "기록을 덮어쓰지 않고 새 인쇄를 중지했습니다.\n"
+            "이전 작업의 도안과 수량으로 돌아가 상태를 확인하세요.\n\n"
+            f"작업 상태 파일: {progress_path}",
+        )
+        return True
+
     def _recover_print_progress(
         self,
         args: list[str],
@@ -1482,6 +1539,10 @@ class LabelManagerApp(tk.Tk):
     ) -> subprocess.CompletedProcess[str] | None:
         output = (result.stderr or result.stdout or "").strip()
         if NEW_JOB_REQUIRED_CODE in output:
+            from .print_progress import DESIGNER_PROGRESS_FILE_NAME
+            progress_name = DESIGNER_PROGRESS_FILE_NAME if "--template" in args else PROGRESS_FILE_NAME
+            if self._block_unfinished_progress(progress_name):
+                return None
             result = self._invoke_print_engine([*args, "--new-job"])
             output = (result.stderr or result.stdout or "").strip()
 
@@ -1493,18 +1554,33 @@ class LabelManagerApp(tk.Tk):
         from .print_progress import DESIGNER_PROGRESS_FILE_NAME
         progress_name = DESIGNER_PROGRESS_FILE_NAME if "--template" in args else PROGRESS_FILE_NAME
         progress_path = load_config(self.config_path).data.output_dir / progress_name
-        PrintProgress.load(progress_path)
+        progress = PrintProgress.load(progress_path)
+        if not progress.unknown_indexes:
+            self.status_var.set("인쇄 오류 · 작업 상태를 확인하세요.")
+            messagebox.showerror("인쇄 오류", f"확인할 전송 불명 항목을 찾지 못했습니다.\n작업 상태 파일: {progress_path}")
+            return None
         self.status_var.set("인쇄 오류 · 이전 인쇄 작업의 전송 상태를 확인해야 합니다.")
-        messagebox.showerror(
-            "인쇄 오류",
-            (
-                "이전 인쇄 작업 중 일부의 전송 상태를 확인할 수 없습니다.\n"
-                "중복 출력을 막기 위해 자동 재전송하지 않았습니다.\n\n"
-                f"작업 상태 파일: {progress_path}\n"
-                "프린터에서 실제 출력 여부를 확인한 뒤 새 인쇄 작업을 시작하세요."
-            ),
-        )
-        return None
+        for index in list(progress.unknown_indexes):
+            choice = _ask_unknown_resolution(self, index)
+            if choice not in ("sent", "pending"):
+                self.status_var.set("출력 상태 확인을 취소했습니다. 자동 재전송하지 않았습니다.")
+                return None
+            progress.resolve_unknown(index, was_printed=(choice == "sent"))
+        if not progress.pending_indexes:
+            self.status_var.set("이전 작업의 출력을 확인했습니다. 추가 전송은 하지 않았습니다.")
+            messagebox.showinfo("출력 확인 완료", "모든 항목이 출력된 것으로 확인했습니다. 추가 전송은 하지 않았습니다.")
+            return None
+        if not messagebox.askyesno(
+            "미전송 항목 이어서 인쇄",
+            f"확인 결과 미전송 항목이 {len(progress.pending_indexes)}건 남았습니다.\n"
+            "같은 작업의 미전송 항목만 이어서 인쇄할까요?",
+            parent=self,
+        ):
+            self.status_var.set("이어서 인쇄를 취소했습니다. 추가 전송하지 않았습니다.")
+            return None
+        # The original arguments must be reused: the engine verifies the job
+        # fingerprint and will send only recorded pending items.
+        return self._invoke_print_engine(args)
 
     def open_settings(self) -> None:
         if self.settings_exe is None:
@@ -1592,6 +1668,8 @@ class LabelManagerApp(tk.Tk):
                 self.data_profile = profile
             self.output_template = template
             self.output_template_path = path.resolve()
+            self.template_only_var.set(False)
+            self._template_only_button.pack(fill="x", pady=(4, 2))
             self.output_template_fingerprint = file_fingerprint(path)
             self.output_template_var.set(f"선택 도안 · {path.name}\n{size['width_mm']}×{size['height_mm']}mm · {len(template['elements'])}개 개체")
             if template.get("value_rules"):
@@ -1614,6 +1692,9 @@ class LabelManagerApp(tk.Tk):
             return
         self.output_template_path = None
         self.output_template = None
+        self.template_only_var.set(False)
+        self._template_only_button.pack_forget()
+        self._update_print_scope()
         self.output_template_var.set("자동 기본 배치 · 프린터 설정의 기본값 사용")
         self.value_reprint_button.pack_forget()
         self._save_job_profile()
@@ -1650,21 +1731,28 @@ class LabelManagerApp(tk.Tk):
         except (OSError, ValueError) as exc:
             messagebox.showerror("엑셀 새로고침", str(exc), parent=self)
 
-    def _template_data_issues(self, rows, quantity=None):
+    def _template_data_issues(self, rows, quantity=None, copies_per_serial=None):
         from .template_output import validate_rows
         from .value_rules import compile_generated_labels
         from .value_jobs import ValueJobStore
-        rows = _rows_with_print_quantity(_printable_rows_from_label_rows(rows, self.label_headers), quantity)
         rules = self.output_template.get("value_rules", [])
-        labels = compile_generated_labels(rows, [parse_print_quantity(row.get("print_qty", "1")) for row in rows], rules,
+        if self._is_template_only():
+            rows = [{}]
+            quantities = [parse_print_quantity(quantity if quantity is not None else 1)]
+        else:
+            rows = _rows_with_print_quantity(_printable_rows_from_label_rows(rows, self.label_headers), quantity)
+            quantities = [parse_print_quantity(row.get("print_qty", "1")) for row in rows]
+        effective = rules_for_serial_job(rules, copies_per_serial)
+        labels = compile_generated_labels(rows, quantities, effective,
                                          start_overrides=ValueJobStore(self.base_dir).peek_start_overrides(str(self.output_template.get("value_profile_id") or self.output_template_path), rules))
         return validate_rows(self.output_template, [label.row for label in labels], self.base_dir, dpi=load_config(self.config_path).label.dpi)
 
     def validate_output_data(self):
         if self.output_template:
             try:
-                issues = self._template_data_issues(self.label_rows)
-                show_data_issues(self, issues, len(self.label_rows))
+                rows = self._print_target_rows(bool(self.selected_label_indexes))
+                issues = self._template_data_issues(rows)
+                show_data_issues(self, issues, len(rows))
             except (OSError, ValueError) as exc:
                 messagebox.showerror("전체 데이터 검증", str(exc), parent=self)
         else:
@@ -1673,38 +1761,59 @@ class LabelManagerApp(tk.Tk):
             show_data_issues(self, issues, len(self.label_rows))
 
     def preview_output_template(self):
-        if not self.output_template:
-            messagebox.showinfo("현재 도안 미리보기", "자동 기본 배치 모드입니다. 인쇄파일 생성으로 명령을 검증하거나 출력 도안을 선택하세요.", parent=self)
-            return
         from PIL import ImageTk
         from .template_output import render_preview
         from .value_rules import compile_generated_labels
         from .value_jobs import ValueJobStore
         rows = self._print_target_rows(bool(self.selected_label_indexes))
         if not rows:
-            messagebox.showwarning("미리보기", "상품 엑셀을 연결하고 출력 데이터를 선택하세요.", parent=self)
+            messagebox.showwarning("미리보기", "출력 데이터를 선택하거나 저장 도안의 ‘상품 데이터 없이 도안만 인쇄’를 선택하세요.", parent=self)
             return
         try:
-            rules = self.output_template.get("value_rules", [])
-            labels = compile_generated_labels([rows[0]], [1], rules, start_overrides=ValueJobStore(self.base_dir).peek_start_overrides(str(self.output_template.get("value_profile_id") or self.output_template_path), rules))
-            image = render_preview(self.output_template, labels[0].row, self.base_dir)
+            if self.output_template:
+                rules = self.output_template.get("value_rules", [])
+                labels = compile_generated_labels([rows[0]], [1], rules,
+                    start_overrides=ValueJobStore(self.base_dir).peek_start_overrides(
+                        str(self.output_template.get("value_profile_id") or self.output_template_path), rules))
+                image = render_preview(self.output_template, labels[0].row, self.base_dir)
+                caption = "첫 출력 대상 · 생성 값은 발급 전 예상값 · 번호를 소비하지 않습니다."
+                title = f"출력 미리보기 · {self.output_template_path.name}"
+            else:
+                from .excel_reader import LabelRow, _source_fields
+                from .templates import render_auto_page
+                from .media_geometry import transform_image
+                row = _printable_rows_from_label_rows([rows[0]], self.label_headers)[0]
+                header_map = {name: i for i, name in enumerate(row)}
+                data = LabelRow(item_code=row.get("item_code", ""), item_name=row.get("item_name", ""),
+                                barcode=row.get("barcode", ""), lot_no=row.get("lot_no", ""),
+                                qty=1, print_qty=1, source_fields=_source_fields(header_map, row))
+                config = load_config(self.config_path)
+                page = render_auto_page(data, config.label.width_mm, config.label.height_mm, config.label.dpi,
+                                        config.barcode, config.printer.print_orientation, config.printer.language)
+                image = transform_image(page, config)
+                caption = "자동 기본 배치 · 첫 출력 대상의 예상 모습입니다."
+                title = "출력 미리보기 · 자동 기본 배치"
             image.thumbnail((700, 650))
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, TypeError) as exc:
             messagebox.showerror("미리보기", str(exc), parent=self)
             return
         dialog = tk.Toplevel(self)
-        dialog.title(f"출력 미리보기 · {self.output_template_path.name}")
+        dialog.title(title)
         picture = ImageTk.PhotoImage(image, master=dialog)
         preview = ttk.Label(dialog, image=picture, padding=20)
         preview.image = picture
         preview.pack()
-        ttk.Label(dialog, text="첫 출력 대상 · 생성 값은 발급 전 예상값 · 번호를 소비하지 않습니다.", padding=12).pack()
+        ttk.Label(dialog, text=caption, padding=12).pack()
         ttk.Button(dialog, text="닫기", command=dialog.destroy).pack(pady=12)
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
 
     def reprint_last_value_job(self):
         from .value_jobs import ValueJobStore
+        from .print_progress import DESIGNER_PROGRESS_FILE_NAME
         try:
             if not self.output_template_path or not self.output_template:
+                return
+            if self._block_unfinished_progress(DESIGNER_PROGRESS_FILE_NAME):
                 return
             key = str(self.output_template.get("value_profile_id") or self.output_template_path)
             job = ValueJobStore(self.base_dir).latest_job(key)
@@ -1722,7 +1831,7 @@ class LabelManagerApp(tk.Tk):
                 messagebox.showerror("재인쇄 오류", result.stderr or result.stdout or "프린터 전송 상태를 확인하세요.", parent=self)
                 return
             self.status_var.set(f"이전 생성값 {count}장 전송 · 실제 라벨과 스캔값을 확인하세요.")
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, PrintProgressError) as exc:
             messagebox.showerror("생성 작업 재인쇄", str(exc), parent=self)
 
     def _open_customer_data_script(self, name: str) -> None:
@@ -2088,7 +2197,7 @@ def _ask_unknown_resolution(parent: tk.Misc, item_index: int) -> str | None:
     )
     ttk.Label(
         frame,
-        text="RAW 전송 오류만으로 물리 라벨 출력 여부를 알 수 없습니다. 프린터와 라벨을 직접 확인하세요.",
+        text="프린터와 라벨을 직접 확인하세요. 한 항목에 여러 장이 포함될 수 있습니다. 일부만 출력됐거나 확인할 수 없으면 취소하세요.",
         style="Hint.TLabel",
         wraplength=480,
     ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 18))
@@ -2308,9 +2417,11 @@ def _print_readiness_errors(
     *,
     print_quantity: int | None = None,
     require_barcode: bool = True,
+    template_only: bool = False,
 ) -> list[str]:
     try:
-        printable_rows = _rows_with_print_quantity(_printable_rows_from_label_rows(rows, label_headers), print_quantity)
+        printable_rows = ([{"print_qty": str(parse_print_quantity(print_quantity if print_quantity is not None else 1))}]
+                          if template_only else _rows_with_print_quantity(_printable_rows_from_label_rows(rows, label_headers), print_quantity))
     except ValueError as exc:
         return [str(exc)]
     errors: list[str] = []

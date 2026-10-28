@@ -114,11 +114,11 @@ def test_designer_type_change_discards_inapplicable_advanced_options(tmp_path,mo
         combo=next(w for w in descendants(editor) if isinstance(w,ttk.Combobox) and BARCODE_TYPES['qr'] in w.cget('values') and BARCODE_TYPES['code39'] in w.cget('values'))
         combo.set(BARCODE_TYPES['code39']);combo.event_generate('<<ComboboxSelected>>');app.update()
         assert element['barcode_type']=='qr'
-        next(w for w in descendants(editor) if isinstance(w,ttk.Button) and str(w.cget('text'))=='적용').invoke();app.update()
+        next(w for w in descendants(editor) if isinstance(w,ttk.Button) and str(w.cget('text'))=='확인').invoke();app.update()
+        assert not editor.winfo_exists()
         assert element['barcode_type']=='code39'
         specs=option_definitions('code39')
         assert not any(k not in specs and v != designer.BARCODE_OPTION_DEFAULTS.get(k) for k,v in element['barcode_options'].items()), str(element['barcode_options'])
-        next(w for w in descendants(editor) if isinstance(w,ttk.Button) and str(w.cget('text'))=='취소').invoke();app.update()
     finally:
         app.destroy()
 

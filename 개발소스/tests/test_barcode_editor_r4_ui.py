@@ -13,7 +13,7 @@ def test_initial_data_visible_gs1_and_footer_with_persistent_preview(app, width,
     editor.geometry(f'{width}x{height}+5+5'); settle(app)
     assert editor._barcode_nav.selection() == ('data',)
     assert editor._barcode_pages['data'].winfo_ismapped()
-    for text in ('GS1 데이터로 설정…','적용','확인','취소'):
+    for text in ('GS1 데이터로 설정…','확인','취소'):
         control = widget_with_text(editor,text,ttk.Button)
         assert control.winfo_ismapped()
         assert 0 <= control.winfo_rooty()-editor.winfo_rooty() < height-15
@@ -28,7 +28,7 @@ def test_initial_data_visible_gs1_and_footer_with_persistent_preview(app, width,
     assert zxingcpp.read_barcode(panel.original.convert('L')).text == element['text']
     assert panel.status.master is not panel.canvas
     assert panel.result['value'] == element['text']
-    assert len(editor._barcode_nav.get_children()) == 3
+    assert [editor._barcode_nav.item(item,'text') for item in editor._barcode_nav.get_children()] == ['데이터 원본','일련화','바코드 종류·크기','표시문자']
     from pathlib import Path
     from PIL import ImageGrab
     output=Path(__file__).resolve().parents[1]/'outputs/editor-r4'
@@ -75,7 +75,7 @@ def test_invalid_data_clears_stale_preview_and_apply_is_blocked(app):
     widget_with_text(editor,'GS1 데이터로 설정…',ttk.Button).invoke();settle(app)
     assert editor._barcode_preview_panel.original is None
     assert editor._barcode_preview_panel.status_var.get()
-    widget_with_text(editor,'적용',ttk.Button).invoke();settle(app)
+    widget_with_text(editor,'확인',ttk.Button).invoke();settle(app)
     assert element==before and editor.winfo_exists()
     assert not any('출력 원본으로 사용' in str(w.cget('text')) for w in descendants(editor) if isinstance(w,ttk.Checkbutton))
     widget_with_text(editor,'취소',ttk.Button).invoke();settle(app)
@@ -99,7 +99,7 @@ def test_db_preview_row_restores_original_and_empty_general_cannot_apply(app):
     editor=open_editor(app,element)
     editor._barcode_text_editor.delete('1.0','end')
     editor._barcode_text_editor.edit_modified(True);settle(app)
-    widget_with_text(editor,'적용',ttk.Button).invoke();settle(app)
+    widget_with_text(editor,'확인',ttk.Button).invoke();settle(app)
     assert element==before
     assert '바코드 값' in editor._barcode_editor_status_var.get()
 
@@ -129,6 +129,6 @@ def test_gs1_source_cannot_silently_encode_as_ordinary_barcode(app):
     assert editor._barcode_controllers['active'].load_complete_example();settle(app)
     editor._barcode_code_var.set(designer.BARCODE_TYPES['code128']);settle(app)
     assert editor._barcode_preview_panel.original is None
-    widget_with_text(editor,'적용',ttk.Button).invoke();settle(app)
+    widget_with_text(editor,'확인',ttk.Button).invoke();settle(app)
     assert element==before
     assert 'GS1 바코드 종류' in editor._barcode_editor_status_var.get()

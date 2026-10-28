@@ -21,6 +21,8 @@ NATIVE_GUI_MODULES = (
     'tests/test_udi_editor.py',
     'tests/test_ai_udi_workflow_ui.py',
     'tests/test_manager_workflow_ui.py',
+    'tests/test_designer_serial_inline_ui.py',
+    'tests/test_serial_manager_workflow.py',
 )
 
 

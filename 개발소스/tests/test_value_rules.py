@@ -50,6 +50,36 @@ def test_alpha_serial_rollover(alphabet, start, digits, expected):
     assert expanded(compile_generated_labels([{}], [len(expected)], [rule]), "순번") == expected
 
 
+@pytest.mark.parametrize(('alphabet', 'start', 'expected'), [
+    ('numeric', 8, ['8', '9', '10', '11', '12']),
+    ('uppercase', 'Y', ['Y', 'Z', 'AA', 'AB', 'AC']),
+    ('lowercase', 'y', ['y', 'z', 'aa', 'ab', 'ac']),
+    ('alphanumeric', 'Y', ['Y', 'Z', '10', '11', '12']),
+])
+def test_automatic_width_rolls_over_without_truncation(alphabet, start, expected):
+    rule = serial(start=start, digits=1, alphabet=alphabet, preserve_width=False)
+    assert expanded(compile_generated_labels([{}], [5], [rule])) == expected
+
+
+def test_automatic_width_accepts_start_larger_than_display_digits():
+    rule = serial(start=10, digits=1, preserve_width=False)
+    assert expanded(compile_generated_labels([{}], [2], [rule])) == ['10', '11']
+
+
+def test_automatic_width_has_safe_absolute_limit_and_fixed_width_still_blocks():
+    with pytest.raises(ValueError, match='최대 30자리'):
+        compile_generated_labels([{}], [2], [serial(start=int('9' * 30), digits=1, preserve_width=False)])
+    with pytest.raises(ValueError, match='마지막 번호'):
+        compile_generated_labels([{}], [2], [serial(start=9, digits=1, preserve_width=True)])
+
+
+def test_partial_db_replacement_requires_width_preservation():
+    rule = serial(start=9, digits=1, preserve_width=False,
+                  target_field='원본', target_start=2, target_length=1)
+    with pytest.raises(ValueError, match='문자 수 유지'):
+        compile_generated_labels([{'원본': 'A0B'}], [2], [rule])
+
+
 def test_serial_replaces_selected_db_substring_without_changing_source():
     source = {"원본": "LOT-ABCD-X"}
     rule = serial(name="가공값", digits=4, target_field="원본", target_start=5, target_length=4)
